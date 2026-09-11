@@ -1,6 +1,11 @@
 /**
  * Панель Sovereignty — полный скрипт.
- * Табы, карта, игроки, 3D-профиль, копирование команд, бонусы.
+ *
+ * Версия v2.2:
+ *   - 3D-скин грузится через fetch + arrayBuffer (обход CORS)
+ *   - Камера центрируется на ВСЮ модель (y=16, dist=50, fov=45)
+ *   - Свет усилен: globalLight=1.2, cameraLight=1.2
+ *   - Мультиисточник скина: local → minotar → mc-heads → Steve
  */
 
 const DATA_URL = 'data/server1.json';
@@ -11,6 +16,12 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 const BLOCKS_PER_CHUNK = 16;
 const PIXELS_PER_BLOCK = 2;
+
+// skinview3d: высота модели игрока ~32 единицы, центр ~y=16
+const SKIN_CAMERA_TARGET_Y = 16;
+const SKIN_CAMERA_DISTANCE = 50;
+const SKIN_CAMERA_FOV = 45;
+const SKIN_LIGHT_INTENSITY = 1.2;
 
 let currentData = null;
 let currentSort = 'claims';
@@ -96,8 +107,7 @@ function initModalControls() {
     const resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = () => {
         if (!currentSkinViewer) return;
-        currentSkinViewer.camera.position.set(20, 25, 40);
-        currentSkinViewer.camera.lookAt(0, 15, 0);
+        applyDefaultCamera(currentSkinViewer);
     };
 
     const nameBtn = document.getElementById('skin-toggle-name');
@@ -389,7 +399,7 @@ function handleMapClick(e) {
 
     let px;
     try { px = mapCtx.getImageData(iX, iY, 1, 1).data; }
-    catch (err) { console.warn('CORS?', err); return; }
+    catch (err) { return; }
 
     const r = px[0], g = px[1], b = px[2], a = px[3];
     if (a < 10) return;
@@ -631,7 +641,10 @@ function openPlayer(name) {
     document.getElementById('player-modal-actions').innerHTML = actions.join('');
 
     openPlayerModal();
-    setTimeout(() => initSkinViewer(name), 40);
+    // Двойной rAF + запас 80мс — чтобы wrap точно получил layout до инициализации skinview3d
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        setTimeout(() => initSkinViewer(name), 80);
+    }));
 }
 
 function statRow(s) {
@@ -643,10 +656,28 @@ function statRow(s) {
 
 // ==================== 3D SKIN ====================
 
+/**
+ * Ставит камеру так, чтобы вся модель игрока (голова+тело+ноги) помещалась в кадр.
+ * Модель в skinview3d: высота ~32 единицы, ширина ~16, центр по y ≈ 16.
+ * fov=45°, distance = 50 — с запасом ~30% полей.
+ */
+function applyDefaultCamera(viewer) {
+    try {
+        viewer.fov = SKIN_CAMERA_FOV;
+        viewer.camera.position.set(0, SKIN_CAMERA_TARGET_Y, SKIN_CAMERA_DISTANCE);
+        viewer.camera.lookAt(0, SKIN_CAMERA_TARGET_Y, 0);
+        viewer.controls.target.set(0, SKIN_CAMERA_TARGET_Y, 0);
+        viewer.controls.update();
+    } catch (e) {
+        console.warn('[skinview3d] applyDefaultCamera:', e);
+    }
+}
+
 async function initSkinViewer(name) {
     const canvas = document.getElementById('skin-canvas');
+    const wrap = document.getElementById('player-viewer-wrap');
     const loading = document.getElementById('skin-loading');
-    if (!canvas) return;
+    if (!canvas || !wrap) return;
 
     if (currentSkinViewer) {
         try { currentSkinViewer.dispose(); } catch (e) {}
@@ -656,7 +687,7 @@ async function initSkinViewer(name) {
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
 
-    // Ждём загрузки skinview3d (до 4 секунд)
+    // Ждём skinview3d
     let waited = 0;
     while (window.__skinview3dStatus === 'loading' && waited < 4000) {
         await new Promise(r => setTimeout(r, 100));
@@ -664,84 +695,125 @@ async function initSkinViewer(name) {
     }
 
     if (typeof skinview3d === 'undefined') {
-        loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-            '<div style="color:#f59e0b;font-weight:600;">skinview3d не загрузился</div>' +
-            '<div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:240px;">' +
-            'Проверь интернет / блокировщик рекламы. Библиотека грузится с CDN.</div>' +
-            '</div>';
+        loading.innerHTML = `<div style="text-align:center;padding:20px;">
+            <div style="font-size:32px;margin-bottom:8px;">⚠</div>
+            <div style="color:#f59e0b;font-weight:600;">skinview3d не загрузился</div>
+            <div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:240px;">
+                Проверь интернет / блокировщик рекламы.
+            </div>
+        </div>`;
         return;
     }
 
     try {
+        const size = Math.max(320, Math.round(wrap.clientWidth || 380));
+
         const viewer = new skinview3d.SkinViewer({
             canvas: canvas,
-            width: canvas.clientWidth || 380,
-            height: canvas.clientHeight || 380,
-            skin: `${SKIN_API}/skin/Steve`
+            width: size,
+            height: size
         });
 
-        viewer.camera.position.set(20, 25, 40);
-        viewer.camera.lookAt(0, 15, 0);
+        // === Свет: усиливаем, чтобы скин не был тёмным ===
+        try {
+            if (viewer.globalLight) viewer.globalLight.intensity = SKIN_LIGHT_INTENSITY;
+            if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_LIGHT_INTENSITY;
+        } catch (e) {}
+
+        // === Камера: центрируем на всю модель ===
+        applyDefaultCamera(viewer);
+
+        // === Управление ===
         viewer.controls.enableZoom = true;
         viewer.controls.enablePan = false;
-        viewer.controls.minDistance = 20;
-        viewer.controls.maxDistance = 100;
-        viewer.controls.target.set(0, 15, 0);
-        viewer.fov = 50;
-        viewer.globalLight.intensity = 0.6;
-        viewer.cameraLight.intensity = 1.0;
+        viewer.controls.minDistance = 25;
+        viewer.controls.maxDistance = 90;
+        viewer.controls.minPolarAngle = 0.15;
+        viewer.controls.maxPolarAngle = Math.PI - 0.15;
 
+        // Ник над головой
         try {
             viewer.nameTag = new skinview3d.NameTagObject(name);
             viewer.nameTag.visible = true;
         } catch (e) {}
 
+        // Анимация idle-вращения
         try {
             currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation);
         } catch (e) {}
 
-        const skinUrl = await resolveSkinUrl(name);
-        await viewer.loadSkin(skinUrl);
+        // === Загружаем скин: fetch + arrayBuffer (обход CORS) ===
+        const ok = await loadSkinViaFetch(viewer, name);
+        if (!ok) {
+            console.warn('[skinview3d] Скин не удалось загрузить ни с одного источника для ' + name);
+        }
 
         loading.classList.add('hidden');
         currentSkinViewer = viewer;
 
+        // Ресайз при изменении окна
         const ro = new ResizeObserver(() => {
             if (!currentSkinViewer) return;
-            const w = canvas.clientWidth, h = canvas.clientHeight;
+            const w = wrap.clientWidth;
+            const h = wrap.clientHeight;
             if (w > 0 && h > 0) {
                 currentSkinViewer.width = w;
                 currentSkinViewer.height = h;
             }
         });
-        ro.observe(canvas.parentElement);
+        ro.observe(wrap);
     } catch (err) {
         console.error('[skinview3d] Ошибка:', err);
-        loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-            '<div style="color:#ef4444;font-weight:600;">Не удалось построить модель</div>' +
-            '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' +
-            escapeHtml(err.message || '') + '</div></div>';
+        loading.innerHTML = `<div style="text-align:center;padding:20px;">
+            <div style="font-size:32px;margin-bottom:8px;">⚠</div>
+            <div style="color:#ef4444;font-weight:600;">Не удалось построить модель</div>
+            <div style="font-size:11px;color:#8b91a6;margin-top:6px;">${escapeHtml(err.message || '')}</div>
+        </div>`;
     }
 }
 
-async function resolveSkinUrl(name) {
-    const local = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
-    if (await imageExists(local)) return local;
-    const mojang = `${SKIN_API}/skin/${encodeURIComponent(name)}`;
-    if (await imageExists(mojang)) return mojang;
-    return `${SKIN_API}/skin/Steve`;
-}
+/**
+ * Загружает скин через fetch (обходит CORS-ограничения обычной загрузки img).
+ * Пробует несколько источников по очереди.
+ *
+ * @returns {Promise<boolean>} успех
+ */
+async function loadSkinViaFetch(viewer, name) {
+    const sources = [
+        // 1. Локальный файл (для пираток) — кладётся в data/skins/{ник}.png
+        `${LOCAL_SKIN_DIR}${encodeURIComponent(name)}.png`,
+        // 2. Minotar — надёжный открытый API с Mojang-скинами
+        `https://minotar.net/skin/${encodeURIComponent(name)}`,
+        // 3. mc-heads (Mojang)
+        `${SKIN_API}/skin/${encodeURIComponent(name)}`,
+        // 4-5. Steve (гарантированный fallback)
+        `${SKIN_API}/skin/Steve`,
+        `https://minotar.net/skin/MHF_Steve`
+    ];
 
-function imageExists(url) {
-    return new Promise(resolve => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = url + '?t=' + Date.now();
-    });
+    for (const url of sources) {
+        try {
+            const resp = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+            if (!resp.ok) {
+                console.warn('[skinview3d] HTTP ' + resp.status + ' — ' + url);
+                continue;
+            }
+            const buf = await resp.arrayBuffer();
+            // Минимальный размер валидного PNG-скина: 64×32 RGBA = 8KB, но с zip-сжатием ~1-2KB.
+            // Отсекаем явно битые ответы.
+            if (buf.byteLength < 500) {
+                console.warn('[skinview3d] Слишком маленький файл (' + buf.byteLength + 'B): ' + url);
+                continue;
+            }
+            await viewer.loadSkin(buf);
+            console.log('[skinview3d] ✓ Скин загружен: ' + url + ' (' + buf.byteLength + 'B)');
+            return true;
+        } catch (e) {
+            console.warn('[skinview3d] Ошибка загрузки ' + url + ': ' + (e.message || e));
+            continue;
+        }
+    }
+    return false;
 }
 
 // ==================== NAV ====================
