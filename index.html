@@ -5,7 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель сервера</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/skinview3d@3.0.3/bundles/skinview3d.bundle.js"></script>
+
+    <!-- skinview3d — 3D-модель скина. Multi-CDN fallback -->
+    <script>
+        (function() {
+            var cdns = [
+                'https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js',
+                'https://unpkg.com/skinview3d@3/bundles/skinview3d.bundle.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/skinview3d/3.4.2/skinview3d.bundle.min.js'
+            ];
+            var i = 0;
+            window.__skinview3dLoaded = false;
+            window.__skinview3dFailed = false;
+
+            function next() {
+                if (i >= cdns.length) {
+                    window.__skinview3dFailed = true;
+                    console.warn('[skinview3d] Все CDN недоступны. 3D-модель работать не будет.');
+                    return;
+                }
+                var s = document.createElement('script');
+                s.src = cdns[i++];
+                s.onload = function() {
+                    if (typeof skinview3d !== 'undefined') {
+                        window.__skinview3dLoaded = true;
+                        console.log('[skinview3d] Загружен с ' + s.src);
+                    } else {
+                        next();
+                    }
+                };
+                s.onerror = next;
+                document.head.appendChild(s);
+            }
+            next();
+        })();
+    </script>
 </head>
 <body>
     <header>
@@ -31,7 +65,6 @@
 
     <main class="container">
 
-        <!-- ==================== ТАБ: ОБЗОР ==================== -->
         <section class="tab-content active" id="tab-overview">
             <section class="stats-grid">
                 <div class="stat-card">
@@ -96,7 +129,6 @@
             </section>
         </section>
 
-        <!-- ==================== ТАБ: КАРТА ==================== -->
         <section class="tab-content" id="tab-map">
             <section class="panel">
                 <div class="panel-header">
@@ -123,7 +155,6 @@
             </section>
         </section>
 
-        <!-- ==================== ТАБ: ИГРОКИ ==================== -->
         <section class="tab-content" id="tab-players">
             <section class="panel">
                 <div class="panel-header">
@@ -144,7 +175,6 @@
             </section>
         </section>
 
-        <!-- ==================== ТАБ: ГАЙД ==================== -->
         <section class="tab-content" id="tab-guide">
             <div class="guide-layout">
                 <aside class="guide-nav" id="guide-nav">
@@ -152,7 +182,6 @@
                 </aside>
                 <div class="guide-content">
 
-                    <!-- ============ 1. С ЧЕГО НАЧАТЬ ============ -->
                     <article class="guide-section" id="guide-start">
                         <h2 data-guide-title>🌱 С чего начать</h2>
                         <ol class="guide-steps">
@@ -165,7 +194,6 @@
                         </ol>
                     </article>
 
-                    <!-- ============ 2. СТРАНЫ ============ -->
                     <article class="guide-section" id="guide-country">
                         <h2 data-guide-title>🏛️ Страны (Sovereignty)</h2>
                         <p>Вся жизнь страны управляется через главное меню: <code data-copy="/c">/c</code> (алиасы: <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>, <code data-copy="/state">/state</code>).</p>
@@ -269,7 +297,6 @@
                         <p>Активируется командой <code data-copy="/c miningboost">/c miningboost</code>. Даёт Спешку на время, зависящее от количества шахтёрских чанков. Кулдаун 60 минут.</p>
                     </article>
 
-                    <!-- ============ 3. ДИПЛОМАТИЯ ============ -->
                     <article class="guide-section" id="guide-diplomacy">
                         <h2 data-guide-title>🤝 Дипломатия и война</h2>
                         <p>Открой <code data-copy="/c">/c</code> → <b>Дипломатия</b>. Выбери страну из списка — откроется меню действий.</p>
@@ -313,7 +340,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 4. СУД ============ -->
                     <article class="guide-section" id="guide-court">
                         <h2 data-guide-title>⚖️ Международный суд</h2>
                         <p>Открой <code data-copy="/c court">/c court</code>. Любой лидер может подать жалобу на другую страну.</p>
@@ -339,7 +365,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 5. СОБЫТИЯ ============ -->
                     <article class="guide-section" id="guide-events">
                         <h2 data-guide-title>🌍 Глобальные события</h2>
                         <p>Периодически на сервере происходят события, влияющие на всех игроков. Длятся 30–60 минут, объявляются в чат.</p>
@@ -361,7 +386,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 6. НАЛОГИ ============ -->
                     <article class="guide-section" id="guide-tax">
                         <h2 data-guide-title>💸 Налоги (TaxCollector)</h2>
                         <p>Каждые <b>5 игровых дней</b> (1 день = 20 минут) с твоей страны списывается налог из казны.</p>
@@ -386,7 +410,6 @@
                         </div>
                     </article>
 
-                    <!-- ============ 7. РЫНОК ============ -->
                     <article class="guide-section" id="guide-market">
                         <h2 data-guide-title>🛒 Рынок (MarketGUI)</h2>
                         <p>Общий рынок, где можно торговать за ресурсы или валюту.</p>
@@ -405,7 +428,6 @@
                         <p>Открой <code data-copy="/shop">/shop</code>, выбери категорию, нажми на товар. Оплата уходит продавцу. Если товар помечен «Лично для: игрок», его может купить только указанный игрок.</p>
                     </article>
 
-                    <!-- ============ 8. АУКЦИОН ============ -->
                     <article class="guide-section" id="guide-auction">
                         <h2 data-guide-title>🔨 Аукцион (AuctionHouse)</h2>
                         <p>Выставляй предметы на аукцион. Игроки делают ставки, побеждает максимальная.</p>
@@ -427,7 +449,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 9. НАЁМНИКИ ============ -->
                     <article class="guide-section" id="guide-bounty">
                         <h2 data-guide-title>💀 Наёмники (Bounty)</h2>
                         <p>Назначь награду за голову другого игрока. Тот, кто его убьёт — получит деньги.</p>
@@ -448,7 +469,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 10. КАЗИНО ============ -->
                     <article class="guide-section" id="guide-casino">
                         <h2 data-guide-title>🎰 Казино (RollGame)</h2>
                         <p>Открой единый хаб: <code data-copy="/roll">/roll</code> (алиас <code data-copy="/casino">/casino</code>). Здесь 7 мини-игр.</p>
@@ -532,7 +552,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 11. ЭКОНОМИКА / РАБОТА ============ -->
                     <article class="guide-section" id="guide-economy">
                         <h2 data-guide-title>💰 Экономика и работа</h2>
 
@@ -562,7 +581,6 @@
                         </div>
                     </article>
 
-                    <!-- ============ 12. СКИНЫ ============ -->
                     <article class="guide-section" id="guide-skins">
                         <h2 data-guide-title>🎨 Скины (SkinsRestorer)</h2>
                         <ul class="guide-list">
@@ -572,7 +590,6 @@
                         </ul>
                     </article>
 
-                    <!-- ============ 13. FAQ ============ -->
                     <article class="guide-section" id="guide-faq">
                         <h2 data-guide-title>❓ FAQ</h2>
 
@@ -631,7 +648,6 @@
             </div>
         </section>
 
-        <!-- ==================== ТАБ: КОМАНДЫ ==================== -->
         <section class="tab-content" id="tab-commands">
             <section class="panel">
                 <div class="panel-header">
@@ -643,7 +659,6 @@
             </section>
         </section>
 
-        <!-- ==================== ТАБ: БОНУСЫ ==================== -->
         <section class="tab-content" id="tab-bonus">
             <section class="panel" id="panel-jackpot" style="display:none;">
                 <h2>💎 Джекпот казино</h2>
