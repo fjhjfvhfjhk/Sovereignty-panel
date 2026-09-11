@@ -1,4 +1,4 @@
-/* Sovereignty panel v3.0 — неблокирующая загрузка скинов */
+/* Sovereignty panel v3.1 */
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
@@ -27,26 +27,19 @@ let highlightedCountry = null;
 let showPlayerMarkers = true;
 let mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 let currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
+let currentSkinCanvasId = 0;
 
-const localSkinCache = new Map();   // name → HTMLImageElement
-const headCache = new Map();        // name → dataURL
+const localSkinCache = new Map();
+const headCache = new Map();
 const localLoadedAttempted = new Set();
 
 const PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
-// ==================== INIT ====================
-
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[Sovereignty] DOMContentLoaded');
     try {
-        initTabs();
-        initSortTabs();
-        initMapControls();
-        initCommandCopy();
-        initGuideNav();
-        initCommandSearch();
-        initPlayerControls();
-        initModalControls();
+        initTabs(); initSortTabs(); initMapControls(); initCommandCopy();
+        initGuideNav(); initCommandSearch(); initPlayerControls(); initModalControls();
         const rb = document.getElementById('refresh-btn');
         if (rb) rb.onclick = () => { loadData(); loadMap(); };
         loadData();
@@ -116,21 +109,14 @@ function closePlayerModal() {
 
 // ==================== LOCAL SKINS (non-blocking) ====================
 
-/**
- * Не блокирует UI. Запускается в фоне после рендера.
- * Каждый скин — с таймаутом 3 сек, чтобы не висело вечно.
- */
 function preloadLocalSkins() {
     const players = currentData && currentData.players ? currentData.players : [];
     if (players.length === 0) return;
-
     const toLoad = players.filter(p => p.name && !localLoadedAttempted.has(p.name));
     if (toLoad.length === 0) return;
-
     console.log('[Skins] Пробую загрузить локальные скины: ' + toLoad.length);
 
-    let done = 0;
-    let loaded = 0;
+    let done = 0, loaded = 0;
     toLoad.forEach(p => {
         localLoadedAttempted.add(p.name);
         loadLocalSkin(p.name)
@@ -148,7 +134,6 @@ function preloadLocalSkins() {
 
 function loadLocalSkin(name) {
     if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
-
     const url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -165,7 +150,7 @@ function loadLocalSkin(name) {
             finished = true;
             clearTimeout(timer);
             if (img.width < 64 || (img.height !== 32 && img.height !== 64)) {
-                reject(new Error('bad format: ' + img.width + 'x' + img.height));
+                reject(new Error('bad format'));
                 return;
             }
             localSkinCache.set(name, img);
@@ -199,10 +184,6 @@ function getHeadUrl(name, size) {
     return SKIN_API + '/avatar/' + encodeURIComponent(name) + '/' + (size || 64);
 }
 
-/**
- * Обновляет все <img data-pname> — заменяет mc-heads на локальную голову
- * после того как локальные скины подгрузились.
- */
 function refreshHeadImages() {
     let updated = 0;
     document.querySelectorAll('img[data-pname]').forEach(img => {
@@ -215,7 +196,7 @@ function refreshHeadImages() {
     if (updated > 0) console.log('[Skins] Обновлено голов: ' + updated);
 }
 
-// ==================== DATA LOAD (не блокирует) ====================
+// ==================== DATA LOAD ====================
 
 async function loadData() {
     console.log('[Sovereignty] loadData() старт');
@@ -230,11 +211,8 @@ async function loadData() {
         if (!text || !text.trim()) throw new Error('Пустой файл');
         currentData = JSON.parse(text);
         console.log('[Sovereignty] данные загружены, игроков: ' + ((currentData.players || []).length));
-
         render();
         loadMap();
-
-        // НЕ await — фоновая предзагрузка локальных скинов
         setTimeout(preloadLocalSkins, 0);
     } catch (err) {
         console.error('[Sovereignty] load error:', err);
@@ -243,8 +221,6 @@ async function loadData() {
         if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading" style="color:#ef4444;">❌ ' + escapeHtml(err.message) + '</td></tr>';
     }
 }
-
-// ==================== RENDER ====================
 
 function render() {
     if (!currentData) return;
@@ -270,22 +246,13 @@ function render() {
         if (players.length > 0) {
             const online = players.filter(p => p.online).length;
             tp.textContent = online > 0 ? online + ' / ' + players.length : String(players.length);
-        } else {
-            tp.textContent = String(currentData.online_players || 0);
-        }
+        } else tp.textContent = String(currentData.online_players || 0);
     }
-    renderCountries();
-    renderLegend();
-    renderPlayers();
-    renderBonus();
-    renderPlayerMarkers();
+    renderCountries(); renderLegend(); renderPlayers(); renderBonus(); renderPlayerMarkers();
     console.log('[Sovereignty] render() завершён');
 }
 
-function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-}
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
 function renderCountries() {
     if (!currentData) return;
@@ -513,8 +480,6 @@ function resetMapView() {
     applyMapTransform();
 }
 
-// ==================== PLAYER MARKERS ====================
-
 function worldToImagePx(x, z, meta) {
     const minBX = meta.min_chunk_x * BLOCKS_PER_CHUNK;
     const minBZ = meta.min_chunk_z * BLOCKS_PER_CHUNK;
@@ -548,8 +513,6 @@ function renderPlayerMarkers() {
     updateMarkerScale();
 }
 
-// ==================== PLAYERS GRID ====================
-
 function initPlayerControls() {
     const s = document.getElementById('player-search');
     if (s) s.addEventListener('input', () => renderPlayers());
@@ -562,11 +525,7 @@ function renderPlayers() {
     const empty = document.getElementById('players-empty');
     if (!grid || !empty) return;
     const players = currentData && currentData.players ? currentData.players : null;
-    if (!players || players.length === 0) {
-        grid.innerHTML = '';
-        empty.style.display = 'block';
-        return;
-    }
+    if (!players || players.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
     const q = (document.getElementById('player-search').value || '').trim().toLowerCase();
     const onlineOnly = document.getElementById('player-online-only').checked || false;
@@ -607,8 +566,6 @@ function renderPlayerCard(p) {
         (pt ? '<span>⏱ ' + pt + '</span>' : '') +
         '</div></div></div>';
 }
-
-// ==================== PLAYER MODAL ====================
 
 function openPlayer(name) {
     const players = currentData && currentData.players ? currentData.players : [];
@@ -656,9 +613,7 @@ function openPlayer(name) {
             if (cd.allies != null) countryRows.push({ label: 'Союзы', value: cd.allies });
             if (cd.pacts != null) countryRows.push({ label: 'Пакты', value: cd.pacts });
         }
-    } else {
-        countryRows.push({ label: 'Страна', value: 'Нет' });
-    }
+    } else countryRows.push({ label: 'Страна', value: 'Нет' });
 
     const actRows = [];
     if (player.energy != null) actRows.push({
@@ -689,9 +644,8 @@ function openPlayer(name) {
     if (actBtnEl) actBtnEl.innerHTML = actions.join('');
 
     openPlayerModal();
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        setTimeout(() => initSkinViewer(name, player.uuid), 80);
-    }));
+    // Ждём пока модалка отрисуется и получит размеры, потом initSkinViewer
+    setTimeout(() => initSkinViewer(name, player.uuid), 100);
 }
 
 function renderPanel(title, rows) {
@@ -726,15 +680,39 @@ function applyDefaultCamera(viewer) {
     } catch (e) {}
 }
 
+/**
+ * Определяет URL скина.
+ * Приоритет: локальный PNG → Crafatar по UUID → Steve.
+ */
+function resolveSkinUrl(name, uuid) {
+    if (localSkinCache.has(name)) {
+        return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
+    }
+    if (uuid) {
+        return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
+    }
+    return CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve';
+}
+
 async function initSkinViewer(name, uuid) {
-    const canvas = document.getElementById('skin-canvas');
     const wrap = document.getElementById('player-viewer-wrap');
+    if (!wrap) return;
+
+    // Заменяем canvas на новый — избегаем WebGL context conflicts при переоткрытии
+    currentSkinCanvasId++;
+    const oldCanvas = document.getElementById('skin-canvas');
+    if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
+    const newCanvas = document.createElement('canvas');
+    newCanvas.id = 'skin-canvas';
+    wrap.insertBefore(newCanvas, wrap.firstChild);
+
     const loading = document.getElementById('skin-loading');
-    if (!canvas || !wrap || !loading) return;
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
+
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
 
+    // Ждём skinview3d
     let waited = 0;
     while (window.__skinview3dStatus === 'loading' && waited < 5000) {
         await new Promise(r => setTimeout(r, 100));
@@ -742,98 +720,80 @@ async function initSkinViewer(name, uuid) {
     }
 
     if (window.__skinview3dStatus !== 'loaded' || typeof skinview3d === 'undefined') {
-        loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-            '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div>' +
-            '<div style="font-size:11px;color:#8b91a6;margin-top:8px;line-height:1.5;max-width:280px;">' +
-            'Скачай skinview3d.bundle.js и положи в корень репозитория.' +
-            '</div></div>';
+        loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
+            '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div></div>';
         return;
     }
 
+    // Форсируем layout — иначе clientWidth может быть 0
+    wrap.getBoundingClientRect();
+    await new Promise(r => setTimeout(r, 60));
+
+    const rect = wrap.getBoundingClientRect();
+    const size = Math.max(280, Math.round(rect.width || 380));
+    console.log('[skinview3d] canvas size = ' + size + ' (wrap rect.width=' + rect.width + ')');
+
+    const skinUrl = resolveSkinUrl(name, uuid);
+    console.log('[skinview3d] skin URL = ' + skinUrl);
+
     try {
-        const size = Math.max(320, Math.round(wrap.clientWidth || 380));
-        const viewer = new skinview3d.SkinViewer({ canvas: canvas, width: size, height: size });
-        try { viewer.renderer.setClearColor(0x000000, 0); } catch (e) {}
+        const viewer = new skinview3d.SkinViewer({
+            canvas: newCanvas,
+            width: size,
+            height: size,
+            skin: skinUrl        // ← URL-based, skinview3d сам грузит через Image
+        });
+
+        // Свет (усиленный, чтобы модель была яркой)
         try {
             if (viewer.globalLight) viewer.globalLight.intensity = SKIN_LIGHT_INTENSITY;
             if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_LIGHT_INTENSITY;
         } catch (e) {}
+
+        // Камера: центр на модели, дистанция с запасом
         applyDefaultCamera(viewer);
+
+        // Контролы
         viewer.controls.enableZoom = true;
         viewer.controls.enablePan = false;
         viewer.controls.minDistance = 25;
         viewer.controls.maxDistance = 90;
         viewer.controls.minPolarAngle = 0.15;
         viewer.controls.maxPolarAngle = Math.PI - 0.15;
-        try { viewer.nameTag = new skinview3d.NameTagObject(name); viewer.nameTag.visible = true; } catch (e) {}
+
+        // Ник над головой
+        try {
+            viewer.nameTag = new skinview3d.NameTagObject(name);
+            viewer.nameTag.visible = true;
+        } catch (e) {}
+
+        // Автовращение
         try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
 
-        const ok = await loadSkinBytes(viewer, name, uuid);
-        if (ok) loading.classList.add('hidden');
-        else {
-            loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-                '<div style="font-size:32px;margin-bottom:8px;">🎭</div>' +
-                '<div style="color:#f59e0b;font-weight:600;">Скин недоступен</div>' +
-                '<div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:260px;">' +
-                'Показан стандартный Steve.<br>Для пиратки: data/skins/' + escapeHtml(name) + '.png</div></div>';
-            setTimeout(() => loading.classList.add('hidden'), 2000);
-        }
         currentSkinViewer = viewer;
+        loading.classList.add('hidden');
+
+        // Реагируем на изменение размера окна
         const ro = new ResizeObserver(() => {
             if (!currentSkinViewer) return;
             const w = wrap.clientWidth, h = wrap.clientHeight;
-            if (w > 0 && h > 0) { currentSkinViewer.width = w; currentSkinViewer.height = h; }
+            if (w > 0 && h > 0) {
+                currentSkinViewer.width = w;
+                currentSkinViewer.height = h;
+            }
         });
         ro.observe(wrap);
+
+        console.log('[skinview3d] ✓ viewer создан для ' + name);
+
     } catch (err) {
-        console.error('[skinview3d]', err);
-        loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="color:#ef4444;font-weight:600;">Ошибка модели</div><div style="font-size:11px;color:#8b91a6;">' + escapeHtml(err.message || '') + '</div></div>';
+        console.error('[skinview3d] Ошибка:', err);
+        loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
+            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
+            '<div style="color:#ef4444;font-weight:600;">Ошибка 3D-модели</div>' +
+            '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' + escapeHtml(err.message || String(err)) + '</div>' +
+            '</div>';
     }
-}
-
-async function loadSkinBytes(viewer, name, uuid) {
-    const sources = [];
-    // Локальный кеш как dataURL — если уже подгрузился
-    if (localSkinCache.has(name)) {
-        try {
-            const canvas = document.createElement('canvas');
-            const img = localSkinCache.get(name);
-            canvas.width = img.width; canvas.height = img.height;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-            const buf = await blob.arrayBuffer();
-            if (isPng(buf)) {
-                await viewer.loadSkin(buf);
-                console.log('[skinview3d] ✓ ' + name + ': локальный кеш');
-                return true;
-            }
-        } catch (e) {}
-    }
-    // Прямой fetch локального файла
-    sources.push(LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png');
-    // Crafatar
-    if (uuid) sources.push(CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve');
-    sources.push(CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve');
-
-    for (const url of sources) {
-        try {
-            const r = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-            if (!r.ok) continue;
-            const buf = await r.arrayBuffer();
-            if (!isPng(buf)) continue;
-            await viewer.loadSkin(buf);
-            console.log('[skinview3d] ✓ ' + name + ': ' + url.substring(0, 80) + ' (' + buf.byteLength + 'B)');
-            return true;
-        } catch (e) {}
-    }
-    return false;
-}
-
-function isPng(buffer) {
-    if (!buffer || buffer.byteLength < 8) return false;
-    const b = new Uint8Array(buffer, 0, 8);
-    return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47 && b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A;
 }
 
 // ==================== NAV ====================
@@ -876,8 +836,6 @@ function gotoPlayerOnMap(name) {
 function copyToClipboardSafe(text) {
     copyToClipboard(text).then(ok => { if (ok) showToast('✓ Скопировано: ' + text); });
 }
-
-// ==================== BONUS ====================
 
 function renderBonus() {
     if (!currentData) return;
@@ -932,8 +890,6 @@ function renderBonus() {
     if (be) be.style.display = anyBonus ? 'none' : 'block';
 }
 
-// ==================== COPY ====================
-
 function initCommandCopy() {
     document.body.addEventListener('click', e => {
         const t = e.target.closest('code[data-copy]');
@@ -975,8 +931,6 @@ function showToast(msg) {
     toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
 }
 
-// ==================== GUIDE NAV ====================
-
 function initGuideNav() {
     const nav = document.getElementById('guide-nav');
     if (!nav) return;
@@ -1008,8 +962,6 @@ function initGuideNav() {
         });
     });
 }
-
-// ==================== COMMANDS ====================
 
 const COMMANDS = [
     { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
@@ -1062,8 +1014,6 @@ function initCommandSearch() {
         });
     });
 }
-
-// ==================== UTILS ====================
 
 function formatMoney(amount) {
     if (amount == null) return '0';
