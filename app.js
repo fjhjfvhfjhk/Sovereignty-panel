@@ -1,14 +1,11 @@
 /**
- * Веб-панель Sovereignty: данные + интерактивная карта территорий.
+ * Веб-панель Sovereignty — диагностическая версия.
+ * Показывает точную ошибку, если данные не загружаются.
  */
-
-// ==================== НАСТРОЙКИ ====================
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-
-// ==================== СОСТОЯНИЕ ====================
 
 let currentData = null;
 let currentSort = 'claims';
@@ -19,7 +16,6 @@ let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
 let highlightedCountry = null;
 
-// Стабильный список цветов (должен совпадать с серверным MapRenderer.java!)
 const PALETTE = [
     '#6366f1', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
     '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6',
@@ -30,6 +26,17 @@ const PALETTE = [
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Добавляем кнопку "Обновить сейчас"
+    const header = document.querySelector('.header-meta');
+    if (header) {
+        const btn = document.createElement('button');
+        btn.className = 'badge';
+        btn.style.cursor = 'pointer';
+        btn.textContent = '🔄 Обновить';
+        btn.onclick = () => { loadData(); loadMap(); };
+        header.appendChild(btn);
+    }
+
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
     initMapControls();
@@ -47,16 +54,53 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 
 async function loadData() {
+    const tbody = document.getElementById('countries-body');
+    tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
+
     try {
         const url = DATA_URL + '?t=' + Date.now();
+        console.log('[Sovereignty] Запрос:', url);
         const response = await fetch(url);
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        currentData = await response.json();
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} — файл data/server1.json не найден или недоступен. Проверьте, что он есть в репозитории.`);
+        }
+
+        const text = await response.text();
+        console.log('[Sovereignty] Ответ (первые 200 символов):', text.substring(0, 200));
+
+        if (!text || text.trim().length === 0) {
+            throw new Error('Файл data/server1.json пустой. Плагин не отправил данные.');
+        }
+
+        try {
+            currentData = JSON.parse(text);
+        } catch (parseErr) {
+            throw new Error('Ошибка парсинга JSON: ' + parseErr.message + ' (первые 100 символов: ' + text.substring(0, 100) + ')');
+        }
+
+        if (!currentData || typeof currentData !== 'object') {
+            throw new Error('JSON содержит не объект: ' + typeof currentData);
+        }
+
+        console.log('[Sovereignty] Данные получены:', currentData);
         render();
         loadMap();
+
     } catch (err) {
-        console.error('Ошибка загрузки данных:', err);
-        document.getElementById('server-name').textContent = 'Ошибка загрузки';
+        console.error('[Sovereignty] ОШИБКА:', err);
+        document.getElementById('server-name').textContent = '⚠ Ошибка загрузки';
+        tbody.innerHTML = `
+            <tr><td colspan="8" class="loading" style="text-align:left;padding:20px;color:#ef4444;">
+                <strong>❌ Не удалось загрузить данные</strong><br><br>
+                <strong>Причина:</strong> ${escapeHtml(err.message)}<br><br>
+                <strong>Что проверить:</strong><br>
+                1. Откройте файл <a href="${DATA_URL}" target="_blank" style="color:#818cf8;">${DATA_URL}</a> — он должен существовать и содержать валидный JSON.<br>
+                2. Проверьте логи сервера: есть ли сообщение <code>[WebPanel] Данные и карта отправлены на GitHub.</code><br>
+                3. Проверьте, не истёк ли токен GitHub (создайте новый и обновите <code>webpanel.yml</code>).<br>
+                4. Если в логах <code>Ошибка публикации</code> — прочитайте текст ошибки.
+            </td></tr>
+        `;
     }
 }
 
@@ -69,11 +113,16 @@ function loadMap() {
         img.src = MAP_URL + '?t=' + Date.now();
         img.style.display = 'block';
         placeholder.style.display = 'none';
-        resetMapView();
+        setTimeout(resetMapView, 100);
     };
     testImg.onerror = () => {
         img.style.display = 'none';
         placeholder.style.display = 'block';
+        placeholder.innerHTML = `
+            <div class="map-placeholder-icon">🗺️</div>
+            <p>Карта ещё не сгенерирована.</p>
+            <p style="font-size:12px;margin-top:8px;">Файл: <a href="${MAP_URL}" target="_blank" style="color:#818cf8;">${MAP_URL}</a></p>
+        `;
     };
     testImg.src = MAP_URL + '?t=' + Date.now();
 }
@@ -83,30 +132,41 @@ function loadMap() {
 function render() {
     if (!currentData) return;
 
-    document.getElementById('server-name').textContent = currentData.server_name || 'Сервер';
-    document.getElementById('online-badge').textContent =
-        `Онлайн: ${currentData.online_players || 0} / ${currentData.max_players || 0}`;
+    try {
+        document.getElementById('server-name').textContent = currentData.server_name || 'Сервер';
+        document.getElementById('online-badge').textContent =
+            `Онлайн: ${currentData.online_players || 0} / ${currentData.max_players || 0}`;
 
-    const updated = currentData.updated_at;
-    if (updated) {
-        const minutes = Math.floor((Date.now() - updated) / 60000);
-        const ago = minutes < 1 ? 'только что'
-            : minutes < 60 ? `${minutes} мин назад`
-            : `${Math.floor(minutes / 60)} ч назад`;
-        document.getElementById('updated-badge').textContent = `Обновлено: ${ago}`;
+        const updated = currentData.updated_at;
+        if (updated) {
+            const minutes = Math.floor((Date.now() - updated) / 60000);
+            const ago = minutes < 1 ? 'только что'
+                : minutes < 60 ? `${minutes} мин назад`
+                : `${Math.floor(minutes / 60)} ч назад`;
+            document.getElementById('updated-badge').textContent = `Обновлено: ${ago}`;
+        } else {
+            document.getElementById('updated-badge').textContent = 'Нет метки времени';
+        }
+
+        const countries = currentData.countries || [];
+        document.getElementById('countries-count').textContent = countries.length;
+        document.getElementById('total-claims').textContent =
+            countries.reduce((sum, c) => sum + (c.claims || 0), 0).toLocaleString('ru-RU');
+        document.getElementById('total-bank').textContent =
+            formatMoney(countries.reduce((sum, c) => sum + (c.bank || 0), 0));
+        document.getElementById('total-energy').textContent =
+            countries.reduce((sum, c) => sum + (c.energy || 0), 0).toFixed(1);
+
+        renderCountries();
+        renderLegend();
+    } catch (err) {
+        console.error('[Sovereignty] Ошибка рендера:', err);
+        document.getElementById('countries-body').innerHTML =
+            `<tr><td colspan="8" class="loading" style="color:#ef4444;">
+                ❌ Ошибка рендера: ${escapeHtml(err.message)}<br>
+                Проверьте консоль (F12) для деталей.
+            </td></tr>`;
     }
-
-    const countries = currentData.countries || [];
-    document.getElementById('countries-count').textContent = countries.length;
-    document.getElementById('total-claims').textContent =
-        countries.reduce((sum, c) => sum + (c.claims || 0), 0).toLocaleString('ru-RU');
-    document.getElementById('total-bank').textContent =
-        formatMoney(countries.reduce((sum, c) => sum + (c.bank || 0), 0));
-    document.getElementById('total-energy').textContent =
-        countries.reduce((sum, c) => sum + (c.energy || 0), 0).toFixed(1);
-
-    renderCountries();
-    renderLegend();
 }
 
 function renderCountries() {
@@ -125,7 +185,7 @@ function renderCountries() {
 
     const tbody = document.getElementById('countries-body');
     if (countries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Пока нет стран на сервере.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">На сервере пока нет стран.</td></tr>';
         return;
     }
 
@@ -151,10 +211,7 @@ function renderLegend() {
     const countries = currentData.countries || [];
     const legend = document.getElementById('map-legend');
 
-    if (countries.length === 0) {
-        legend.innerHTML = '';
-        return;
-    }
+    if (countries.length === 0) { legend.innerHTML = ''; return; }
 
     legend.innerHTML = countries.map((c, i) => {
         const color = PALETTE[i % PALETTE.length];
@@ -172,11 +229,7 @@ function highlightCountry(name) {
     document.querySelectorAll('.legend-item').forEach(el => {
         el.classList.toggle('highlight', el.dataset.country === highlightedCountry);
     });
-    // TODO: подсветка на PNG-карте пока невозможна (карта — цельное изображение).
-    // Пока просто подсвечиваем в легенде и в таблице.
-    if (highlightedCountry) {
-        showDetails(highlightedCountry);
-    }
+    if (highlightedCountry) showDetails(highlightedCountry);
 }
 
 function showDetails(countryName) {
@@ -213,13 +266,12 @@ function showDetails(countryName) {
     document.getElementById('country-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ==================== КАРТА (PAN + ZOOM) ====================
+// ==================== КАРТА ====================
 
 function initMapControls() {
     const viewport = document.getElementById('map-viewport');
     const img = document.getElementById('map-canvas');
 
-    // Перетаскивание
     viewport.addEventListener('mousedown', (e) => {
         if (img.style.display === 'none') return;
         isDragging = true;
@@ -236,7 +288,6 @@ function initMapControls() {
 
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // Зум
     viewport.addEventListener('wheel', (e) => {
         if (img.style.display === 'none') return;
         e.preventDefault();
@@ -245,7 +296,6 @@ function initMapControls() {
         applyMapTransform();
     }, { passive: false });
 
-    // Сброс
     document.getElementById('map-reset').addEventListener('click', resetMapView);
 }
 
@@ -259,8 +309,6 @@ function resetMapView() {
     const viewport = document.getElementById('map-viewport');
     if (!img.complete || img.naturalWidth === 0) return;
 
-    mapZoom = 1;
-    // Центрируем
     const vw = viewport.clientWidth;
     const vh = viewport.clientHeight;
     const iw = img.naturalWidth;
@@ -287,4 +335,5 @@ function escapeHtml(str) {
 }
 
 function escapeAttr(str) {
-    return String(str).replace(/'/g, "\\'").replace(/"/
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
