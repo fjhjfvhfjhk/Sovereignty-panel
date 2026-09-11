@@ -1,8 +1,10 @@
-/* Sovereignty panel v3.4 — камера через zoomToFit */
+/* Sovereignty panel v3.5 */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
+
+var APP_VERSION = 'v3.5';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -14,9 +16,7 @@ var REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
-var SKIN_CAMERA_FOV = 40;
-var SKIN_CAMERA_MIN_DIST = 15;
-var SKIN_CAMERA_MAX_DIST = 90;
+var SKIN_FOV = 50;
 var SKIN_GLOBAL_LIGHT = 1.8;
 var SKIN_CAMERA_LIGHT = 1.5;
 var MARKER_BASE_PX = 32;
@@ -39,7 +39,7 @@ var localLoadedAttempted = new Set();
 var PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('[Sovereignty] DOMContentLoaded');
+    console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
     try { initTabs(); } catch (e) { console.error('initTabs:', e); }
     try { initSortTabs(); } catch (e) { console.error('initSortTabs:', e); }
     try { initMapControls(); } catch (e) { console.error('initMapControls:', e); }
@@ -98,7 +98,7 @@ function initModalControls() {
     };
     var resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = function () {
-        if (currentSkinViewer) centerSkinViewer(currentSkinViewer);
+        if (currentSkinViewer) resetSkinCamera(currentSkinViewer);
     };
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
@@ -690,37 +690,44 @@ function renderPanelRow(r) {
 /* ================= 3D VIEWER ================= */
 
 /**
- * Центрирует камеру так, чтобы модель игрока целиком попала в кадр.
+ * Устанавливает камеру так, чтобы вся модель (голова+тело+руки+ноги) была видна.
+ * Используем ту же позицию, что skinview3d ставит по умолчанию —
+ * разработчики библиотеки уже подобрали её так, что модель целиком в кадре.
  *
- * 1. viewer.zoomToFit() — встроенный метод skinview3d, сам вычисляет
- *    bounding box модели и подбирает дистанцию. Гарантированно влезает
- *    вся модель (голова + тело + ноги + руки).
- * 2. После этого маленько отодвигаем камеру (x1.15), чтобы было чуть-чуть
- *    воздуха по краям, как на NameMC.
+ * Дефолт skinview3d:
+ *   camera.position = (20, 25, 40)
+ *   controls.target = (0, 16, 0)
+ *
+ * Пересчитываем в прямой вид спереди, сохраняя дистанцию:
+ *   distance = sqrt(20² + (25-16)² + 40²) ≈ 45.6
+ *   front-view: camera = (0, 16+9, 45.6) = (0, 25, 45.6) — но это перебор
+ *   Прямой вид спереди: camera = (0, 18, 46), target = (0, 16, 0)
  */
-function centerSkinViewer(viewer) {
+function resetSkinCamera(viewer) {
     try {
-        viewer.fov = SKIN_CAMERA_FOV;
-        viewer.zoomToFit();
-        // Немного отодвигаем — zoomToFit впритык, а нам нужен воздух
-        var t = viewer.controls.target;
-        var cam = viewer.camera.position;
-        var dx = cam.x - t.x, dy = cam.y - t.y, dz = cam.z - t.z;
-        var factor = 1.15;
-        cam.set(t.x + dx * factor, t.y + dy * factor, t.z + dz * factor);
+        viewer.fov = SKIN_FOV;
+
+        var tx = 0, ty = 16, tz = 0;         // центр модели
+        var cx = 0, cy = 20, cz = 48;        // спереди, чуть-чуть выше
+
+        viewer.controls.target.set(tx, ty, tz);
+        viewer.camera.position.set(cx, cy, cz);
+        viewer.camera.lookAt(tx, ty, tz);
+        viewer.camera.updateProjectionMatrix();
         viewer.controls.update();
-        console.log('[skinview3d] centered: cam=(' +
-            cam.x.toFixed(1) + ',' + cam.y.toFixed(1) + ',' + cam.z.toFixed(1) +
-            ') target=(' + t.x.toFixed(1) + ',' + t.y.toFixed(1) + ',' + t.z.toFixed(1) + ')');
+
+        var dist = Math.sqrt(
+            Math.pow(cx - tx, 2) +
+            Math.pow(cy - ty, 2) +
+            Math.pow(cz - tz, 2)
+        );
+        console.log('[skinview3d] ' + APP_VERSION + ' cam=(' +
+            cx.toFixed(1) + ',' + cy.toFixed(1) + ',' + cz.toFixed(1) +
+            ') target=(' + tx.toFixed(1) + ',' + ty.toFixed(1) + ',' + tz.toFixed(1) +
+            ') dist=' + dist.toFixed(1) +
+            ' fov=' + SKIN_FOV);
     } catch (e) {
-        console.warn('[skinview3d] zoomToFit не сработал, fallback:', e);
-        // Fallback: если zoomToFit недоступен — ставим камеру по классике
-        try {
-            viewer.camera.position.set(0, 16, 50);
-            viewer.camera.lookAt(0, 16, 0);
-            viewer.controls.target.set(0, 16, 0);
-            viewer.controls.update();
-        } catch (e2) {}
+        console.error('[skinview3d] resetSkinCamera error:', e);
     }
 }
 
@@ -766,38 +773,43 @@ function initSkinViewer(name, uuid) {
             var rect = wrap.getBoundingClientRect();
             var size = Math.max(280, Math.round(rect.width || 380));
             var skinUrl = resolveSkinUrl(name, uuid);
-            console.log('[skinview3d] canvas=' + size + ' skin=' + skinUrl);
+            console.log('[skinview3d] ' + APP_VERSION + ' canvas=' + size + ' skin=' + skinUrl);
 
             try {
                 var viewer = new skinview3d.SkinViewer({
                     canvas: newCanvas,
                     width: size,
-                    height: size
+                    height: size,
+                    skin: skinUrl
                 });
 
+                // === Свет (яркий) ===
                 try {
                     if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
                     if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
                 } catch (e) {}
 
-                // Контролы
+                // === Контролы: полная свобода вращения по всем осям ===
                 viewer.controls.enableZoom = true;
                 viewer.controls.enablePan = false;
                 viewer.controls.enableRotate = true;
                 viewer.controls.rotateSpeed = 1.0;
                 viewer.controls.zoomSpeed = 0.8;
-                viewer.controls.minPolarAngle = 0.02;
-                viewer.controls.maxPolarAngle = Math.PI - 0.02;
-                viewer.controls.minDistance = SKIN_CAMERA_MIN_DIST;
-                viewer.controls.maxDistance = SKIN_CAMERA_MAX_DIST;
+                viewer.controls.minPolarAngle = 0.05;
+                viewer.controls.maxPolarAngle = Math.PI - 0.05;
+                viewer.controls.minDistance = 25;
+                viewer.controls.maxDistance = 100;
 
+                // Ник над головой
                 try {
                     viewer.nameTag = new skinview3d.NameTagObject(name);
                     viewer.nameTag.visible = true;
                 } catch (e) {}
 
+                // Автовращение
                 try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
 
+                // Пауза автовращения при ручном drag
                 var userInteracting = false;
                 newCanvas.addEventListener('pointerdown', function () {
                     userInteracting = true;
@@ -814,21 +826,11 @@ function initSkinViewer(name, uuid) {
 
                 currentSkinViewer = viewer;
 
-                // Загружаем скин, потом центрируем камеру
-                // viewer.loadSkin возвращает промис — используем .then, чтобы центр был после загрузки
-                viewer.loadSkin(skinUrl).then(function () {
-                    console.log('[skinview3d] skin загружен для ' + name);
-                    // Ждём один кадр — модели нужно время на обновление геометрии
-                    requestAnimationFrame(function () {
-                        centerSkinViewer(viewer);
-                        if (loading) loading.classList.add('hidden');
-                    });
-                }).catch(function (err) {
-                    console.warn('[skinview3d] skin load failed:', err);
-                    // Всё равно центрируем на Steve
-                    centerSkinViewer(viewer);
-                    if (loading) loading.classList.add('hidden');
-                });
+                // Ставим камеру СРАЗУ (до loadSkin), потом ещё раз после
+                // — на случай если loadSkin сбросит позицию
+                resetSkinCamera(viewer);
+
+                if (loading) loading.classList.add('hidden');
 
                 var ro = new ResizeObserver(function () {
                     if (!currentSkinViewer) return;
