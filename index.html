@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель сервера</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1 id="server-name">Загрузка...</h1>
+            <div class="header-meta">
+                <span class="badge" id="online-badge">Онлайн: —</span>
+                <span class="badge" id="updated-badge">Обновлено: —</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Сводка -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🏛️</div>
+                <div class="stat-value" id="countries-count">—</div>
+                <div class="stat-label">Стран</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🗺️</div>
+                <div class="stat-value" id="total-claims">—</div>
+                <div class="stat-label">Всего чанков</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-value" id="total-bank">—</div>
+                <div class="stat-label">Общая казна</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-value" id="total-energy">—</div>
+                <div class="stat-label">Энергия лидеров</div>
+            </div>
+        </section>
+
+        <!-- Топ стран -->
+        <section class="panel">
+            <h2>🏆 Топ стран</h2>
+            <div class="tabs">
+                <button class="tab active" data-sort="claims">По территории</button>
+                <button class="tab" data-sort="bank">По казне</button>
+                <button class="tab" data-sort="energy">По энергии</button>
+                <button class="tab" data-sort="allies">По союзам</button>
+            </div>
+            <div class="table-wrap">
+                <table id="countries-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Страна</th>
+                            <th>Лидер</th>
+                            <th>Чанков</th>
+                            <th>Казна</th>
+                            <th>Энергия</th>
+                            <th>Союзы</th>
+                            <th>Пакты</th>
+                        </tr>
+                    </thead>
+                    <tbody id="countries-body">
+                        <tr><td colspan="8" class="loading">Загрузка данных...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Детали страны -->
+        <section class="panel" id="country-details" style="display: none;">
+            <h2 id="detail-title">Детали страны</h2>
+            <div class="detail-grid" id="detail-content"></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Данные обновляются автоматически каждые 5 минут.</p>
+            <p class="small">Powered by <strong>Sovereignty</strong> plugin</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
