@@ -1,4 +1,4 @@
-/* Sovereignty panel v2.6 — компактная сборка */
+/* Sovereignty panel v2.8 — панели в стиле сайта */
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
@@ -43,9 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rb) rb.onclick = () => { loadData(); loadMap(); };
         loadData();
         setInterval(loadData, REFRESH_INTERVAL_MS);
-    } catch (e) {
-        console.error('[Sovereignty] init error:', e);
-    }
+    } catch (e) { console.error('[Sovereignty] init error:', e); }
 });
 
 function initTabs() {
@@ -135,7 +133,6 @@ function render() {
     if (sn) sn.textContent = currentData.server_name || 'Сервер';
     const ob = document.getElementById('online-badge');
     if (ob) ob.textContent = 'Онлайн: ' + (currentData.online_players || 0) + ' / ' + (currentData.max_players || 0);
-
     const upd = currentData.updated_at;
     if (upd) {
         const m = Math.floor((Date.now() - upd) / 60000);
@@ -143,14 +140,12 @@ function render() {
         const ub = document.getElementById('updated-badge');
         if (ub) ub.textContent = 'Обновлено: ' + ago;
     }
-
     const countries = currentData.countries || [];
     const players = currentData.players || [];
     setText('countries-count', countries.length);
     setText('total-claims', countries.reduce((s, c) => s + (c.claims || 0), 0).toLocaleString('ru-RU'));
     setText('total-bank', formatMoney(countries.reduce((s, c) => s + (c.bank || 0), 0)));
     setText('total-energy', countries.reduce((s, c) => s + (c.energy || 0), 0).toFixed(1));
-
     const tp = document.getElementById('total-players');
     if (tp) {
         if (players.length > 0) {
@@ -489,6 +484,30 @@ function renderPlayerCard(p) {
         '</div></div></div>';
 }
 
+// ==================== PLAYER PANEL RENDERERS ====================
+
+function renderPanel(title, rows) {
+    const valid = (rows || []).filter(r => r.value !== undefined && r.value !== null && r.value !== '');
+    if (valid.length === 0) return '';
+    return '<div class="player-panel">' +
+        '<div class="player-panel-title">' + escapeHtml(title) + '</div>' +
+        valid.map(r => renderPanelRow(r)).join('') +
+        '</div>';
+}
+
+function renderPanelRow(r) {
+    const copyBtn = r.copy
+        ? '<button class="player-copy-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(r.copy) + '\')" title="Скопировать">📋 Копировать</button>'
+        : '';
+    return '<div class="player-panel-row">' +
+        '<div class="row-label">' + escapeHtml(r.label) + '</div>' +
+        '<div class="row-value ' + (r.cls || '') + '">' + escapeHtml(String(r.value)) + '</div>' +
+        copyBtn +
+        '</div>';
+}
+
+// ==================== PLAYER MODAL ====================
+
 function openPlayer(name) {
     const players = currentData && currentData.players ? currentData.players : [];
     const player = players.find(p => p.name === name);
@@ -501,52 +520,113 @@ function openPlayer(name) {
         st.className = 'player-modal-status ' + (online ? 'online' : 'offline');
     }
 
-    const main = [];
-    if (player.uuid) main.push({ label: 'UUID', value: shortenUuid(player.uuid) });
-    if (player.balance != null) main.push({ label: 'Баланс', value: formatMoney(player.balance), cls: 'success' });
-    if (player.playtime_seconds != null) main.push({ label: 'Время в игре', value: formatPlaytime(player.playtime_seconds) });
-    if (player.last_seen) main.push({ label: 'Был в игре', value: timeAgo(player.last_seen) });
-    if (player.first_seen) main.push({ label: 'Первый вход', value: timeAgo(player.first_seen) });
-    if (player.job) main.push({ label: 'Профессия', value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '') });
+    // Панель «Учётная запись»
+    const accountRows = [];
+    if (player.uuid) accountRows.push({
+        label: 'UUID',
+        value: shortenUuid(player.uuid),
+        copy: player.uuid
+    });
+    if (player.first_seen) accountRows.push({
+        label: 'Первый вход',
+        value: timeAgo(player.first_seen)
+    });
+    if (player.last_seen) accountRows.push({
+        label: 'Был в игре',
+        value: timeAgo(player.last_seen)
+    });
+    if (player.playtime_seconds != null) accountRows.push({
+        label: 'Время в игре',
+        value: formatPlaytime(player.playtime_seconds)
+    });
+    if (player.playtime_seconds > 0) accountRows.push({
+        label: 'Дней в игре',
+        value: Math.floor(player.playtime_seconds / 86400)
+    });
+
+    // Панель «Экономика»
+    const ecoRows = [];
+    if (player.balance != null) ecoRows.push({
+        label: 'Баланс',
+        value: formatMoney(player.balance),
+        cls: 'success'
+    });
+    if (player.job) ecoRows.push({
+        label: 'Профессия',
+        value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '')
+    });
     if (player.kills != null || player.deaths != null) {
         const k = player.kills || 0, d = player.deaths || 0;
         const kd = d > 0 ? (k / d).toFixed(2) : k;
-        main.push({ label: 'K / D / K/D', value: k + ' / ' + d + ' / ' + kd });
+        ecoRows.push({ label: 'Убийств', value: k });
+        ecoRows.push({ label: 'Смертей', value: d });
+        ecoRows.push({ label: 'K/D', value: kd });
     }
-    const mainEl = document.getElementById('player-modal-stats-main');
-    if (mainEl) mainEl.innerHTML = main.map(s => statRow(s)).join('') || statRow({ label: '—', value: 'Нет данных' });
+    if (player.bounty != null && player.bounty > 0) ecoRows.push({
+        label: '💀 Награда',
+        value: formatMoney(player.bounty),
+        cls: 'danger'
+    });
 
-    const cs = [];
+    // Панель «Страна»
+    const countryRows = [];
     if (player.country) {
-        cs.push({ label: 'Страна', value: player.country, cls: 'accent' });
+        countryRows.push({
+            label: 'Название',
+            value: player.country,
+            cls: 'accent',
+            copy: player.country
+        });
         if (player.country_role) {
-            const rn = player.country_role === 'leader' ? 'Лидер' : player.country_role === 'co_ruler' ? 'Соправитель' : player.country_role;
-            cs.push({ label: 'Роль', value: rn });
+            const rn = player.country_role === 'leader' ? 'Лидер'
+                : player.country_role === 'co_ruler' ? 'Соправитель'
+                : player.country_role;
+            countryRows.push({ label: 'Роль', value: rn });
         }
         const cd = (currentData.countries || []).find(c => c.name === player.country);
         if (cd) {
-            cs.push({ label: 'Казна страны', value: formatMoney(cd.bank || 0) });
-            cs.push({ label: 'Территория', value: (cd.claims || 0) + ' чанков' });
+            if (cd.bank != null) countryRows.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
+            if (cd.claims != null) countryRows.push({ label: 'Территория', value: cd.claims + ' чанков' });
+            if (cd.allies != null) countryRows.push({ label: 'Союзы', value: cd.allies });
+            if (cd.pacts != null) countryRows.push({ label: 'Пакты', value: cd.pacts });
         }
-    } else cs.push({ label: 'Страна', value: 'Нет' });
-    if (player.bounty != null && player.bounty > 0) cs.push({ label: '💀 Награда', value: formatMoney(player.bounty), cls: 'danger' });
-    const csEl = document.getElementById('player-modal-stats-country');
-    if (csEl) csEl.innerHTML = cs.map(s => statRow(s)).join('');
+    } else {
+        countryRows.push({ label: 'Страна', value: 'Нет' });
+    }
 
-    const act = [];
-    if (player.energy != null) act.push({ label: 'Энергия', value: player.energy.toFixed(1) });
-    if (player.max_energy != null) act.push({ label: 'Макс. энергия', value: player.max_energy.toFixed(1) });
-    if (player.achievements_count != null) act.push({ label: 'Достижений', value: player.achievements_count });
-    if (player.playtime_seconds > 0) act.push({ label: 'Дней в игре', value: Math.floor(player.playtime_seconds / 86400) });
-    if (player.position) act.push({ label: 'Локация', value: Math.round(player.position.x) + ', ' + Math.round(player.position.y || 0) + ', ' + Math.round(player.position.z) });
-    if (act.length === 0) act.push({ label: '—', value: 'Нет данных' });
-    const actEl = document.getElementById('player-modal-stats-activity');
-    if (actEl) actEl.innerHTML = act.map(s => statRow(s)).join('');
+    // Панель «Активность»
+    const actRows = [];
+    if (player.energy != null) actRows.push({
+        label: 'Энергия',
+        value: player.energy.toFixed(1) + (player.max_energy != null ? ' / ' + player.max_energy.toFixed(1) : ''),
+        cls: 'warning'
+    });
+    if (player.achievements_count != null) actRows.push({
+        label: 'Достижений',
+        value: player.achievements_count
+    });
+    if (player.position) {
+        const pos = player.position;
+        actRows.push({
+            label: 'Локация',
+            value: Math.round(pos.x) + ', ' + Math.round(pos.y || 0) + ', ' + Math.round(pos.z)
+        });
+    }
 
+    const panelsEl = document.getElementById('player-modal-panels');
+    if (panelsEl) {
+        panelsEl.innerHTML =
+            renderPanel('Учётная запись', accountRows) +
+            renderPanel('Экономика', ecoRows) +
+            renderPanel('Страна', countryRows) +
+            renderPanel('Активность', actRows);
+    }
+
+    // Кнопки действий
     const actions = [];
     if (player.country) actions.push('<button class="player-modal-btn" onclick="gotoCountry(\'' + escapeAttr(player.country) + '\')">🏛️ Перейти к стране</button>');
     if (player.position) actions.push('<button class="player-modal-btn" onclick="gotoPlayerOnMap(\'' + escapeAttr(name) + '\')">🗺️ На карте</button>');
-    actions.push('<button class="player-modal-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(name) + '\')">📋 Ник</button>');
+    actions.push('<button class="player-modal-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(name) + '\')">📋 Скопировать ник</button>');
     const actBtnEl = document.getElementById('player-modal-actions');
     if (actBtnEl) actBtnEl.innerHTML = actions.join('');
 
@@ -554,11 +634,6 @@ function openPlayer(name) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
         setTimeout(() => initSkinViewer(name, player.uuid), 80);
     }));
-}
-
-function statRow(s) {
-    return '<div class="player-stat-row"><div class="label">' + s.label + '</div>' +
-        '<div class="value ' + (s.cls || '') + '">' + escapeHtml(String(s.value)) + '</div></div>';
 }
 
 function applyDefaultCamera(viewer) {
@@ -579,14 +654,13 @@ async function initSkinViewer(name, uuid) {
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
-
     let waited = 0;
     while (window.__skinview3dStatus === 'loading' && waited < 4000) {
         await new Promise(r => setTimeout(r, 100));
         waited += 100;
     }
     if (typeof skinview3d === 'undefined') {
-        loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:32px;margin-bottom:8px;">⚠</div><div style="color:#f59e0b;font-weight:600;">skinview3d не загрузился</div><div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:240px;">Проверь интернет / блокировщик.</div></div>';
+        loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:32px;margin-bottom:8px;">⚠</div><div style="color:#f59e0b;font-weight:600;">skinview3d не загрузился</div></div>';
         return;
     }
     try {
