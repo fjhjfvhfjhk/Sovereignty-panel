@@ -1,13 +1,11 @@
 /**
  * Панель Sovereignty — полный скрипт.
  *
- * Версия v2.3:
- *   - Скины грузятся через CORS-прокси (minotar/mc-heads не отдают CORS сами)
- *   - Проверка PNG-сигнатуры (защита от HTML-ошибок прокси)
- *   - Красивая заглушка, если скин не загрузился
- *   - 404 у локальных скинов не спамит в консоль
- *   - Камера: target=(0,16,0), dist=50, fov=45 — весь скин в кадре
- *   - Свет: globalLight=cameraLight=1.2
+ * Версия v2.4:
+ *   - Маркеры игроков на карте: counter-scale, чтобы голова росла при
+ *     увеличении карты и уменьшалась при уменьшении (не линейно, а по sqrt)
+ *   - Диапазон on-screen размера головы: [18 … 72] px
+ *   - Всё остальное — из v2.3 (скины через CORS-прокси, камера, свет)
  */
 
 const DATA_URL = 'data/server1.json';
@@ -19,14 +17,18 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const BLOCKS_PER_CHUNK = 16;
 const PIXELS_PER_BLOCK = 2;
 
-// skinview3d: центр модели игрока по y = 16 (голова 24-32, ноги 0-12)
 const SKIN_CAMERA_TARGET_Y = 16;
 const SKIN_CAMERA_DISTANCE = 50;
 const SKIN_CAMERA_FOV = 45;
 const SKIN_LIGHT_INTENSITY = 1.2;
 
-// Официальный UUID Steve — для гарантированного фоллбэка через crafatar
 const STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
+
+// Размер головы игрока на карте
+const MARKER_BASE_PX = 32;      // базовый размер PNG-головы
+const MARKER_MIN_PX = 18;       // минимум на экране (при сильном zoom-out)
+const MARKER_MAX_PX = 72;       // максимум на экране (при сильном zoom-in)
+const MARKER_GROWTH_POWER = 0.5; // sqrt(zoom) — растёт быстро вначале, медленнее потом
 
 let currentData = null;
 let currentSort = 'claims';
@@ -438,7 +440,37 @@ function applyMapTransform() {
     if (!canvas) return;
     const t = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
     canvas.style.transform = t;
-    if (overlay) overlay.style.transform = t;
+    if (overlay) {
+        overlay.style.transform = t;
+        updateMarkerScale();
+    }
+}
+
+/**
+ * Counter-scale для маркеров игроков.
+ *
+ * Логика:
+ *   - overlay уже масштабируется на mapZoom
+ *   - мы хотим, чтобы ГОЛОВА на экране росла при zoom-in и уменьшалась при zoom-out,
+ *     но НЕ линейно (иначе при zoom=10 голова была бы 320px).
+ *   - целевой размер на экране = MARKER_BASE_PX * zoom^MARKER_GROWTH_POWER,
+ *     зажатый в [MARKER_MIN_PX, MARKER_MAX_PX].
+ *   - значит counter = targetPx / (base * zoom).
+ *
+ * Итог:
+ *   zoom=1    → 32px
+ *   zoom=4    → 64px
+ *   zoom=10   → 72px (кламп)
+ *   zoom=0.3  → ~18px (кламп)
+ */
+function updateMarkerScale() {
+    const overlay = document.getElementById('map-overlay');
+    if (!overlay) return;
+    const z = Math.max(0.05, mapZoom);
+    const desired = MARKER_BASE_PX * Math.pow(z, MARKER_GROWTH_POWER);
+    const clamped = Math.max(MARKER_MIN_PX, Math.min(MARKER_MAX_PX, desired));
+    const counter = clamped / (MARKER_BASE_PX * z);
+    overlay.style.setProperty('--marker-counter', counter.toFixed(4));
 }
 
 function resetMapView() {
@@ -485,16 +517,21 @@ function renderPlayerMarkers() {
         const headUrl = `${SKIN_API}/avatar/${encodeURIComponent(name)}/32`;
         const fallback = `${SKIN_API}/avatar/Steve/32`;
 
+        // Внешний .map-marker — только позиция.
+        // Внутренний .map-marker-content — counter-scale (см. updateMarkerScale).
         markers.push(`<div class="map-marker ${online ? 'online' : ''}"
              style="left:${px}px; top:${pz}px;"
              onclick="openPlayer('${escapeAttr(name)}'); event.stopPropagation();"
              title="${escapeAttr(name)}">
-            <img class="map-marker-head" src="${headUrl}" alt="" loading="lazy"
-                 onerror="this.onerror=null;this.src='${fallback}'">
-            <div class="map-marker-label">${escapeHtml(name)}</div>
+            <div class="map-marker-content">
+                <img class="map-marker-head" src="${headUrl}" alt="" loading="lazy"
+                     onerror="this.onerror=null;this.src='${fallback}'">
+                <div class="map-marker-label">${escapeHtml(name)}</div>
+            </div>
         </div>`);
     }
     overlay.innerHTML = markers.join('');
+    updateMarkerScale();
 }
 
 // ==================== PLAYERS ====================
@@ -682,7 +719,6 @@ async function initSkinViewer(name, uuid) {
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
 
-    // Ждём skinview3d
     let waited = 0;
     while (window.__skinview3dStatus === 'loading' && waited < 4000) {
         await new Promise(r => setTimeout(r, 100));
@@ -709,10 +745,8 @@ async function initSkinViewer(name, uuid) {
             height: size
         });
 
-        // Прозрачный фон — обёртка даёт градиент
         try { viewer.renderer.setClearColor(0x000000, 0); } catch (e) {}
 
-        // Свет
         try {
             if (viewer.globalLight) viewer.globalLight.intensity = SKIN_LIGHT_INTENSITY;
             if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_LIGHT_INTENSITY;
@@ -736,7 +770,6 @@ async function initSkinViewer(name, uuid) {
             currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation);
         } catch (e) {}
 
-        // Загружаем скин
         const ok = await loadSkinBytes(viewer, name, uuid);
 
         if (ok) {
@@ -775,24 +808,14 @@ async function initSkinViewer(name, uuid) {
     }
 }
 
-/**
- * Грузит скин с обходом CORS.
- *
- * mc-heads.net и minotar.net НЕ отдают Access-Control-Allow-Origin,
- * поэтому обычный fetch блокируется. Идём через CORS-прокси.
- *
- * Если всё падает — грузим Steve.
- */
 async function loadSkinBytes(viewer, name, uuid) {
     const encodedName = encodeURIComponent(name);
 
-    // Прямые (без прокси) — для same-origin (локальные скины) и crafatar
     const directSources = [
-        `${LOCAL_SKIN_DIR}${encodedName}.png`,                             // 1. локальный
-        `https://crafatar.com/skins/${STEVE_UUID}`                          // 2. Steve через crafatar (CORS-friendly)
+        `${LOCAL_SKIN_DIR}${encodedName}.png`,
+        `https://crafatar.com/skins/${STEVE_UUID}`
     ];
 
-    // Через прокси — для источников без CORS
     const proxySources = [];
     const realSkinUrls = [
         `https://minotar.net/skin/${encodedName}`,
@@ -807,32 +830,21 @@ async function loadSkinBytes(viewer, name, uuid) {
 
     for (const url of allSources) {
         try {
-            // Локальный запрос — 404 не должен шуметь в консоли
-            const isLocal = url.startsWith(LOCAL_SKIN_DIR);
             const resp = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-            if (!resp.ok) {
-                if (!isLocal) {
-                    // Только для внешних — логируем ошибки, для локальных молчим
-                    if (resp.status !== 404 || !isLocal) {
-                        // ...
-                    }
-                }
-                continue;
-            }
+            if (!resp.ok) continue;
             const buf = await resp.arrayBuffer();
-            if (!isPng(buf)) continue; // прокси мог вернуть HTML
+            if (!isPng(buf)) continue;
 
             await viewer.loadSkin(buf);
             console.log(`[skinview3d] ✓ ${name}: ${shortenUrl(url)} (${buf.byteLength}B)`);
             return true;
         } catch (e) {
-            // тихо — не спамим консоль на каждый упавший источник
+            // тихо
         }
     }
     return false;
 }
 
-/** Проверяет PNG-сигнатуру (8 байт: 89 50 4E 47 0D 0A 1A 0A). */
 function isPng(buffer) {
     if (!buffer || buffer.byteLength < 8) return false;
     const bytes = new Uint8Array(buffer, 0, 8);
