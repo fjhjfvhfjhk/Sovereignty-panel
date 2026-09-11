@@ -1,6 +1,6 @@
 /**
- * Веб-панель Sovereignty — диагностическая версия.
- * Показывает точную ошибку, если данные не загружаются.
+ * Веб-панель Sovereignty: данные + интерактивная карта территорий.
+ * Зум работает к позиции курсора — карта не «прыгает».
  */
 
 const DATA_URL = 'data/server1.json';
@@ -26,7 +26,6 @@ const PALETTE = [
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Добавляем кнопку "Обновить сейчас"
     const header = document.querySelector('.header-meta');
     if (header) {
         const btn = document.createElement('button');
@@ -59,46 +58,29 @@ async function loadData() {
 
     try {
         const url = DATA_URL + '?t=' + Date.now();
-        console.log('[Sovereignty] Запрос:', url);
         const response = await fetch(url);
-
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status} — файл data/server1.json не найден или недоступен. Проверьте, что он есть в репозитории.`);
+            throw new Error(`HTTP ${response.status} — файл data/server1.json не найден.`);
         }
-
         const text = await response.text();
-        console.log('[Sovereignty] Ответ (первые 200 символов):', text.substring(0, 200));
-
         if (!text || text.trim().length === 0) {
-            throw new Error('Файл data/server1.json пустой. Плагин не отправил данные.');
+            throw new Error('Файл data/server1.json пустой.');
         }
-
         try {
             currentData = JSON.parse(text);
         } catch (parseErr) {
-            throw new Error('Ошибка парсинга JSON: ' + parseErr.message + ' (первые 100 символов: ' + text.substring(0, 100) + ')');
+            throw new Error('Ошибка парсинга JSON: ' + parseErr.message);
         }
-
-        if (!currentData || typeof currentData !== 'object') {
-            throw new Error('JSON содержит не объект: ' + typeof currentData);
-        }
-
-        console.log('[Sovereignty] Данные получены:', currentData);
         render();
         loadMap();
-
     } catch (err) {
-        console.error('[Sovereignty] ОШИБКА:', err);
+        console.error('[Sovereignty] Ошибка:', err);
         document.getElementById('server-name').textContent = '⚠ Ошибка загрузки';
         tbody.innerHTML = `
             <tr><td colspan="8" class="loading" style="text-align:left;padding:20px;color:#ef4444;">
                 <strong>❌ Не удалось загрузить данные</strong><br><br>
                 <strong>Причина:</strong> ${escapeHtml(err.message)}<br><br>
-                <strong>Что проверить:</strong><br>
-                1. Откройте файл <a href="${DATA_URL}" target="_blank" style="color:#818cf8;">${DATA_URL}</a> — он должен существовать и содержать валидный JSON.<br>
-                2. Проверьте логи сервера: есть ли сообщение <code>[WebPanel] Данные и карта отправлены на GitHub.</code><br>
-                3. Проверьте, не истёк ли токен GitHub (создайте новый и обновите <code>webpanel.yml</code>).<br>
-                4. Если в логах <code>Ошибка публикации</code> — прочитайте текст ошибки.
+                Проверьте: <a href="${DATA_URL}" target="_blank" style="color:#818cf8;">${DATA_URL}</a>
             </td></tr>
         `;
     }
@@ -110,10 +92,14 @@ function loadMap() {
 
     const testImg = new Image();
     testImg.onload = () => {
+        const wasHidden = img.style.display === 'none';
         img.src = MAP_URL + '?t=' + Date.now();
         img.style.display = 'block';
         placeholder.style.display = 'none';
-        setTimeout(resetMapView, 100);
+        // Сброс вида только если карта была скрыта (первая загрузка)
+        if (wasHidden) {
+            setTimeout(resetMapView, 150);
+        }
     };
     testImg.onerror = () => {
         img.style.display = 'none';
@@ -132,41 +118,30 @@ function loadMap() {
 function render() {
     if (!currentData) return;
 
-    try {
-        document.getElementById('server-name').textContent = currentData.server_name || 'Сервер';
-        document.getElementById('online-badge').textContent =
-            `Онлайн: ${currentData.online_players || 0} / ${currentData.max_players || 0}`;
+    document.getElementById('server-name').textContent = currentData.server_name || 'Сервер';
+    document.getElementById('online-badge').textContent =
+        `Онлайн: ${currentData.online_players || 0} / ${currentData.max_players || 0}`;
 
-        const updated = currentData.updated_at;
-        if (updated) {
-            const minutes = Math.floor((Date.now() - updated) / 60000);
-            const ago = minutes < 1 ? 'только что'
-                : minutes < 60 ? `${minutes} мин назад`
-                : `${Math.floor(minutes / 60)} ч назад`;
-            document.getElementById('updated-badge').textContent = `Обновлено: ${ago}`;
-        } else {
-            document.getElementById('updated-badge').textContent = 'Нет метки времени';
-        }
-
-        const countries = currentData.countries || [];
-        document.getElementById('countries-count').textContent = countries.length;
-        document.getElementById('total-claims').textContent =
-            countries.reduce((sum, c) => sum + (c.claims || 0), 0).toLocaleString('ru-RU');
-        document.getElementById('total-bank').textContent =
-            formatMoney(countries.reduce((sum, c) => sum + (c.bank || 0), 0));
-        document.getElementById('total-energy').textContent =
-            countries.reduce((sum, c) => sum + (c.energy || 0), 0).toFixed(1);
-
-        renderCountries();
-        renderLegend();
-    } catch (err) {
-        console.error('[Sovereignty] Ошибка рендера:', err);
-        document.getElementById('countries-body').innerHTML =
-            `<tr><td colspan="8" class="loading" style="color:#ef4444;">
-                ❌ Ошибка рендера: ${escapeHtml(err.message)}<br>
-                Проверьте консоль (F12) для деталей.
-            </td></tr>`;
+    const updated = currentData.updated_at;
+    if (updated) {
+        const minutes = Math.floor((Date.now() - updated) / 60000);
+        const ago = minutes < 1 ? 'только что'
+            : minutes < 60 ? `${minutes} мин назад`
+            : `${Math.floor(minutes / 60)} ч назад`;
+        document.getElementById('updated-badge').textContent = `Обновлено: ${ago}`;
     }
+
+    const countries = currentData.countries || [];
+    document.getElementById('countries-count').textContent = countries.length;
+    document.getElementById('total-claims').textContent =
+        countries.reduce((sum, c) => sum + (c.claims || 0), 0).toLocaleString('ru-RU');
+    document.getElementById('total-bank').textContent =
+        formatMoney(countries.reduce((sum, c) => sum + (c.bank || 0), 0));
+    document.getElementById('total-energy').textContent =
+        countries.reduce((sum, c) => sum + (c.energy || 0), 0).toFixed(1);
+
+    renderCountries();
+    renderLegend();
 }
 
 function renderCountries() {
@@ -266,7 +241,7 @@ function showDetails(countryName) {
     document.getElementById('country-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ==================== КАРТА ====================
+// ==================== КАРТА (PAN + ZOOM К КУРСОРУ) ====================
 
 function initMapControls() {
     const viewport = document.getElementById('map-viewport');
@@ -291,8 +266,23 @@ function initMapControls() {
     viewport.addEventListener('wheel', (e) => {
         if (img.style.display === 'none') return;
         e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.85 : 1.15;
-        mapZoom = Math.max(0.2, Math.min(8, mapZoom * delta));
+
+        const rect = viewport.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+
+        // Точка на изображении под курсором (в его «собственных» координатах)
+        const imgX = (cursorX - mapOffsetX) / mapZoom;
+        const imgY = (cursorY - mapOffsetY) / mapZoom;
+
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.15, Math.min(10, mapZoom * delta));
+
+        // Сдвигаем offset так, чтобы курсор остался на той же точке
+        mapZoom = newZoom;
+        mapOffsetX = cursorX - imgX * mapZoom;
+        mapOffsetY = cursorY - imgY * mapZoom;
+
         applyMapTransform();
     }, { passive: false });
 
@@ -313,7 +303,7 @@ function resetMapView() {
     const vh = viewport.clientHeight;
     const iw = img.naturalWidth;
     const ih = img.naturalHeight;
-    const scale = Math.min(vw / iw, vh / ih) * 0.95;
+    const scale = Math.min(vw / iw, vh / ih) * 0.98;
     mapZoom = scale;
     mapOffsetX = (vw - iw * scale) / 2;
     mapOffsetY = (vh - ih * scale) / 2;
