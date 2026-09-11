@@ -1,10 +1,10 @@
-/* Sovereignty panel v3.5 */
+/* Sovereignty panel v3.6 */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v3.5';
+var APP_VERSION = 'v3.6';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -16,7 +16,15 @@ var REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
+
+// === Камера ===
+// fov=50, dist=40, target=(0,16,0) → видимая высота = 2*40*tan(25°) ≈ 37.3 unit
+// модель = 32 unit → занимает 32/37.3 ≈ 86% кадра
 var SKIN_FOV = 50;
+var SKIN_CAM_TARGET_Y = 16;
+var SKIN_CAM_Y = 18;
+var SKIN_CAM_Z = 40;
+
 var SKIN_GLOBAL_LIGHT = 1.8;
 var SKIN_CAMERA_LIGHT = 1.5;
 var MARKER_BASE_PX = 32;
@@ -689,26 +697,12 @@ function renderPanelRow(r) {
 
 /* ================= 3D VIEWER ================= */
 
-/**
- * Устанавливает камеру так, чтобы вся модель (голова+тело+руки+ноги) была видна.
- * Используем ту же позицию, что skinview3d ставит по умолчанию —
- * разработчики библиотеки уже подобрали её так, что модель целиком в кадре.
- *
- * Дефолт skinview3d:
- *   camera.position = (20, 25, 40)
- *   controls.target = (0, 16, 0)
- *
- * Пересчитываем в прямой вид спереди, сохраняя дистанцию:
- *   distance = sqrt(20² + (25-16)² + 40²) ≈ 45.6
- *   front-view: camera = (0, 16+9, 45.6) = (0, 25, 45.6) — но это перебор
- *   Прямой вид спереди: camera = (0, 18, 46), target = (0, 16, 0)
- */
 function resetSkinCamera(viewer) {
     try {
         viewer.fov = SKIN_FOV;
 
-        var tx = 0, ty = 16, tz = 0;         // центр модели
-        var cx = 0, cy = 20, cz = 48;        // спереди, чуть-чуть выше
+        var tx = 0, ty = SKIN_CAM_TARGET_Y, tz = 0;
+        var cx = 0, cy = SKIN_CAM_Y, cz = SKIN_CAM_Z;
 
         viewer.controls.target.set(tx, ty, tz);
         viewer.camera.position.set(cx, cy, cz);
@@ -783,13 +777,11 @@ function initSkinViewer(name, uuid) {
                     skin: skinUrl
                 });
 
-                // === Свет (яркий) ===
                 try {
                     if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
                     if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
                 } catch (e) {}
 
-                // === Контролы: полная свобода вращения по всем осям ===
                 viewer.controls.enableZoom = true;
                 viewer.controls.enablePan = false;
                 viewer.controls.enableRotate = true;
@@ -797,19 +789,16 @@ function initSkinViewer(name, uuid) {
                 viewer.controls.zoomSpeed = 0.8;
                 viewer.controls.minPolarAngle = 0.05;
                 viewer.controls.maxPolarAngle = Math.PI - 0.05;
-                viewer.controls.minDistance = 25;
-                viewer.controls.maxDistance = 100;
+                viewer.controls.minDistance = 20;
+                viewer.controls.maxDistance = 90;
 
-                // Ник над головой
                 try {
                     viewer.nameTag = new skinview3d.NameTagObject(name);
                     viewer.nameTag.visible = true;
                 } catch (e) {}
 
-                // Автовращение
                 try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
 
-                // Пауза автовращения при ручном drag
                 var userInteracting = false;
                 newCanvas.addEventListener('pointerdown', function () {
                     userInteracting = true;
@@ -826,11 +815,15 @@ function initSkinViewer(name, uuid) {
 
                 currentSkinViewer = viewer;
 
-                // Ставим камеру СРАЗУ (до loadSkin), потом ещё раз после
-                // — на случай если loadSkin сбросит позицию
+                // Ставим камеру сразу и ещё раз после загрузки скина
                 resetSkinCamera(viewer);
 
                 if (loading) loading.classList.add('hidden');
+
+                // Пересбрасываем камеру ещё раз — на случай если loadSkin сбросил
+                setTimeout(function () {
+                    if (currentSkinViewer === viewer) resetSkinCamera(viewer);
+                }, 250);
 
                 var ro = new ResizeObserver(function () {
                     if (!currentSkinViewer) return;
