@@ -1,4 +1,4 @@
-/* Sovereignty panel v3.3 — компактная сборка */
+/* Sovereignty panel v3.4 — камера через zoomToFit */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
@@ -14,10 +14,8 @@ var REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
-var SKIN_CAMERA_TARGET_Y = 16;
-var SKIN_CAMERA_DISTANCE = 46;
-var SKIN_CAMERA_FOV = 42;
-var SKIN_CAMERA_MIN_DIST = 22;
+var SKIN_CAMERA_FOV = 40;
+var SKIN_CAMERA_MIN_DIST = 15;
 var SKIN_CAMERA_MAX_DIST = 90;
 var SKIN_GLOBAL_LIGHT = 1.8;
 var SKIN_CAMERA_LIGHT = 1.5;
@@ -53,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
         var rb = document.getElementById('refresh-btn');
         if (rb) rb.onclick = function () { loadData(); loadMap(); };
-    } catch (e) { console.error('refresh:', e); }
+    } catch (e) {}
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
     setInterval(function () {
@@ -99,7 +97,9 @@ function initModalControls() {
         rotBtn.classList.toggle('active', rotatePaused);
     };
     var resetBtn = document.getElementById('skin-reset-view');
-    if (resetBtn) resetBtn.onclick = function () { if (currentSkinViewer) applyDefaultCamera(currentSkinViewer); };
+    if (resetBtn) resetBtn.onclick = function () {
+        if (currentSkinViewer) centerSkinViewer(currentSkinViewer);
+    };
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
         if (currentSkinViewer && currentSkinViewer.nameTag)
@@ -131,7 +131,6 @@ function preloadLocalSkins() {
     if (players.length === 0) return;
     var toLoad = players.filter(function (p) { return p.name && !localLoadedAttempted.has(p.name); });
     if (toLoad.length === 0) return;
-    console.log('[Skins] Пробую загрузить: ' + toLoad.length);
     var done = 0, loaded = 0;
     toLoad.forEach(function (p) {
         localLoadedAttempted.add(p.name);
@@ -208,7 +207,6 @@ function refreshHeadImages() {
 /* ================= DATA ================= */
 
 function loadData() {
-    console.log('[Sovereignty] loadData старт');
     var tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) {
         tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
@@ -691,14 +689,39 @@ function renderPanelRow(r) {
 
 /* ================= 3D VIEWER ================= */
 
-function applyDefaultCamera(viewer) {
+/**
+ * Центрирует камеру так, чтобы модель игрока целиком попала в кадр.
+ *
+ * 1. viewer.zoomToFit() — встроенный метод skinview3d, сам вычисляет
+ *    bounding box модели и подбирает дистанцию. Гарантированно влезает
+ *    вся модель (голова + тело + ноги + руки).
+ * 2. После этого маленько отодвигаем камеру (x1.15), чтобы было чуть-чуть
+ *    воздуха по краям, как на NameMC.
+ */
+function centerSkinViewer(viewer) {
     try {
         viewer.fov = SKIN_CAMERA_FOV;
-        viewer.camera.position.set(0, SKIN_CAMERA_TARGET_Y + 1.2, SKIN_CAMERA_DISTANCE);
-        viewer.camera.lookAt(0, SKIN_CAMERA_TARGET_Y, 0);
-        viewer.controls.target.set(0, SKIN_CAMERA_TARGET_Y, 0);
+        viewer.zoomToFit();
+        // Немного отодвигаем — zoomToFit впритык, а нам нужен воздух
+        var t = viewer.controls.target;
+        var cam = viewer.camera.position;
+        var dx = cam.x - t.x, dy = cam.y - t.y, dz = cam.z - t.z;
+        var factor = 1.15;
+        cam.set(t.x + dx * factor, t.y + dy * factor, t.z + dz * factor);
         viewer.controls.update();
-    } catch (e) {}
+        console.log('[skinview3d] centered: cam=(' +
+            cam.x.toFixed(1) + ',' + cam.y.toFixed(1) + ',' + cam.z.toFixed(1) +
+            ') target=(' + t.x.toFixed(1) + ',' + t.y.toFixed(1) + ',' + t.z.toFixed(1) + ')');
+    } catch (e) {
+        console.warn('[skinview3d] zoomToFit не сработал, fallback:', e);
+        // Fallback: если zoomToFit недоступен — ставим камеру по классике
+        try {
+            viewer.camera.position.set(0, 16, 50);
+            viewer.camera.lookAt(0, 16, 0);
+            viewer.controls.target.set(0, 16, 0);
+            viewer.controls.update();
+        } catch (e2) {}
+    }
 }
 
 function resolveSkinUrl(name, uuid) {
@@ -749,8 +772,7 @@ function initSkinViewer(name, uuid) {
                 var viewer = new skinview3d.SkinViewer({
                     canvas: newCanvas,
                     width: size,
-                    height: size,
-                    skin: skinUrl
+                    height: size
                 });
 
                 try {
@@ -758,8 +780,7 @@ function initSkinViewer(name, uuid) {
                     if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
                 } catch (e) {}
 
-                applyDefaultCamera(viewer);
-
+                // Контролы
                 viewer.controls.enableZoom = true;
                 viewer.controls.enablePan = false;
                 viewer.controls.enableRotate = true;
@@ -792,7 +813,22 @@ function initSkinViewer(name, uuid) {
                 newCanvas.addEventListener('pointercancel', function () { userInteracting = false; });
 
                 currentSkinViewer = viewer;
-                if (loading) loading.classList.add('hidden');
+
+                // Загружаем скин, потом центрируем камеру
+                // viewer.loadSkin возвращает промис — используем .then, чтобы центр был после загрузки
+                viewer.loadSkin(skinUrl).then(function () {
+                    console.log('[skinview3d] skin загружен для ' + name);
+                    // Ждём один кадр — модели нужно время на обновление геометрии
+                    requestAnimationFrame(function () {
+                        centerSkinViewer(viewer);
+                        if (loading) loading.classList.add('hidden');
+                    });
+                }).catch(function (err) {
+                    console.warn('[skinview3d] skin load failed:', err);
+                    // Всё равно центрируем на Steve
+                    centerSkinViewer(viewer);
+                    if (loading) loading.classList.add('hidden');
+                });
 
                 var ro = new ResizeObserver(function () {
                     if (!currentSkinViewer) return;
@@ -804,7 +840,6 @@ function initSkinViewer(name, uuid) {
                 });
                 ro.observe(wrap);
 
-                console.log('[skinview3d] ✓ viewer создан для ' + name);
             } catch (err) {
                 console.error('[skinview3d] Ошибка:', err);
                 if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
