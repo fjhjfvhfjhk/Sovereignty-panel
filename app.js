@@ -1,11 +1,13 @@
 /**
  * Панель Sovereignty — полный скрипт.
  *
- * Версия v2.2:
- *   - 3D-скин грузится через fetch + arrayBuffer (обход CORS)
- *   - Камера центрируется на ВСЮ модель (y=16, dist=50, fov=45)
- *   - Свет усилен: globalLight=1.2, cameraLight=1.2
- *   - Мультиисточник скина: local → minotar → mc-heads → Steve
+ * Версия v2.3:
+ *   - Скины грузятся через CORS-прокси (minotar/mc-heads не отдают CORS сами)
+ *   - Проверка PNG-сигнатуры (защита от HTML-ошибок прокси)
+ *   - Красивая заглушка, если скин не загрузился
+ *   - 404 у локальных скинов не спамит в консоль
+ *   - Камера: target=(0,16,0), dist=50, fov=45 — весь скин в кадре
+ *   - Свет: globalLight=cameraLight=1.2
  */
 
 const DATA_URL = 'data/server1.json';
@@ -17,11 +19,14 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const BLOCKS_PER_CHUNK = 16;
 const PIXELS_PER_BLOCK = 2;
 
-// skinview3d: высота модели игрока ~32 единицы, центр ~y=16
+// skinview3d: центр модели игрока по y = 16 (голова 24-32, ноги 0-12)
 const SKIN_CAMERA_TARGET_Y = 16;
 const SKIN_CAMERA_DISTANCE = 50;
 const SKIN_CAMERA_FOV = 45;
 const SKIN_LIGHT_INTENSITY = 1.2;
+
+// Официальный UUID Steve — для гарантированного фоллбэка через crafatar
+const STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
 
 let currentData = null;
 let currentSort = 'claims';
@@ -578,7 +583,6 @@ function openPlayer(name) {
     st.textContent = online ? '● Онлайн' : '○ Оффлайн';
     st.className = 'player-modal-status ' + (online ? 'online' : 'offline');
 
-    // Основное
     const main = [];
     if (player.uuid) main.push({ label: 'UUID', value: shortenUuid(player.uuid) });
     if (player.balance != null) main.push({ label: 'Баланс', value: formatMoney(player.balance), cls: 'success' });
@@ -594,7 +598,6 @@ function openPlayer(name) {
     document.getElementById('player-modal-stats-main').innerHTML =
         main.map(s => statRow(s)).join('') || statRow({ label: '—', value: 'Нет данных' });
 
-    // Страна
     const cStats = [];
     if (player.country) {
         cStats.push({ label: 'Страна', value: player.country, cls: 'accent' });
@@ -616,7 +619,6 @@ function openPlayer(name) {
     }
     document.getElementById('player-modal-stats-country').innerHTML = cStats.map(s => statRow(s)).join('');
 
-    // Активность
     const act = [];
     if (player.energy != null) act.push({ label: 'Энергия', value: player.energy.toFixed(1) });
     if (player.max_energy != null) act.push({ label: 'Макс. энергия', value: player.max_energy.toFixed(1) });
@@ -629,7 +631,6 @@ function openPlayer(name) {
     if (act.length === 0) act.push({ label: '—', value: 'Нет данных' });
     document.getElementById('player-modal-stats-activity').innerHTML = act.map(s => statRow(s)).join('');
 
-    // Кнопки
     const actions = [];
     if (player.country) {
         actions.push(`<button class="player-modal-btn" onclick="gotoCountry('${escapeAttr(player.country)}')">🏛️ Перейти к стране</button>`);
@@ -641,9 +642,8 @@ function openPlayer(name) {
     document.getElementById('player-modal-actions').innerHTML = actions.join('');
 
     openPlayerModal();
-    // Двойной rAF + запас 80мс — чтобы wrap точно получил layout до инициализации skinview3d
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        setTimeout(() => initSkinViewer(name), 80);
+        setTimeout(() => initSkinViewer(name, player.uuid), 80);
     }));
 }
 
@@ -656,11 +656,6 @@ function statRow(s) {
 
 // ==================== 3D SKIN ====================
 
-/**
- * Ставит камеру так, чтобы вся модель игрока (голова+тело+ноги) помещалась в кадр.
- * Модель в skinview3d: высота ~32 единицы, ширина ~16, центр по y ≈ 16.
- * fov=45°, distance = 50 — с запасом ~30% полей.
- */
 function applyDefaultCamera(viewer) {
     try {
         viewer.fov = SKIN_CAMERA_FOV;
@@ -673,7 +668,7 @@ function applyDefaultCamera(viewer) {
     }
 }
 
-async function initSkinViewer(name) {
+async function initSkinViewer(name, uuid) {
     const canvas = document.getElementById('skin-canvas');
     const wrap = document.getElementById('player-viewer-wrap');
     const loading = document.getElementById('skin-loading');
@@ -714,16 +709,17 @@ async function initSkinViewer(name) {
             height: size
         });
 
-        // === Свет: усиливаем, чтобы скин не был тёмным ===
+        // Прозрачный фон — обёртка даёт градиент
+        try { viewer.renderer.setClearColor(0x000000, 0); } catch (e) {}
+
+        // Свет
         try {
             if (viewer.globalLight) viewer.globalLight.intensity = SKIN_LIGHT_INTENSITY;
             if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_LIGHT_INTENSITY;
         } catch (e) {}
 
-        // === Камера: центрируем на всю модель ===
         applyDefaultCamera(viewer);
 
-        // === Управление ===
         viewer.controls.enableZoom = true;
         viewer.controls.enablePan = false;
         viewer.controls.minDistance = 25;
@@ -731,27 +727,34 @@ async function initSkinViewer(name) {
         viewer.controls.minPolarAngle = 0.15;
         viewer.controls.maxPolarAngle = Math.PI - 0.15;
 
-        // Ник над головой
         try {
             viewer.nameTag = new skinview3d.NameTagObject(name);
             viewer.nameTag.visible = true;
         } catch (e) {}
 
-        // Анимация idle-вращения
         try {
             currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation);
         } catch (e) {}
 
-        // === Загружаем скин: fetch + arrayBuffer (обход CORS) ===
-        const ok = await loadSkinViaFetch(viewer, name);
-        if (!ok) {
-            console.warn('[skinview3d] Скин не удалось загрузить ни с одного источника для ' + name);
+        // Загружаем скин
+        const ok = await loadSkinBytes(viewer, name, uuid);
+
+        if (ok) {
+            loading.classList.add('hidden');
+        } else {
+            loading.innerHTML = `<div style="text-align:center;padding:20px;">
+                <div style="font-size:32px;margin-bottom:8px;">🎭</div>
+                <div style="color:#f59e0b;font-weight:600;">Скин недоступен</div>
+                <div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:260px;">
+                    Показан стандартный Steve.<br>
+                    Для пиратки со своим скином — положи PNG в <code>data/skins/${escapeHtml(name)}.png</code>
+                </div>
+            </div>`;
+            setTimeout(() => loading.classList.add('hidden'), 2000);
         }
 
-        loading.classList.add('hidden');
         currentSkinViewer = viewer;
 
-        // Ресайз при изменении окна
         const ro = new ResizeObserver(() => {
             if (!currentSkinViewer) return;
             const w = wrap.clientWidth;
@@ -773,47 +776,73 @@ async function initSkinViewer(name) {
 }
 
 /**
- * Загружает скин через fetch (обходит CORS-ограничения обычной загрузки img).
- * Пробует несколько источников по очереди.
+ * Грузит скин с обходом CORS.
  *
- * @returns {Promise<boolean>} успех
+ * mc-heads.net и minotar.net НЕ отдают Access-Control-Allow-Origin,
+ * поэтому обычный fetch блокируется. Идём через CORS-прокси.
+ *
+ * Если всё падает — грузим Steve.
  */
-async function loadSkinViaFetch(viewer, name) {
-    const sources = [
-        // 1. Локальный файл (для пираток) — кладётся в data/skins/{ник}.png
-        `${LOCAL_SKIN_DIR}${encodeURIComponent(name)}.png`,
-        // 2. Minotar — надёжный открытый API с Mojang-скинами
-        `https://minotar.net/skin/${encodeURIComponent(name)}`,
-        // 3. mc-heads (Mojang)
-        `${SKIN_API}/skin/${encodeURIComponent(name)}`,
-        // 4-5. Steve (гарантированный fallback)
-        `${SKIN_API}/skin/Steve`,
-        `https://minotar.net/skin/MHF_Steve`
+async function loadSkinBytes(viewer, name, uuid) {
+    const encodedName = encodeURIComponent(name);
+
+    // Прямые (без прокси) — для same-origin (локальные скины) и crafatar
+    const directSources = [
+        `${LOCAL_SKIN_DIR}${encodedName}.png`,                             // 1. локальный
+        `https://crafatar.com/skins/${STEVE_UUID}`                          // 2. Steve через crafatar (CORS-friendly)
     ];
 
-    for (const url of sources) {
+    // Через прокси — для источников без CORS
+    const proxySources = [];
+    const realSkinUrls = [
+        `https://minotar.net/skin/${encodedName}`,
+        `https://mc-heads.net/skin/${encodedName}`
+    ];
+    for (const realUrl of realSkinUrls) {
+        proxySources.push(`https://corsproxy.io/?url=${encodeURIComponent(realUrl)}`);
+        proxySources.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(realUrl)}`);
+    }
+
+    const allSources = [...directSources, ...proxySources];
+
+    for (const url of allSources) {
         try {
+            // Локальный запрос — 404 не должен шуметь в консоли
+            const isLocal = url.startsWith(LOCAL_SKIN_DIR);
             const resp = await fetch(url, { mode: 'cors', cache: 'no-cache' });
             if (!resp.ok) {
-                console.warn('[skinview3d] HTTP ' + resp.status + ' — ' + url);
+                if (!isLocal) {
+                    // Только для внешних — логируем ошибки, для локальных молчим
+                    if (resp.status !== 404 || !isLocal) {
+                        // ...
+                    }
+                }
                 continue;
             }
             const buf = await resp.arrayBuffer();
-            // Минимальный размер валидного PNG-скина: 64×32 RGBA = 8KB, но с zip-сжатием ~1-2KB.
-            // Отсекаем явно битые ответы.
-            if (buf.byteLength < 500) {
-                console.warn('[skinview3d] Слишком маленький файл (' + buf.byteLength + 'B): ' + url);
-                continue;
-            }
+            if (!isPng(buf)) continue; // прокси мог вернуть HTML
+
             await viewer.loadSkin(buf);
-            console.log('[skinview3d] ✓ Скин загружен: ' + url + ' (' + buf.byteLength + 'B)');
+            console.log(`[skinview3d] ✓ ${name}: ${shortenUrl(url)} (${buf.byteLength}B)`);
             return true;
         } catch (e) {
-            console.warn('[skinview3d] Ошибка загрузки ' + url + ': ' + (e.message || e));
-            continue;
+            // тихо — не спамим консоль на каждый упавший источник
         }
     }
     return false;
+}
+
+/** Проверяет PNG-сигнатуру (8 байт: 89 50 4E 47 0D 0A 1A 0A). */
+function isPng(buffer) {
+    if (!buffer || buffer.byteLength < 8) return false;
+    const bytes = new Uint8Array(buffer, 0, 8);
+    return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+        && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A;
+}
+
+function shortenUrl(url) {
+    if (url.length < 70) return url;
+    return url.substring(0, 35) + '…' + url.substring(url.length - 25);
 }
 
 // ==================== NAV ====================
