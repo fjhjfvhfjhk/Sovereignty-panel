@@ -1,6 +1,12 @@
 /**
- * Веб-панель Sovereignty: данные + интерактивная карта территорий.
- * Зум работает к позиции курсора — карта не «прыгает».
+ * Веб-панель Sovereignty.
+ *
+ * Возможности:
+ *   - табы: Обзор / Карта / Гайд / Команды / Бонусы
+ *   - интерактивная карта (pan + zoom + click по стране через canvas)
+ *   - копирование команд в буфер (клик по <code data-copy>)
+ *   - единый поиск по командам
+ *   - условные секции Бонусов (джекпот, события, войны, топ покера, наёмники)
  */
 
 const DATA_URL = 'data/server1.json';
@@ -13,8 +19,16 @@ let mapZoom = 1;
 let mapOffsetX = 0;
 let mapOffsetY = 0;
 let isDragging = false;
-let dragStartX = 0, dragStartY = 0;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragMoved = false;
 let highlightedCountry = null;
+
+// Для click-to-country через canvas
+let mapImage = null;         // HTMLImageElement (оригинал PNG)
+let mapCanvas = null;
+let mapCtx = null;
+let mapReady = false;
 
 const PALETTE = [
     '#6366f1', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
@@ -26,83 +40,107 @@ const PALETTE = [
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 document.addEventListener('DOMContentLoaded', () => {
-    const header = document.querySelector('.header-meta');
-    if (header) {
-        const btn = document.createElement('button');
-        btn.className = 'badge';
-        btn.style.cursor = 'pointer';
-        btn.textContent = '🔄 Обновить';
-        btn.onclick = () => { loadData(); loadMap(); };
-        header.appendChild(btn);
-    }
+    initTabs();
+    initSortTabs();
+    initMapControls();
+    initCommandCopy();
+    initGuideNav();
+    initCommandSearch();
+
+    document.getElementById('refresh-btn').onclick = () => {
+        loadData();
+        loadMap();
+    };
 
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
-    initMapControls();
+});
 
-    document.querySelectorAll('.tab').forEach(tab => {
+function initTabs() {
+    document.querySelectorAll('.main-nav .nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const target = document.getElementById('tab-' + tab);
+            if (target) target.classList.add('active');
+
+            // При переходе на карту — пересчитать вид
+            if (tab === 'map' && mapReady) {
+                setTimeout(resetMapView, 50);
+            }
+        });
+    });
+}
+
+function initSortTabs() {
+    document.querySelectorAll('.tab[data-sort]').forEach(tab => {
         tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab[data-sort]').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             currentSort = tab.dataset.sort;
             renderCountries();
         });
     });
-});
+}
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 
 async function loadData() {
     const tbody = document.getElementById('countries-body');
-    tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
 
     try {
         const url = DATA_URL + '?t=' + Date.now();
         const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status} — файл data/server1.json не найден.`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status} — файл data/server1.json не найден.`);
         const text = await response.text();
-        if (!text || text.trim().length === 0) {
-            throw new Error('Файл data/server1.json пустой.');
-        }
+        if (!text || text.trim().length === 0) throw new Error('Файл data/server1.json пустой.');
+
         try {
             currentData = JSON.parse(text);
         } catch (parseErr) {
             throw new Error('Ошибка парсинга JSON: ' + parseErr.message);
         }
+
         render();
         loadMap();
     } catch (err) {
         console.error('[Sovereignty] Ошибка:', err);
         document.getElementById('server-name').textContent = '⚠ Ошибка загрузки';
-        tbody.innerHTML = `
-            <tr><td colspan="8" class="loading" style="text-align:left;padding:20px;color:#ef4444;">
-                <strong>❌ Не удалось загрузить данные</strong><br><br>
-                <strong>Причина:</strong> ${escapeHtml(err.message)}<br><br>
-                Проверьте: <a href="${DATA_URL}" target="_blank" style="color:#818cf8;">${DATA_URL}</a>
-            </td></tr>
-        `;
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr><td colspan="8" class="loading" style="text-align:left;padding:20px;color:#ef4444;">
+                    <strong>❌ Не удалось загрузить данные</strong><br><br>
+                    <strong>Причина:</strong> ${escapeHtml(err.message)}<br><br>
+                    Проверьте: <a href="${DATA_URL}" target="_blank" style="color:#818cf8;">${DATA_URL}</a>
+                </td></tr>
+            `;
+        }
     }
 }
 
-function loadMap() {
-    const img = document.getElementById('map-canvas');
-    const placeholder = document.getElementById('map-placeholder');
+// ==================== КАРТА ====================
 
-    const testImg = new Image();
-    testImg.onload = () => {
-        const wasHidden = img.style.display === 'none';
-        img.src = MAP_URL + '?t=' + Date.now();
-        img.style.display = 'block';
+function loadMap() {
+    const placeholder = document.getElementById('map-placeholder');
+    const canvas = document.getElementById('map-canvas');
+    if (!canvas) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        mapImage = img;
+        setupCanvas(img.naturalWidth, img.naturalHeight);
+        mapReady = true;
         placeholder.style.display = 'none';
-        // Сброс вида только если карта была скрыта (первая загрузка)
-        if (wasHidden) {
-            setTimeout(resetMapView, 150);
-        }
+        canvas.style.display = 'block';
+        setTimeout(resetMapView, 50);
     };
-    testImg.onerror = () => {
-        img.style.display = 'none';
+    img.onerror = () => {
+        mapReady = false;
+        canvas.style.display = 'none';
         placeholder.style.display = 'block';
         placeholder.innerHTML = `
             <div class="map-placeholder-icon">🗺️</div>
@@ -110,7 +148,168 @@ function loadMap() {
             <p style="font-size:12px;margin-top:8px;">Файл: <a href="${MAP_URL}" target="_blank" style="color:#818cf8;">${MAP_URL}</a></p>
         `;
     };
-    testImg.src = MAP_URL + '?t=' + Date.now();
+    img.src = MAP_URL + '?t=' + Date.now();
+}
+
+function setupCanvas(w, h) {
+    const canvas = document.getElementById('map-canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    mapCanvas = canvas;
+    mapCtx = canvas.getContext('2d', { willReadFrequently: true });
+    mapCtx.drawImage(mapImage, 0, 0);
+}
+
+function initMapControls() {
+    const viewport = document.getElementById('map-viewport');
+    if (!viewport) return;
+
+    viewport.addEventListener('mousedown', (e) => {
+        if (!mapReady) return;
+        isDragging = true;
+        dragMoved = false;
+        dragStartX = e.clientX - mapOffsetX;
+        dragStartY = e.clientY - mapOffsetY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const newX = e.clientX - dragStartX;
+        const newY = e.clientY - dragStartY;
+        if (Math.abs(newX - mapOffsetX) > 3 || Math.abs(newY - mapOffsetY) > 3) {
+            dragMoved = true;
+        }
+        mapOffsetX = newX;
+        mapOffsetY = newY;
+        applyMapTransform();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    viewport.addEventListener('click', (e) => {
+        if (!mapReady || dragMoved) return;
+        handleMapClick(e);
+    });
+
+    viewport.addEventListener('wheel', (e) => {
+        if (!mapReady) return;
+        e.preventDefault();
+
+        const rect = viewport.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+
+        const imgX = (cursorX - mapOffsetX) / mapZoom;
+        const imgY = (cursorY - mapOffsetY) / mapZoom;
+
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.1, Math.min(12, mapZoom * delta));
+
+        mapZoom = newZoom;
+        mapOffsetX = cursorX - imgX * mapZoom;
+        mapOffsetY = cursorY - imgY * mapZoom;
+
+        applyMapTransform();
+    }, { passive: false });
+
+    const resetBtn = document.getElementById('map-reset');
+    if (resetBtn) resetBtn.addEventListener('click', resetMapView);
+
+    const clearBtn = document.getElementById('map-clear-highlight');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        highlightedCountry = null;
+        document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('highlight'));
+        document.getElementById('country-details').style.display = 'none';
+    });
+}
+
+/**
+ * Клик по карте → читаем цвет пикселя → ищем ближайшую страну по палитре.
+ */
+function handleMapClick(e) {
+    const viewport = document.getElementById('map-viewport');
+    const rect = viewport.getBoundingClientRect();
+    const cursorX = e.clientX - rect.left;
+    const cursorY = e.clientY - rect.top;
+
+    // Координаты на "оригинале" (без масштаба)
+    const imgX = Math.round((cursorX - mapOffsetX) / mapZoom);
+    const imgY = Math.round((cursorY - mapOffsetY) / mapZoom);
+
+    if (imgX < 0 || imgY < 0 || imgX >= mapCanvas.width || imgY >= mapCanvas.height) return;
+
+    let pixel;
+    try {
+        pixel = mapCtx.getImageData(imgX, imgY, 1, 1).data;
+    } catch (err) {
+        console.warn('Не удалось прочитать пиксель (CORS?):', err);
+        return;
+    }
+
+    const r = pixel[0], g = pixel[1], b = pixel[2], a = pixel[3];
+    if (a < 10) return;
+
+    // Ищем ближайший цвет палитры, но с учётом полупрозрачной заливки (16%)
+    // и полупрозрачного наложения на terrain. Поэтому — ищем наименьшее расстояние
+    // в RGB-пространстве среди всех стран и порог 80.
+    const countries = (currentData?.countries || []);
+    let bestIdx = -1;
+    let bestDist = 120; // порог
+    countries.forEach((c, i) => {
+        const hex = PALETTE[i % PALETTE.length];
+        const [pr, pg, pb] = hexToRgb(hex);
+        const dist = Math.sqrt((r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2);
+        // Полупрозрачная заливка на terrain: реальные цвета смешаны с фоном.
+        // Порог подобран эмпирически.
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+        }
+    });
+
+    if (bestIdx === -1) return;
+
+    const country = countries[bestIdx];
+    highlightCountry(country.name);
+    // Переключимся на вкладку обзора, где показывается детальная карточка
+    document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.main-nav .nav-btn[data-tab="overview"]').classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-overview').classList.add('active');
+    showDetails(country.name);
+}
+
+function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    return [
+        parseInt(h.substring(0, 2), 16),
+        parseInt(h.substring(2, 4), 16),
+        parseInt(h.substring(4, 6), 16)
+    ];
+}
+
+function applyMapTransform() {
+    const canvas = document.getElementById('map-canvas');
+    if (!canvas) return;
+    canvas.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
+}
+
+function resetMapView() {
+    const canvas = document.getElementById('map-canvas');
+    const viewport = document.getElementById('map-viewport');
+    if (!canvas || !viewport || !mapReady) return;
+
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const iw = mapCanvas.width;
+    const ih = mapCanvas.height;
+    const scale = Math.min(vw / iw, vh / ih) * 0.98;
+    mapZoom = scale;
+    mapOffsetX = (vw - iw * scale) / 2;
+    mapOffsetY = (vh - ih * scale) / 2;
+    applyMapTransform();
 }
 
 // ==================== РЕНДЕР ДАННЫХ ====================
@@ -142,6 +341,7 @@ function render() {
 
     renderCountries();
     renderLegend();
+    renderBonus();
 }
 
 function renderCountries() {
@@ -159,6 +359,7 @@ function renderCountries() {
     });
 
     const tbody = document.getElementById('countries-body');
+    if (!tbody) return;
     if (countries.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="loading">На сервере пока нет стран.</td></tr>';
         return;
@@ -185,6 +386,7 @@ function renderLegend() {
     if (!currentData) return;
     const countries = currentData.countries || [];
     const legend = document.getElementById('map-legend');
+    if (!legend) return;
 
     if (countries.length === 0) { legend.innerHTML = ''; return; }
 
@@ -208,7 +410,7 @@ function highlightCountry(name) {
 }
 
 function showDetails(countryName) {
-    const country = (currentData.countries || []).find(c => c.name === countryName);
+    const country = (currentData?.countries || []).find(c => c.name === countryName);
     if (!country) return;
 
     document.getElementById('detail-title').textContent = '🏛️ ' + country.name;
@@ -241,73 +443,336 @@ function showDetails(countryName) {
     document.getElementById('country-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ==================== КАРТА (PAN + ZOOM К КУРСОРУ) ====================
+// ==================== BONUS (условные секции) ====================
 
-function initMapControls() {
-    const viewport = document.getElementById('map-viewport');
-    const img = document.getElementById('map-canvas');
+function renderBonus() {
+    if (!currentData) return;
 
-    viewport.addEventListener('mousedown', (e) => {
-        if (img.style.display === 'none') return;
-        isDragging = true;
-        dragStartX = e.clientX - mapOffsetX;
-        dragStartY = e.clientY - mapOffsetY;
-    });
+    // Джекпот
+    const jackpot = currentData.jackpot ?? null;
+    const jackpotPanel = document.getElementById('panel-jackpot');
+    if (jackpot !== null && jackpot > 0) {
+        jackpotPanel.style.display = 'block';
+        document.getElementById('jackpot-value').textContent = formatMoney(jackpot);
+    } else {
+        jackpotPanel.style.display = 'none';
+    }
 
-    window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        mapOffsetX = e.clientX - dragStartX;
-        mapOffsetY = e.clientY - dragStartY;
-        applyMapTransform();
-    });
+    // Активные события
+    const events = currentData.events || currentData.active_events || [];
+    const eventsPanel = document.getElementById('panel-events');
+    if (events.length > 0) {
+        eventsPanel.style.display = 'block';
+        document.getElementById('events-list').innerHTML = events.map(e => `
+            <div class="event-item ${e.type === 'negative' ? 'negative' : 'positive'}">
+                <div>
+                    <div class="name">${escapeHtml(e.name || e.id || '?')}</div>
+                    <div class="desc">${escapeHtml(e.description || '')}</div>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        eventsPanel.style.display = 'none';
+    }
 
-    window.addEventListener('mouseup', () => { isDragging = false; });
+    // Войны
+    const wars = currentData.wars || [];
+    const warsPanel = document.getElementById('panel-wars');
+    if (wars.length > 0) {
+        warsPanel.style.display = 'block';
+        document.getElementById('wars-list').innerHTML = wars.map(w => `
+            <div class="war-item">
+                <div>
+                    <div class="name">${escapeHtml(w.attacker)} ⚔ ${escapeHtml(w.defender)}</div>
+                    <div class="desc">С ${formatDate(w.started_at)}</div>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        warsPanel.style.display = 'none';
+    }
 
-    viewport.addEventListener('wheel', (e) => {
-        if (img.style.display === 'none') return;
+    // Топ покера
+    const topPoker = currentData.top_poker || [];
+    const pokerPanel = document.getElementById('panel-poker');
+    if (topPoker.length > 0) {
+        pokerPanel.style.display = 'block';
+        document.getElementById('poker-body').innerHTML = topPoker.map((p, i) => {
+            const cls = p.profit >= 0 ? 'money' : '';
+            const sign = p.profit >= 0 ? '+' : '';
+            return `<tr>
+                <td class="rank">#${i + 1}</td>
+                <td class="name">${escapeHtml(p.name || '?')}</td>
+                <td class="${cls}">${sign}${formatMoney(p.profit || 0)}</td>
+                <td>${p.hands || 0}</td>
+            </tr>`;
+        }).join('');
+    } else {
+        pokerPanel.style.display = 'none';
+    }
+
+    // Наёмники
+    const bounties = currentData.bounties || [];
+    const bountiesPanel = document.getElementById('panel-bounties');
+    if (bounties.length > 0) {
+        bountiesPanel.style.display = 'block';
+        document.getElementById('bounties-list').innerHTML = bounties.map(b => `
+            <div class="bounty-item">
+                <div>
+                    <div class="name">${escapeHtml(b.target || '?')}</div>
+                    <div class="desc">Награда: ${formatMoney(b.amount || 0)}</div>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        bountiesPanel.style.display = 'none';
+    }
+
+    // Fallback
+    const anyBonus = (jackpot > 0) || events.length > 0 || wars.length > 0
+        || topPoker.length > 0 || bounties.length > 0;
+    document.getElementById('panel-bonus-empty').style.display = anyBonus ? 'none' : 'block';
+}
+
+// ==================== КОПИРОВАНИЕ КОМАНД ====================
+
+function initCommandCopy() {
+    document.body.addEventListener('click', (e) => {
+        const target = e.target.closest('code[data-copy]');
+        if (!target) return;
         e.preventDefault();
+        const text = target.getAttribute('data-copy');
+        if (!text) return;
 
-        const rect = viewport.getBoundingClientRect();
-        const cursorX = e.clientX - rect.left;
-        const cursorY = e.clientY - rect.top;
-
-        // Точка на изображении под курсором (в его «собственных» координатах)
-        const imgX = (cursorX - mapOffsetX) / mapZoom;
-        const imgY = (cursorY - mapOffsetY) / mapZoom;
-
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newZoom = Math.max(0.15, Math.min(10, mapZoom * delta));
-
-        // Сдвигаем offset так, чтобы курсор остался на той же точке
-        mapZoom = newZoom;
-        mapOffsetX = cursorX - imgX * mapZoom;
-        mapOffsetY = cursorY - imgY * mapZoom;
-
-        applyMapTransform();
-    }, { passive: false });
-
-    document.getElementById('map-reset').addEventListener('click', resetMapView);
+        copyToClipboard(text).then(ok => {
+            if (ok) showToast('✓ Скопировано: ' + text);
+        });
+    });
 }
 
-function applyMapTransform() {
-    const img = document.getElementById('map-canvas');
-    img.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text)
+            .then(() => true)
+            .catch(() => fallbackCopy(text));
+    }
+    return Promise.resolve(fallbackCopy(text));
 }
 
-function resetMapView() {
-    const img = document.getElementById('map-canvas');
-    const viewport = document.getElementById('map-viewport');
-    if (!img.complete || img.naturalWidth === 0) return;
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+}
 
-    const vw = viewport.clientWidth;
-    const vh = viewport.clientHeight;
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
-    const scale = Math.min(vw / iw, vh / ih) * 0.98;
-    mapZoom = scale;
-    mapOffsetX = (vw - iw * scale) / 2;
-    mapOffsetY = (vh - ih * scale) / 2;
-    applyMapTransform();
+let toastTimer = null;
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+}
+
+// ==================== GUIDE NAV ====================
+
+function initGuideNav() {
+    const nav = document.getElementById('guide-nav');
+    if (!nav) return;
+
+    const sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
+    sections.forEach(h2 => {
+        const section = h2.closest('.guide-section');
+        if (!section) return;
+        const id = section.id;
+        const title = h2.textContent.trim();
+
+        const a = document.createElement('a');
+        a.href = '#' + id;
+        a.textContent = title;
+        a.dataset.target = id;
+        nav.appendChild(a);
+    });
+
+    // Scroll-spy
+    const navLinks = nav.querySelectorAll('a');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                navLinks.forEach(a => a.classList.toggle('active', a.dataset.target === entry.target.id));
+            }
+        });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+
+    sections.forEach(h2 => {
+        const section = h2.closest('.guide-section');
+        if (section) observer.observe(section);
+    });
+
+    // Плавная прокрутка внутри активного таба
+    navLinks.forEach(a => {
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            const el = document.getElementById(a.dataset.target);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+}
+
+// ==================== COMMANDS LIST ====================
+
+const COMMANDS = [
+    // Sovereignty — базовые
+    { cmd: '/c', desc: 'Главное меню страны', plugin: 'Sovereignty' },
+    { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
+    { cmd: '/c rename НовоеИмя', desc: 'Переименовать страну (лидер)', plugin: 'Sovereignty' },
+    { cmd: '/c info', desc: 'Информация о стране', plugin: 'Sovereignty' },
+    { cmd: '/c list', desc: 'Список всех стран', plugin: 'Sovereignty' },
+    { cmd: '/c top', desc: 'Топ стран', plugin: 'Sovereignty' },
+
+    // Sovereignty — территория
+    { cmd: '/c claim', desc: 'Захватить чанк (2 энергии)', plugin: 'Sovereignty' },
+    { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
+    { cmd: '/c autoclaim', desc: 'Автозахват (вкл/выкл)', plugin: 'Sovereignty' },
+    { cmd: '/c seechunk', desc: 'Отображение границ', plugin: 'Sovereignty' },
+    { cmd: '/c map', desc: 'Текстовая карта территорий', plugin: 'Sovereignty' },
+    { cmd: '/c unstuck', desc: 'Телепорт с чужой территории', plugin: 'Sovereignty' },
+    { cmd: '/c chunkupgrade', desc: 'Типы чанков (ферма/шахта/воен/торг)', plugin: 'Sovereignty' },
+
+    // Sovereignty — соправители
+    { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
+    { cmd: '/c kick Steve', desc: 'Исключить соправителя', plugin: 'Sovereignty' },
+    { cmd: '/c accept', desc: 'Принять приглашение', plugin: 'Sovereignty' },
+    { cmd: '/c decline', desc: 'Отклонить приглашение', plugin: 'Sovereignty' },
+
+    // Sovereignty — банк
+    { cmd: '/c bank', desc: 'Баланс казны', plugin: 'Sovereignty' },
+    { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
+    { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
+    { cmd: '/c bank withdraw all', desc: 'Снять всё из казны', plugin: 'Sovereignty' },
+
+    // Sovereignty — энергия / прокачка
+    { cmd: '/c upgrade', desc: 'Меню прокачки', plugin: 'Sovereignty' },
+    { cmd: '/c buyenergy 10', desc: 'Купить энергию', plugin: 'Sovereignty' },
+    { cmd: '/c boost', desc: 'Буст регенерации (+2/час на час)', plugin: 'Sovereignty' },
+
+    // Sovereignty — наука / достижения / суд
+    { cmd: '/c research', desc: 'Дерево технологий', plugin: 'Sovereignty' },
+    { cmd: '/c achievements', desc: 'Достижения', plugin: 'Sovereignty' },
+    { cmd: '/c court', desc: 'Международный суд', plugin: 'Sovereignty' },
+    { cmd: '/c court file Steve Причина', desc: 'Подать жалобу', plugin: 'Sovereignty' },
+
+    // Sovereignty — дипломатия
+    { cmd: '/c ally Steve', desc: 'Предложить союз', plugin: 'Sovereignty' },
+    { cmd: '/c enemy Steve', desc: 'Объявить войну', plugin: 'Sovereignty' },
+    { cmd: '/c neutral Steve', desc: 'Нейтралитет', plugin: 'Sovereignty' },
+    { cmd: '/c pact trade Steve', desc: 'Пакт (trade/military/defense/nonaggression)', plugin: 'Sovereignty' },
+    { cmd: '/c surrender', desc: 'Капитулировать', plugin: 'Sovereignty' },
+
+    // Sovereignty — прочее
+    { cmd: '/c miningboost', desc: 'Активировать шахтёрский бонус', plugin: 'Sovereignty' },
+
+    // Taxes
+    { cmd: '/tax', desc: 'Меню налогов', plugin: 'TaxCollector' },
+    { cmd: '/tax pay', desc: 'Оплатить долг', plugin: 'TaxCollector' },
+    { cmd: '/tax debts', desc: 'Список должников', plugin: 'TaxCollector' },
+
+    // Market
+    { cmd: '/shop', desc: 'Открыть рынок', plugin: 'MarketGUI' },
+    { cmd: '/shop add diamond 10', desc: 'Продать за ресурсы', plugin: 'MarketGUI' },
+    { cmd: '/shop add money 500', desc: 'Продать за валюту', plugin: 'MarketGUI' },
+    { cmd: '/shop add diamond 10 money 500', desc: 'Смешанная цена', plugin: 'MarketGUI' },
+    { cmd: '/shop add diamond 10 for Steve', desc: 'Личная продажа игроку', plugin: 'MarketGUI' },
+    { cmd: '/shop sell', desc: 'Свои товары', plugin: 'MarketGUI' },
+
+    // Auction
+    { cmd: '/auc', desc: 'Открыть аукцион', plugin: 'AuctionHouse' },
+    { cmd: '/auc add 100 60', desc: 'Выставить предмет', plugin: 'AuctionHouse' },
+    { cmd: '/auc bid 1 200', desc: 'Сделать ставку', plugin: 'AuctionHouse' },
+    { cmd: '/auc info 1', desc: 'Инфо об аукционе', plugin: 'AuctionHouse' },
+    { cmd: '/auc cancel 1', desc: 'Отменить (если нет ставок)', plugin: 'AuctionHouse' },
+
+    // Bounty
+    { cmd: '/bounty Steve 5000', desc: 'Назначить награду', plugin: 'Bounty' },
+    { cmd: '/bounty list', desc: 'Топ целей', plugin: 'Bounty' },
+    { cmd: '/bounty menu', desc: 'GUI наёмников', plugin: 'Bounty' },
+    { cmd: '/bounty remove Steve', desc: 'Снять награду (возврат)', plugin: 'Bounty' },
+
+    // RollGame
+    { cmd: '/roll', desc: 'Хаб казино', plugin: 'RollGame' },
+    { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
+    { cmd: '/roll duel 1000', desc: 'Дуэль 50/50', plugin: 'RollGame' },
+    { cmd: '/roll mines 1000 3 5', desc: 'Мины (ставка, мины, размер)', plugin: 'RollGame' },
+    { cmd: '/roll wheel 1000', desc: 'Колесо Фортуны', plugin: 'RollGame' },
+    { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
+    { cmd: '/roll poker', desc: 'Покер (Техасский Холдем)', plugin: 'RollGame' },
+    { cmd: '/roll poker tables', desc: 'Список столов', plugin: 'RollGame' },
+    { cmd: '/roll poker create 5000', desc: 'Создать стол', plugin: 'RollGame' },
+    { cmd: '/roll poker join 1', desc: 'Присоединиться к столу', plugin: 'RollGame' },
+    { cmd: '/roll poker start', desc: 'Начать игру', plugin: 'RollGame' },
+    { cmd: '/roll poker leave', desc: 'Покинуть стол', plugin: 'RollGame' },
+    { cmd: '/roll poker top', desc: 'Топ покера за неделю', plugin: 'RollGame' },
+    { cmd: '/roll poker history', desc: 'Последние раздачи', plugin: 'RollGame' },
+    { cmd: '/roll classic', desc: 'Классическая рулетка', plugin: 'RollGame' },
+    { cmd: '/roll bet 1000', desc: 'Ставка в рулетке', plugin: 'RollGame' },
+    { cmd: '/roll raise 500', desc: 'Увеличить свою ставку', plugin: 'RollGame' },
+    { cmd: '/roll jackpot', desc: 'Текущий джекпот', plugin: 'RollGame' },
+    { cmd: '/roll stats', desc: 'Личная статистика', plugin: 'RollGame' },
+    { cmd: '/roll top', desc: 'Топ игроков рулетки', plugin: 'RollGame' },
+
+    // EssentialsX
+    { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
+    { cmd: '/pay Steve 1000', desc: 'Перевести деньги', plugin: 'EssentialsX' },
+    { cmd: '/baltop', desc: 'Топ богачей', plugin: 'EssentialsX' },
+    { cmd: '/sell hand', desc: 'Продать из руки', plugin: 'EssentialsX' },
+    { cmd: '/sell all', desc: 'Продать всё', plugin: 'EssentialsX' },
+    { cmd: '/worth', desc: 'Цена предмета', plugin: 'EssentialsX' },
+    { cmd: '/sethome', desc: 'Поставить дом', plugin: 'EssentialsX' },
+    { cmd: '/home', desc: 'Телепорт домой', plugin: 'EssentialsX' },
+    { cmd: '/spawn', desc: 'Телепорт на спавн', plugin: 'EssentialsX' },
+    { cmd: '/tpa Steve', desc: 'Запрос телепортации', plugin: 'EssentialsX' },
+
+    // Jobs
+    { cmd: '/jobs browse', desc: 'Список профессий', plugin: 'Jobs' },
+    { cmd: '/jobs stats', desc: 'Статистика работы', plugin: 'Jobs' },
+    { cmd: '/jobs leave', desc: 'Уволиться', plugin: 'Jobs' },
+
+    // SkinsRestorer
+    { cmd: '/skin Steve', desc: 'Установить скин по нику', plugin: 'SkinsRestorer' },
+    { cmd: '/skins', desc: 'Меню скинов', plugin: 'SkinsRestorer' },
+    { cmd: '/skin set 12345', desc: 'Свой скин (Mineskin ID)', plugin: 'SkinsRestorer' },
+];
+
+function initCommandSearch() {
+    const list = document.getElementById('commands-list');
+    if (!list) return;
+
+    list.innerHTML = COMMANDS.map(c => `
+        <div class="command-item">
+            <div class="cmd-name"><code data-copy="${escapeAttr(c.cmd)}">${escapeHtml(c.cmd)}</code></div>
+            <div class="cmd-desc">${escapeHtml(c.desc)}</div>
+            <div class="cmd-plugin">${escapeHtml(c.plugin)}</div>
+        </div>
+    `).join('');
+
+    const searchInput = document.getElementById('cmd-search');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        document.querySelectorAll('.command-item').forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.classList.toggle('hidden', q.length > 0 && !text.includes(q));
+        });
+    });
 }
 
 // ==================== УТИЛИТЫ ====================
@@ -318,12 +783,25 @@ function formatMoney(amount) {
     return Math.round(amount).toString();
 }
 
+function formatDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
 function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
     const div = document.createElement('div');
-    div.textContent = str;
+    div.textContent = String(str);
     return div.innerHTML;
 }
 
 function escapeAttr(str) {
-    return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
