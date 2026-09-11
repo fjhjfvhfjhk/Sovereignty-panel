@@ -1,100 +1,121 @@
 # Панель сервера — Sovereignty
 
-Веб-сайт с интерактивной картой, гайдом игрока, списком команд и бонусами.
+Веб-сайт с интерактивной картой, карточками игроков со скинами, полным гайдом,
+списком команд и условными бонусными секциями.
 
 ## Возможности
 
 ### Табы
 - 🏠 **Обзор** — статистика, топ стран, детальная карточка
-- 🗺️ **Карта** — интерактивная карта с зумом, pan, кликом по стране
-- 📖 **Гайд** — полный гайд игрока с anchor-навигацией
-- ⌨️ **Команды** — единый список с поиском, клик — копирует в буфер
-- 🎁 **Бонусы** — джекпот, события, войны, топ покера, наёмники
+- 🗺️ **Карта** — pan / zoom / клик по стране (определение через canvas)
+- 👥 **Игроки** — карточки со скинами, поиск, фильтр «только онлайн», модалка
+- 📖 **Гайд** — 13 разделов с anchor-навигацией и scroll-spy
+- ⌨️ **Команды** — ~90 команд с поиском, клик — копирует
+- 🎁 **Бонусы** — джекпот, события, войны, топ покера, наёмники (условно)
 
-### Кликабельные команды
-В гайде и списке команд любой `<code data-copy="...">` при клике копируется
-в буфер обмена с тостом «✓ Скопировано».
+### Скины игроков
+Скины подтягиваются с **mc-heads.net** по нику:
+- Аватарка в списке: `https://mc-heads.net/avatar/{name}/64`
+- Тело в модалке: `https://mc-heads.net/body/{name}/256`
 
-### Интерактивная карта
-- **Перетаскивание** — панорама
-- **Колёсико** — зум к позиции курсора
-- **Клик по стране** — определяет цвет пикселя через canvas, ищет ближайшую
-  страну по палитре, показывает детали
-- **Клик по легенде** — подсветка
+Работает и для пиратки — если у игрока нет скина на Mojang, отдаётся Steve/Alex.
+При ошибке загрузки — фоллбэк на аватарку Steve.
 
-### Бонусные секции (условные)
-Секции показываются, только если в JSON есть поля:
+### Модалка игрока
+Клик по карточке → открывается центр-модалка:
+- **Слева** — большое изображение скина (тело) + аватарка
+- **Справа** — статы: UUID, баланс, время в игре, последний вход, профессия, K/D
+- Раздел **Страна**: страна, роль (лидер/соправитель), казна, территория, награда за голову
+- Раздел **Активность**: энергия, первый вход, достижения, дней в игре
+- Кнопки: «Перейти к стране», «Скопировать ник»
 
-| Поле JSON       | Секция на сайте        |
-|-----------------|------------------------|
-| `jackpot`       | Джекпот казино         |
-| `events`        | Активные события       |
-| `wars`          | Активные войны         |
-| `top_poker`     | Топ покера за неделю   |
-| `bounties`      | Активные наёмники      |
+## Ожидаемая структура JSON
 
-Пока плагин не отправляет эти поля — видна заглушка с пояснением.
+### Игроки
+```json
+"players": [
+  {
+    "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "name": "Steve",
+    "country": "DotA",
+    "country_role": "leader",
+    "playtime_seconds": 123456,
+    "balance": 50000,
+    "job": "Miner",
+    "job_level": 15,
+    "last_seen": 1789155714193,
+    "first_seen": 1780000000000,
+    "online": true,
+    "kills": 42,
+    "deaths": 7,
+    "energy": 40.0,
+    "max_energy": 40.0,
+    "achievements_count": 8,
+    "bounty": 0
+  }
+]
+```
+
+Поля опциональны — если их нет, соответствующие блоки просто не отображаются.
+
+### Бонусы (опционально)
+
+```
+{
+  "jackpot": 1234567,
+  "events": [{ "name": "Урожайный сезон", "description": "Доход ферм +75%", "type": "positive" }],
+  "wars": [{ "attacker": "DotA", "defender": "Норвегия", "started_at": 1789000000000 }],
+  "top_poker": [{ "name": "Steve", "profit": 50000, "hands": 15 }],
+  "bounties": [{ "target": "YatoroGod", "amount": 10000 }]
+}
+```
+
+Секции скрыты, пока нет соответствующих полей.
 
 ## Как развернуть
 
-### 1. Репозиторий
-Public, без README (мы зальём свой).
-
-### 2. Файлы
-Залей `index.html`, `style.css`, `app.js`, `README.md` в корень.
-Создай `data/server1.json`:
-```json
-{"updated_at":0,"server_name":"Ожидание данных","countries":[]}
-```
-
-### 3. GitHub Pages
-
-**Settings → Pages → Source: Deploy from a branch → main / root**.
-
-Через 1-2 минуты сайт доступен по адресу `https://<логин>.github.io/<repo>/`.
-
-### 4. Токен
-
-**Settings → Developer settings → Personal access tokens → Fine-grained**.
-Repository access: только этот репозиторий.
-Permissions → **Contents: Read and write**.
-
-### 5. Плагин
-
-`plugins/Sovereignty/webpanel.yml`:
+1. **Создай Public репозиторий** `Sovereignty-panel`
+2. Залить `index.html`, `style.css`, `app.js`, `README.md`
+3. Создать `data/server1.json`:
 
 ```
-enabled: true
-server-name: "Ваш сервер"
-interval-minutes: 60
-github:
-  owner: "логин"
-  repo: "имя-репы"
-  branch: "main"
-  json-path: "data/server1.json"
-  map-path: "data/map.png"
-  token: "github_pat_..."
+{"updated_at":0,"server_name":"Ожидание","countries":[],"players":[]}
 ```
+4. **Settings → Pages → main / root**
+5. **Fine-grained token** с правами `Contents: Read and write`
+6. Прописать в `plugins/Sovereignty/webpanel.yml`
+7. Перезапустить сервер
 
-### 6. Перезапуск
+## Что нужно добавить в плагин (когда руки дойдут)
 
-Плагин отправит данные через 5 сек после старта, потом каждый час,
-при выключении и по команде `/country panel push`.
-
-## Обновление бонусных секций
-
-Чтобы включить секции «Джекпот», «События», «Войны», «Топ покера»,
-«Наёмники» — добавь соответствующие поля в `WebPanelUploader.buildJson()`:
+В `WebPanelUploader.buildJson()` добавить блок:
 
 ```
-root.put("jackpot", plugin.getRollData() != null ? plugin.getRollData().getJackpot() : 0);
-root.put("wars", /* список войн */);
-root.put("top_poker", /* топ покера */);
-root.put("bounties", /* список наёмников */);
-root.put("events", /* активные события */);
+// Игроки
+List<Map<String, Object>> playersList = new ArrayList<>();
+for (Player p : Bukkit.getOnlinePlayers()) {
+    Map<String, Object> pm = new LinkedHashMap<>();
+    pm.put("uuid", p.getUniqueId().toString());
+    pm.put("name", p.getName());
+    pm.put("online", true);
+
+    String country = plugin.getCountryManager().getCountryName(p.getUniqueId());
+    pm.put("country", country != null ? country : null);
+    if (country != null) {
+        if (plugin.getCountryManager().isLeader(p.getUniqueId(), country)) {
+            pm.put("country_role", "leader");
+        } else if (plugin.getCountryManager().isCoRuler(p.getUniqueId(), country)) {
+            pm.put("country_role", "co_ruler");
+        }
+    }
+    pm.put("balance", plugin.getEconomyManager().getBalance(p));
+    // ... playtime, job, kills и т.д. из своих источников
+    playersList.add(pm);
+}
+root.put("players", playersList);
 ```
 
-Фронт сам подхватит и покажет секции без правок.
+Аналогично для бонусов. Фронт сам подхватит и покажет.
 
 ## Безопасность
 
@@ -108,6 +129,7 @@ root.put("events", /* активные события */);
 | −GitHub API 401 | Токен истёк — создай новый |
 | −GitHub API 404 | Неверный owner / repo / path |
 | −Pages 404 | Подожди 1-2 минуты после первого билда |
-| −Карта не кликается | PNG может быть с CORS-проблемой — убедись, что отдаётся с того же домена |
+| −Скины не грузятся | Проверь `mc-heads.net` в браузере (может быть блок) |
+| −Карта не кликается | PNG должен отдаваться с того же домена для canvas |
 ⚙
 
