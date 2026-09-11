@@ -1,69 +1,75 @@
-/* Sovereignty panel v3.2 */
+/* Sovereignty panel v3.3 — компактная сборка */
 
-const DATA_URL = 'data/server1.json';
-const MAP_URL = 'data/map.png';
-const LOCAL_SKIN_DIR = 'data/skins/';
-const SKIN_API = 'https://mc-heads.net';
-const CRAFATAR = 'https://crafatar.com';
-const STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const LOCAL_SKIN_TIMEOUT_MS = 3000;
-const BLOCKS_PER_CHUNK = 16;
-const PIXELS_PER_BLOCK = 2;
+window.addEventListener('error', function (e) {
+    console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
+});
 
-// === Камера: крупный план, центр модели ===
-// Модель: 32 unit height, центр по y = 16
-// FOV 42°, distance 46 → видимая высота ≈ 36 unit, модель занимает ~88% кадра
-const SKIN_CAMERA_TARGET_Y = 16;
-const SKIN_CAMERA_DISTANCE = 46;
-const SKIN_CAMERA_FOV = 42;
-const SKIN_CAMERA_MIN_DISTANCE = 22;
-const SKIN_CAMERA_MAX_DISTANCE = 90;
+var DATA_URL = 'data/server1.json';
+var MAP_URL = 'data/map.png';
+var LOCAL_SKIN_DIR = 'data/skins/';
+var SKIN_API = 'https://mc-heads.net';
+var CRAFATAR = 'https://crafatar.com';
+var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
+var REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+var LOCAL_SKIN_TIMEOUT_MS = 3000;
+var BLOCKS_PER_CHUNK = 16;
+var PIXELS_PER_BLOCK = 2;
+var SKIN_CAMERA_TARGET_Y = 16;
+var SKIN_CAMERA_DISTANCE = 46;
+var SKIN_CAMERA_FOV = 42;
+var SKIN_CAMERA_MIN_DIST = 22;
+var SKIN_CAMERA_MAX_DIST = 90;
+var SKIN_GLOBAL_LIGHT = 1.8;
+var SKIN_CAMERA_LIGHT = 1.5;
+var MARKER_BASE_PX = 32;
+var MARKER_MIN_PX = 18;
+var MARKER_MAX_PX = 72;
+var MARKER_GROWTH_POWER = 0.5;
 
-// === Свет: 2 источника ===
-const SKIN_GLOBAL_LIGHT = 1.8;   // ambient сверху
-const SKIN_CAMERA_LIGHT = 1.5;   // point light на камере
+var currentData = null;
+var currentSort = 'claims';
+var mapZoom = 1, mapOffsetX = 0, mapOffsetY = 0;
+var isDragging = false, dragStartX = 0, dragStartY = 0, dragMoved = false;
+var highlightedCountry = null;
+var showPlayerMarkers = true;
+var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
+var currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
+var localSkinCache = new Map();
+var headCache = new Map();
+var localLoadedAttempted = new Set();
 
-const MARKER_BASE_PX = 32;
-const MARKER_MIN_PX = 18;
-const MARKER_MAX_PX = 72;
-const MARKER_GROWTH_POWER = 0.5;
+var PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
-let currentData = null;
-let currentSort = 'claims';
-let mapZoom = 1, mapOffsetX = 0, mapOffsetY = 0;
-let isDragging = false, dragStartX = 0, dragStartY = 0, dragMoved = false;
-let highlightedCountry = null;
-let showPlayerMarkers = true;
-let mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
-let currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
-
-const localSkinCache = new Map();
-const headCache = new Map();
-const localLoadedAttempted = new Set();
-
-const PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
-
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] DOMContentLoaded');
+    try { initTabs(); } catch (e) { console.error('initTabs:', e); }
+    try { initSortTabs(); } catch (e) { console.error('initSortTabs:', e); }
+    try { initMapControls(); } catch (e) { console.error('initMapControls:', e); }
+    try { initCommandCopy(); } catch (e) { console.error('initCommandCopy:', e); }
+    try { initGuideNav(); } catch (e) { console.error('initGuideNav:', e); }
+    try { initCommandSearch(); } catch (e) { console.error('initCommandSearch:', e); }
+    try { initPlayerControls(); } catch (e) { console.error('initPlayerControls:', e); }
+    try { initModalControls(); } catch (e) { console.error('initModalControls:', e); }
     try {
-        initTabs(); initSortTabs(); initMapControls(); initCommandCopy();
-        initGuideNav(); initCommandSearch(); initPlayerControls(); initModalControls();
-        const rb = document.getElementById('refresh-btn');
-        if (rb) rb.onclick = () => { loadData(); loadMap(); };
-        loadData();
-        setInterval(loadData, REFRESH_INTERVAL_MS);
-    } catch (e) { console.error('[Sovereignty] init error:', e); }
+        var rb = document.getElementById('refresh-btn');
+        if (rb) rb.onclick = function () { loadData(); loadMap(); };
+    } catch (e) { console.error('refresh:', e); }
+    loadData();
+    setInterval(loadData, REFRESH_INTERVAL_MS);
+    setInterval(function () {
+        if (!currentRotateAnim) return;
+        try { if (rotatePaused && !currentRotateAnim.paused) currentRotateAnim.paused = true; } catch (e) {}
+    }, 300);
 });
 
 function initTabs() {
-    document.querySelectorAll('.main-nav .nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.main-nav .nav-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var tab = btn.dataset.tab;
+            document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
             btn.classList.add('active');
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            const t = document.getElementById('tab-' + tab);
+            document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+            var t = document.getElementById('tab-' + tab);
             if (t) t.classList.add('active');
             if (tab === 'map' && mapReady) setTimeout(resetMapView, 50);
         });
@@ -71,9 +77,9 @@ function initTabs() {
 }
 
 function initSortTabs() {
-    document.querySelectorAll('.tab[data-sort]').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab[data-sort]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab[data-sort]').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.tab[data-sort]').forEach(function (t) { t.classList.remove('active'); });
             tab.classList.add('active');
             currentSort = tab.dataset.sort;
             renderCountries();
@@ -82,79 +88,76 @@ function initSortTabs() {
 }
 
 function initModalControls() {
-    document.querySelectorAll('[data-modal-close]').forEach(el => {
-        el.addEventListener('click', () => closePlayerModal());
+    document.querySelectorAll('[data-modal-close]').forEach(function (el) {
+        el.addEventListener('click', function () { closePlayerModal(); });
     });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePlayerModal(); });
-    const rotBtn = document.getElementById('skin-toggle-rotate');
-    if (rotBtn) rotBtn.onclick = () => {
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePlayerModal(); });
+    var rotBtn = document.getElementById('skin-toggle-rotate');
+    if (rotBtn) rotBtn.onclick = function () {
         rotatePaused = !rotatePaused;
         rotBtn.textContent = rotatePaused ? '▶ Пуск' : '⏸ Пауза';
         rotBtn.classList.toggle('active', rotatePaused);
     };
-    const resetBtn = document.getElementById('skin-reset-view');
-    if (resetBtn) resetBtn.onclick = () => { if (currentSkinViewer) applyDefaultCamera(currentSkinViewer); };
-    const nameBtn = document.getElementById('skin-toggle-name');
-    if (nameBtn) nameBtn.onclick = () => {
+    var resetBtn = document.getElementById('skin-reset-view');
+    if (resetBtn) resetBtn.onclick = function () { if (currentSkinViewer) applyDefaultCamera(currentSkinViewer); };
+    var nameBtn = document.getElementById('skin-toggle-name');
+    if (nameBtn) nameBtn.onclick = function () {
         if (currentSkinViewer && currentSkinViewer.nameTag)
             currentSkinViewer.nameTag.visible = !currentSkinViewer.nameTag.visible;
     };
 }
 
 function openPlayerModal() {
-    document.getElementById('player-modal').classList.add('show');
+    var m = document.getElementById('player-modal');
+    if (m) m.classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function closePlayerModal() {
-    document.getElementById('player-modal').classList.remove('show');
+    var m = document.getElementById('player-modal');
+    if (m) m.classList.remove('show');
     document.body.style.overflow = '';
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
     currentRotateAnim = null;
     rotatePaused = false;
-    const btn = document.getElementById('skin-toggle-rotate');
+    var btn = document.getElementById('skin-toggle-rotate');
     if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
-// ==================== LOCAL SKINS ====================
+/* ================= LOCAL SKINS ================= */
 
 function preloadLocalSkins() {
-    const players = currentData && currentData.players ? currentData.players : [];
+    var players = currentData && currentData.players ? currentData.players : [];
     if (players.length === 0) return;
-    const toLoad = players.filter(p => p.name && !localLoadedAttempted.has(p.name));
+    var toLoad = players.filter(function (p) { return p.name && !localLoadedAttempted.has(p.name); });
     if (toLoad.length === 0) return;
-    console.log('[Skins] Пробую загрузить локальные скины: ' + toLoad.length);
-
-    let done = 0, loaded = 0;
-    toLoad.forEach(p => {
+    console.log('[Skins] Пробую загрузить: ' + toLoad.length);
+    var done = 0, loaded = 0;
+    toLoad.forEach(function (p) {
         localLoadedAttempted.add(p.name);
-        loadLocalSkin(p.name)
-            .then(() => { loaded++; })
-            .catch(() => {})
-            .finally(() => {
-                done++;
-                if (done === toLoad.length) {
-                    console.log('[Skins] Готово. Загружено: ' + loaded + '/' + toLoad.length);
-                    refreshHeadImages();
-                }
-            });
+        loadLocalSkin(p.name).then(function () { loaded++; }).catch(function () {}).finally(function () {
+            done++;
+            if (done === toLoad.length) {
+                console.log('[Skins] Готово: ' + loaded + '/' + toLoad.length);
+                refreshHeadImages();
+            }
+        });
     });
 }
 
 function loadLocalSkin(name) {
     if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
-    const url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        let finished = false;
-        const timer = setTimeout(() => {
+    var url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
+    return new Promise(function (resolve, reject) {
+        var img = new Image();
+        var finished = false;
+        var timer = setTimeout(function () {
             if (finished) return;
             finished = true;
             img.src = '';
             reject(new Error('timeout'));
         }, LOCAL_SKIN_TIMEOUT_MS);
-
-        img.onload = () => {
+        img.onload = function () {
             if (finished) return;
             finished = true;
             clearTimeout(timer);
@@ -166,7 +169,7 @@ function loadLocalSkin(name) {
             try { headCache.set(name, headFromSkin(img)); } catch (e) {}
             resolve(img);
         };
-        img.onerror = () => {
+        img.onerror = function () {
             if (finished) return;
             finished = true;
             clearTimeout(timer);
@@ -177,9 +180,9 @@ function loadLocalSkin(name) {
 }
 
 function headFromSkin(skinImg) {
-    const canvas = document.createElement('canvas');
+    var canvas = document.createElement('canvas');
     canvas.width = 8; canvas.height = 8;
-    const ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(skinImg, 8, 8, 8, 8, 0, 0, 8, 8);
     if (skinImg.width >= 64 && skinImg.height >= 64) {
@@ -194,90 +197,92 @@ function getHeadUrl(name, size) {
 }
 
 function refreshHeadImages() {
-    let updated = 0;
-    document.querySelectorAll('img[data-pname]').forEach(img => {
-        const name = img.getAttribute('data-pname');
-        if (headCache.has(name)) {
-            img.src = headCache.get(name);
-            updated++;
-        }
+    var updated = 0;
+    document.querySelectorAll('img[data-pname]').forEach(function (img) {
+        var name = img.getAttribute('data-pname');
+        if (headCache.has(name)) { img.src = headCache.get(name); updated++; }
     });
     if (updated > 0) console.log('[Skins] Обновлено голов: ' + updated);
 }
 
-// ==================== DATA LOAD ====================
+/* ================= DATA ================= */
 
-async function loadData() {
-    console.log('[Sovereignty] loadData() старт');
-    const tbody = document.getElementById('countries-body');
+function loadData() {
+    console.log('[Sovereignty] loadData старт');
+    var tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) {
         tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
     }
-    try {
-        const r = await fetch(DATA_URL + '?t=' + Date.now());
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const text = await r.text();
-        if (!text || !text.trim()) throw new Error('Пустой файл');
-        currentData = JSON.parse(text);
-        console.log('[Sovereignty] данные загружены, игроков: ' + ((currentData.players || []).length));
-        render();
-        loadMap();
-        setTimeout(preloadLocalSkins, 0);
-    } catch (err) {
-        console.error('[Sovereignty] load error:', err);
-        const sn = document.getElementById('server-name');
-        if (sn) sn.textContent = '⚠ Ошибка';
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading" style="color:#ef4444;">❌ ' + escapeHtml(err.message) + '</td></tr>';
-    }
+    fetch(DATA_URL + '?t=' + Date.now())
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function (text) {
+            if (!text || !text.trim()) throw new Error('Пустой файл');
+            currentData = JSON.parse(text);
+            console.log('[Sovereignty] загружено, игроков: ' + ((currentData.players || []).length));
+            render();
+            loadMap();
+            setTimeout(preloadLocalSkins, 0);
+        })
+        .catch(function (err) {
+            console.error('[Sovereignty] load error:', err);
+            var sn = document.getElementById('server-name');
+            if (sn) sn.textContent = '⚠ Ошибка';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading" style="color:#ef4444;">❌ ' + escapeHtml(err.message) + '</td></tr>';
+        });
 }
 
 function render() {
     if (!currentData) return;
-    const sn = document.getElementById('server-name');
+    var sn = document.getElementById('server-name');
     if (sn) sn.textContent = currentData.server_name || 'Сервер';
-    const ob = document.getElementById('online-badge');
+    var ob = document.getElementById('online-badge');
     if (ob) ob.textContent = 'Онлайн: ' + (currentData.online_players || 0) + ' / ' + (currentData.max_players || 0);
-    const upd = currentData.updated_at;
+    var upd = currentData.updated_at;
     if (upd) {
-        const m = Math.floor((Date.now() - upd) / 60000);
-        const ago = m < 1 ? 'только что' : m < 60 ? m + ' мин назад' : Math.floor(m / 60) + ' ч назад';
-        const ub = document.getElementById('updated-badge');
+        var m = Math.floor((Date.now() - upd) / 60000);
+        var ago = m < 1 ? 'только что' : m < 60 ? m + ' мин назад' : Math.floor(m / 60) + ' ч назад';
+        var ub = document.getElementById('updated-badge');
         if (ub) ub.textContent = 'Обновлено: ' + ago;
     }
-    const countries = currentData.countries || [];
-    const players = currentData.players || [];
+    var countries = currentData.countries || [];
+    var players = currentData.players || [];
     setText('countries-count', countries.length);
-    setText('total-claims', countries.reduce((s, c) => s + (c.claims || 0), 0).toLocaleString('ru-RU'));
-    setText('total-bank', formatMoney(countries.reduce((s, c) => s + (c.bank || 0), 0)));
-    setText('total-energy', countries.reduce((s, c) => s + (c.energy || 0), 0).toFixed(1));
-    const tp = document.getElementById('total-players');
+    setText('total-claims', countries.reduce(function (s, c) { return s + (c.claims || 0); }, 0).toLocaleString('ru-RU'));
+    setText('total-bank', formatMoney(countries.reduce(function (s, c) { return s + (c.bank || 0); }, 0)));
+    setText('total-energy', countries.reduce(function (s, c) { return s + (c.energy || 0); }, 0).toFixed(1));
+    var tp = document.getElementById('total-players');
     if (tp) {
         if (players.length > 0) {
-            const online = players.filter(p => p.online).length;
+            var online = players.filter(function (p) { return p.online; }).length;
             tp.textContent = online > 0 ? online + ' / ' + players.length : String(players.length);
         } else tp.textContent = String(currentData.online_players || 0);
     }
-    renderCountries(); renderLegend(); renderPlayers(); renderBonus(); renderPlayerMarkers();
+    renderCountries();
+    renderLegend();
+    renderPlayers();
+    renderBonus();
+    renderPlayerMarkers();
 }
 
-function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
 
 function renderCountries() {
     if (!currentData) return;
-    const countries = [...(currentData.countries || [])];
-    countries.sort((a, b) => {
-        switch (currentSort) {
-            case 'bank': return (b.bank || 0) - (a.bank || 0);
-            case 'energy': return (b.energy || 0) - (a.energy || 0);
-            case 'allies': return (b.allies || 0) - (a.allies || 0);
-            default: return (b.claims || 0) - (a.claims || 0);
-        }
+    var countries = (currentData.countries || []).slice();
+    countries.sort(function (a, b) {
+        if (currentSort === 'bank') return (b.bank || 0) - (a.bank || 0);
+        if (currentSort === 'energy') return (b.energy || 0) - (a.energy || 0);
+        if (currentSort === 'allies') return (b.allies || 0) - (a.allies || 0);
+        return (b.claims || 0) - (a.claims || 0);
     });
-    const tbody = document.getElementById('countries-body');
+    var tbody = document.getElementById('countries-body');
     if (!tbody) return;
     if (countries.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="loading">Пока нет стран.</td></tr>'; return; }
-    tbody.innerHTML = countries.map((c, i) => {
-        const rc = i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : '';
+    tbody.innerHTML = countries.map(function (c, i) {
+        var rc = i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : '';
         return '<tr class="' + rc + '" onclick="showDetails(\'' + escapeAttr(c.name) + '\')">' +
             '<td class="rank">#' + (i + 1) + '</td>' +
             '<td class="name">' + escapeHtml(c.name || '?') + '</td>' +
@@ -291,34 +296,34 @@ function renderCountries() {
 }
 
 function renderLegend() {
-    const legend = document.getElementById('map-legend');
+    var legend = document.getElementById('map-legend');
     if (!legend) return;
-    const countries = currentData && currentData.countries ? currentData.countries : [];
+    var countries = currentData && currentData.countries ? currentData.countries : [];
     if (countries.length === 0) { legend.innerHTML = ''; return; }
-    legend.innerHTML = countries.map((c, i) =>
-        '<div class="legend-item" data-country="' + escapeAttr(c.name) + '" onclick="highlightCountry(\'' + escapeAttr(c.name) + '\')">' +
-        '<div class="legend-color" style="background:' + PALETTE[i % PALETTE.length] + '"></div>' +
-        '<span>' + escapeHtml(c.name) + '</span></div>'
-    ).join('');
+    legend.innerHTML = countries.map(function (c, i) {
+        return '<div class="legend-item" data-country="' + escapeAttr(c.name) + '" onclick="highlightCountry(\'' + escapeAttr(c.name) + '\')">' +
+            '<div class="legend-color" style="background:' + PALETTE[i % PALETTE.length] + '"></div>' +
+            '<span>' + escapeHtml(c.name) + '</span></div>';
+    }).join('');
 }
 
 function highlightCountry(name) {
     highlightedCountry = highlightedCountry === name ? null : name;
-    document.querySelectorAll('.legend-item').forEach(el => {
+    document.querySelectorAll('.legend-item').forEach(function (el) {
         el.classList.toggle('highlight', el.dataset.country === highlightedCountry);
     });
     if (highlightedCountry) showDetails(highlightedCountry);
 }
 
 function showDetails(countryName) {
-    const countries = currentData && currentData.countries ? currentData.countries : [];
-    const country = countries.find(c => c.name === countryName);
+    var countries = currentData && currentData.countries ? currentData.countries : [];
+    var country = countries.filter(function (c) { return c.name === countryName; })[0];
     if (!country) return;
-    const dt = document.getElementById('detail-title');
+    var dt = document.getElementById('detail-title');
     if (dt) dt.textContent = '🏛️ ' + country.name;
-    const content = document.getElementById('detail-content');
+    var content = document.getElementById('detail-content');
     if (!content) return;
-    const items = [
+    var items = [
         { label: 'Лидер', value: country.owner || '?' },
         { label: 'Территория', value: (country.claims || 0) + ' / ' + (country.max_claims || '?') + ' чанков' },
         { label: 'Казна', value: formatMoney(country.bank || 0), cls: 'success' },
@@ -333,22 +338,24 @@ function showDetails(countryName) {
         { label: '⚔ Военных', value: country.chunks_military || 0 },
         { label: '💰 Торговых', value: country.chunks_trade || 0 }
     ];
-    content.innerHTML = items.map(it =>
-        '<div class="detail-item"><div class="label">' + it.label + '</div>' +
-        '<div class="value ' + (it.cls || '') + '">' + escapeHtml(String(it.value)) + '</div></div>'
-    ).join('');
-    const cd = document.getElementById('country-details');
+    content.innerHTML = items.map(function (it) {
+        return '<div class="detail-item"><div class="label">' + it.label + '</div>' +
+            '<div class="value ' + (it.cls || '') + '">' + escapeHtml(String(it.value)) + '</div></div>';
+    }).join('');
+    var cd = document.getElementById('country-details');
     if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
+/* ================= MAP ================= */
+
 function loadMap() {
-    const ph = document.getElementById('map-placeholder');
-    const canvas = document.getElementById('map-canvas');
+    var ph = document.getElementById('map-placeholder');
+    var canvas = document.getElementById('map-canvas');
     if (!canvas) return;
-    const img = new Image();
+    var img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => {
-        const first = !mapReady;
+    img.onload = function () {
+        var first = !mapReady;
         mapImage = img;
         setupCanvas(img.naturalWidth, img.naturalHeight);
         mapReady = true;
@@ -358,7 +365,7 @@ function loadMap() {
         else applyMapTransform();
         renderPlayerMarkers();
     };
-    img.onerror = () => {
+    img.onerror = function () {
         mapReady = false;
         canvas.style.display = 'none';
         if (ph) { ph.style.display = 'block'; ph.innerHTML = '<div class="map-placeholder-icon">🗺️</div><p>Карта не сгенерирована.</p>'; }
@@ -367,7 +374,7 @@ function loadMap() {
 }
 
 function setupCanvas(w, h) {
-    const canvas = document.getElementById('map-canvas');
+    var canvas = document.getElementById('map-canvas');
     canvas.width = w; canvas.height = h;
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     mapCanvas = canvas;
@@ -376,112 +383,111 @@ function setupCanvas(w, h) {
 }
 
 function initMapControls() {
-    const vp = document.getElementById('map-viewport');
+    var vp = document.getElementById('map-viewport');
     if (!vp) return;
-    vp.addEventListener('mousedown', e => {
+    vp.addEventListener('mousedown', function (e) {
         if (!mapReady || e.target.closest('.map-marker')) return;
         isDragging = true; dragMoved = false;
         dragStartX = e.clientX - mapOffsetX;
         dragStartY = e.clientY - mapOffsetY;
     });
-    window.addEventListener('mousemove', e => {
+    window.addEventListener('mousemove', function (e) {
         if (!isDragging) return;
-        const nx = e.clientX - dragStartX, ny = e.clientY - dragStartY;
+        var nx = e.clientX - dragStartX, ny = e.clientY - dragStartY;
         if (Math.abs(nx - mapOffsetX) > 3 || Math.abs(ny - mapOffsetY) > 3) dragMoved = true;
         mapOffsetX = nx; mapOffsetY = ny;
         applyMapTransform();
     });
-    window.addEventListener('mouseup', () => { isDragging = false; });
-    vp.addEventListener('click', e => {
+    window.addEventListener('mouseup', function () { isDragging = false; });
+    vp.addEventListener('click', function (e) {
         if (!mapReady || dragMoved || e.target.closest('.map-marker')) return;
         handleMapClick(e);
     });
-    vp.addEventListener('wheel', e => {
+    vp.addEventListener('wheel', function (e) {
         if (!mapReady) return;
         e.preventDefault();
-        const rect = vp.getBoundingClientRect();
-        const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-        const ix = (cx - mapOffsetX) / mapZoom, iy = (cy - mapOffsetY) / mapZoom;
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        var rect = vp.getBoundingClientRect();
+        var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+        var ix = (cx - mapOffsetX) / mapZoom, iy = (cy - mapOffsetY) / mapZoom;
+        var delta = e.deltaY > 0 ? 0.9 : 1.1;
         mapZoom = Math.max(0.1, Math.min(12, mapZoom * delta));
         mapOffsetX = cx - ix * mapZoom;
         mapOffsetY = cy - iy * mapZoom;
         applyMapTransform();
     }, { passive: false });
-    const rb = document.getElementById('map-reset');
+    var rb = document.getElementById('map-reset');
     if (rb) rb.addEventListener('click', resetMapView);
-    const cb = document.getElementById('map-clear-highlight');
-    if (cb) cb.addEventListener('click', () => {
+    var cb = document.getElementById('map-clear-highlight');
+    if (cb) cb.addEventListener('click', function () {
         highlightedCountry = null;
-        document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('highlight'));
-        const cd = document.getElementById('country-details');
+        document.querySelectorAll('.legend-item').forEach(function (el) { el.classList.remove('highlight'); });
+        var cd = document.getElementById('country-details');
         if (cd) cd.style.display = 'none';
     });
-    const sp = document.getElementById('map-show-players');
-    if (sp) sp.addEventListener('change', () => { showPlayerMarkers = sp.checked; renderPlayerMarkers(); });
+    var sp = document.getElementById('map-show-players');
+    if (sp) sp.addEventListener('change', function () { showPlayerMarkers = sp.checked; renderPlayerMarkers(); });
 }
 
 function handleMapClick(e) {
-    const vp = document.getElementById('map-viewport');
-    const rect = vp.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    const ix = Math.round((cx - mapOffsetX) / mapZoom);
-    const iy = Math.round((cy - mapOffsetY) / mapZoom);
+    var vp = document.getElementById('map-viewport');
+    var rect = vp.getBoundingClientRect();
+    var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    var ix = Math.round((cx - mapOffsetX) / mapZoom);
+    var iy = Math.round((cy - mapOffsetY) / mapZoom);
     if (ix < 0 || iy < 0 || ix >= mapCanvas.width || iy >= mapCanvas.height) return;
-    let px;
+    var px;
     try { px = mapCtx.getImageData(ix, iy, 1, 1).data; } catch (err) { return; }
-    const a = px[3];
-    if (a < 10) return;
-    const countries = currentData && currentData.countries ? currentData.countries : [];
-    let bestIdx = -1, bestDist = 120;
-    countries.forEach((c, i) => {
-        const rgb = hexToRgb(PALETTE[i % PALETTE.length]);
-        const d = Math.sqrt(Math.pow(px[0] - rgb[0], 2) + Math.pow(px[1] - rgb[1], 2) + Math.pow(px[2] - rgb[2], 2));
+    if (px[3] < 10) return;
+    var countries = currentData && currentData.countries ? currentData.countries : [];
+    var bestIdx = -1, bestDist = 120;
+    countries.forEach(function (c, i) {
+        var rgb = hexToRgb(PALETTE[i % PALETTE.length]);
+        var d = Math.sqrt(Math.pow(px[0] - rgb[0], 2) + Math.pow(px[1] - rgb[1], 2) + Math.pow(px[2] - rgb[2], 2));
         if (d < bestDist) { bestDist = d; bestIdx = i; }
     });
     if (bestIdx === -1) return;
-    const country = countries[bestIdx];
+    var country = countries[bestIdx];
     highlightCountry(country.name);
-    document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
-    const ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
+    document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
+    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
     if (ov) ov.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    const ovTab = document.getElementById('tab-overview');
+    document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+    var ovTab = document.getElementById('tab-overview');
     if (ovTab) ovTab.classList.add('active');
     showDetails(country.name);
 }
 
 function hexToRgb(hex) {
-    const h = hex.replace('#', '');
+    var h = hex.replace('#', '');
     return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
 function applyMapTransform() {
-    const canvas = document.getElementById('map-canvas');
-    const overlay = document.getElementById('map-overlay');
+    var canvas = document.getElementById('map-canvas');
+    var overlay = document.getElementById('map-overlay');
     if (!canvas) return;
-    const t = 'translate(' + mapOffsetX + 'px,' + mapOffsetY + 'px) scale(' + mapZoom + ')';
+    var t = 'translate(' + mapOffsetX + 'px,' + mapOffsetY + 'px) scale(' + mapZoom + ')';
     canvas.style.transform = t;
     if (overlay) { overlay.style.transform = t; updateMarkerScale(); }
 }
 
 function updateMarkerScale() {
-    const overlay = document.getElementById('map-overlay');
+    var overlay = document.getElementById('map-overlay');
     if (!overlay) return;
-    const z = Math.max(0.05, mapZoom);
-    const desired = MARKER_BASE_PX * Math.pow(z, MARKER_GROWTH_POWER);
-    const clamped = Math.max(MARKER_MIN_PX, Math.min(MARKER_MAX_PX, desired));
-    const counter = clamped / (MARKER_BASE_PX * z);
+    var z = Math.max(0.05, mapZoom);
+    var desired = MARKER_BASE_PX * Math.pow(z, MARKER_GROWTH_POWER);
+    var clamped = Math.max(MARKER_MIN_PX, Math.min(MARKER_MAX_PX, desired));
+    var counter = clamped / (MARKER_BASE_PX * z);
     overlay.style.setProperty('--marker-counter', counter.toFixed(4));
 }
 
 function resetMapView() {
-    const canvas = document.getElementById('map-canvas');
-    const vp = document.getElementById('map-viewport');
+    var canvas = document.getElementById('map-canvas');
+    var vp = document.getElementById('map-viewport');
     if (!canvas || !vp || !mapReady) return;
-    const vw = vp.clientWidth, vh = vp.clientHeight;
-    const iw = mapCanvas.width, ih = mapCanvas.height;
-    const scale = Math.min(vw / iw, vh / ih) * 0.98;
+    var vw = vp.clientWidth, vh = vp.clientHeight;
+    var iw = mapCanvas.width, ih = mapCanvas.height;
+    var scale = Math.min(vw / iw, vh / ih) * 0.98;
     mapZoom = scale;
     mapOffsetX = (vw - iw * scale) / 2;
     mapOffsetY = (vh - ih * scale) / 2;
@@ -489,58 +495,66 @@ function resetMapView() {
 }
 
 function worldToImagePx(x, z, meta) {
-    const minBX = meta.min_chunk_x * BLOCKS_PER_CHUNK;
-    const minBZ = meta.min_chunk_z * BLOCKS_PER_CHUNK;
+    var minBX = meta.min_chunk_x * BLOCKS_PER_CHUNK;
+    var minBZ = meta.min_chunk_z * BLOCKS_PER_CHUNK;
     return { px: (x - minBX) * PIXELS_PER_BLOCK, pz: (z - minBZ) * PIXELS_PER_BLOCK };
 }
 
 function renderPlayerMarkers() {
-    const overlay = document.getElementById('map-overlay');
+    var overlay = document.getElementById('map-overlay');
     if (!overlay) return;
     if (!showPlayerMarkers || !mapReady || !currentData) { overlay.innerHTML = ''; return; }
-    const meta = currentData.map_meta;
-    const players = currentData.players || [];
+    var meta = currentData.map_meta;
+    var players = currentData.players || [];
     if (!meta || players.length === 0) { overlay.innerHTML = ''; return; }
-    const markers = [];
-    for (const p of players) {
-        const pos = p.position;
-        if (!pos || pos.x == null || pos.z == null) continue;
-        if (pos.world && meta.world && pos.world !== meta.world) continue;
-        const pt = worldToImagePx(pos.x, pos.z, meta);
-        if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) continue;
-        const online = !!p.online;
-        const name = p.name || '?';
-        const headUrl = getHeadUrl(name, 32);
-        const fallback = SKIN_API + '/avatar/Steve/32';
+    var markers = [];
+    players.forEach(function (p) {
+        var pos = p.position;
+        if (!pos || pos.x == null || pos.z == null) return;
+        if (pos.world && meta.world && pos.world !== meta.world) return;
+        var pt = worldToImagePx(pos.x, pos.z, meta);
+        if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) return;
+        var online = !!p.online;
+        var name = p.name || '?';
+        var headUrl = getHeadUrl(name, 32);
+        var fallback = SKIN_API + '/avatar/Steve/32';
         markers.push('<div class="map-marker ' + (online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + '">' +
             '<div class="map-marker-content">' +
             '<img class="map-marker-head" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
             '<div class="map-marker-label">' + escapeHtml(name) + '</div></div></div>');
-    }
+    });
     overlay.innerHTML = markers.join('');
     updateMarkerScale();
 }
 
+/* ================= PLAYERS ================= */
+
 function initPlayerControls() {
-    const s = document.getElementById('player-search');
-    if (s) s.addEventListener('input', () => renderPlayers());
-    const o = document.getElementById('player-online-only');
-    if (o) o.addEventListener('change', () => renderPlayers());
+    var s = document.getElementById('player-search');
+    if (s) s.addEventListener('input', renderPlayers);
+    var o = document.getElementById('player-online-only');
+    if (o) o.addEventListener('change', renderPlayers);
 }
 
 function renderPlayers() {
-    const grid = document.getElementById('players-grid');
-    const empty = document.getElementById('players-empty');
+    var grid = document.getElementById('players-grid');
+    var empty = document.getElementById('players-empty');
     if (!grid || !empty) return;
-    const players = currentData && currentData.players ? currentData.players : null;
-    if (!players || players.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+    var players = currentData && currentData.players ? currentData.players : null;
+    if (!players || players.length === 0) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
     empty.style.display = 'none';
-    const q = (document.getElementById('player-search').value || '').trim().toLowerCase();
-    const onlineOnly = document.getElementById('player-online-only').checked || false;
-    let filtered = [...players];
-    if (q) filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(q) || (p.country || '').toLowerCase().includes(q));
-    if (onlineOnly) filtered = filtered.filter(p => p.online);
-    filtered.sort((a, b) => {
+    var q = (document.getElementById('player-search').value || '').trim().toLowerCase();
+    var onlineOnly = document.getElementById('player-online-only').checked || false;
+    var filtered = players.slice();
+    if (q) filtered = filtered.filter(function (p) {
+        return (p.name || '').toLowerCase().indexOf(q) !== -1 || (p.country || '').toLowerCase().indexOf(q) !== -1;
+    });
+    if (onlineOnly) filtered = filtered.filter(function (p) { return p.online; });
+    filtered.sort(function (a, b) {
         if (!!b.online !== !!a.online) return b.online ? 1 : -1;
         return (b.playtime_seconds || 0) - (a.playtime_seconds || 0);
     });
@@ -548,19 +562,19 @@ function renderPlayers() {
         grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">Ничего не найдено.</div>';
         return;
     }
-    grid.innerHTML = filtered.map(p => renderPlayerCard(p)).join('');
+    grid.innerHTML = filtered.map(renderPlayerCard).join('');
 }
 
 function renderPlayerCard(p) {
-    const name = p.name || '?';
-    const avatar = getHeadUrl(name, 64);
-    const fallback = SKIN_API + '/avatar/Steve/64';
-    const online = !!p.online;
-    let badge = '';
+    var name = p.name || '?';
+    var avatar = getHeadUrl(name, 64);
+    var fallback = SKIN_API + '/avatar/Steve/64';
+    var online = !!p.online;
+    var badge = '';
     if (p.country_role === 'leader') badge = '<div class="player-card-badge leader">Лидер</div>';
     else if (p.country_role === 'co_ruler') badge = '<div class="player-card-badge co-ruler">Co</div>';
-    const pt = formatPlaytime(p.playtime_seconds);
-    const money = p.balance != null ? formatMoney(p.balance) : null;
+    var pt = formatPlaytime(p.playtime_seconds);
+    var money = p.balance != null ? formatMoney(p.balance) : null;
     return '<div class="player-card" onclick="openPlayer(\'' + escapeAttr(name) + '\')">' +
         badge +
         '<div class="player-card-avatar">' +
@@ -576,45 +590,45 @@ function renderPlayerCard(p) {
 }
 
 function openPlayer(name) {
-    const players = currentData && currentData.players ? currentData.players : [];
-    const player = players.find(p => p.name === name);
+    var players = currentData && currentData.players ? currentData.players : [];
+    var player = players.filter(function (p) { return p.name === name; })[0];
     if (!player) return;
-    const online = !!player.online;
+    var online = !!player.online;
     setText('player-modal-name', name);
-    const st = document.getElementById('player-modal-status');
+    var st = document.getElementById('player-modal-status');
     if (st) {
         st.textContent = online ? '● Онлайн' : '○ Оффлайн';
         st.className = 'player-modal-status ' + (online ? 'online' : 'offline');
     }
 
-    const accountRows = [];
+    var accountRows = [];
     if (player.uuid) accountRows.push({ label: 'UUID', value: shortenUuid(player.uuid), copy: player.uuid });
     if (player.first_seen) accountRows.push({ label: 'Первый вход', value: timeAgo(player.first_seen) });
     if (player.last_seen) accountRows.push({ label: 'Был в игре', value: timeAgo(player.last_seen) });
     if (player.playtime_seconds != null) accountRows.push({ label: 'Время в игре', value: formatPlaytime(player.playtime_seconds) });
     if (player.playtime_seconds > 0) accountRows.push({ label: 'Дней в игре', value: Math.floor(player.playtime_seconds / 86400) });
 
-    const ecoRows = [];
+    var ecoRows = [];
     if (player.balance != null) ecoRows.push({ label: 'Баланс', value: formatMoney(player.balance), cls: 'success' });
     if (player.job) ecoRows.push({ label: 'Профессия', value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '') });
     if (player.kills != null || player.deaths != null) {
-        const k = player.kills || 0, d = player.deaths || 0;
-        const kd = d > 0 ? (k / d).toFixed(2) : k;
+        var k = player.kills || 0, d = player.deaths || 0;
+        var kd = d > 0 ? (k / d).toFixed(2) : k;
         ecoRows.push({ label: 'Убийств', value: k });
         ecoRows.push({ label: 'Смертей', value: d });
         ecoRows.push({ label: 'K/D', value: kd });
     }
     if (player.bounty != null && player.bounty > 0) ecoRows.push({ label: '💀 Награда', value: formatMoney(player.bounty), cls: 'danger' });
 
-    const countryRows = [];
+    var countryRows = [];
     if (player.country) {
         countryRows.push({ label: 'Название', value: player.country, cls: 'accent', copy: player.country });
         if (player.country_role) {
-            const rn = player.country_role === 'leader' ? 'Лидер'
+            var rn = player.country_role === 'leader' ? 'Лидер'
                 : player.country_role === 'co_ruler' ? 'Соправитель' : player.country_role;
             countryRows.push({ label: 'Роль', value: rn });
         }
-        const cd = (currentData.countries || []).find(c => c.name === player.country);
+        var cd = (currentData.countries || []).filter(function (c) { return c.name === player.country; })[0];
         if (cd) {
             if (cd.bank != null) countryRows.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
             if (cd.claims != null) countryRows.push({ label: 'Территория', value: cd.claims + ' чанков' });
@@ -623,7 +637,7 @@ function openPlayer(name) {
         }
     } else countryRows.push({ label: 'Страна', value: 'Нет' });
 
-    const actRows = [];
+    var actRows = [];
     if (player.energy != null) actRows.push({
         label: 'Энергия',
         value: player.energy.toFixed(1) + (player.max_energy != null ? ' / ' + player.max_energy.toFixed(1) : ''),
@@ -631,11 +645,11 @@ function openPlayer(name) {
     });
     if (player.achievements_count != null) actRows.push({ label: 'Достижений', value: player.achievements_count });
     if (player.position) {
-        const pos = player.position;
+        var pos = player.position;
         actRows.push({ label: 'Локация', value: Math.round(pos.x) + ', ' + Math.round(pos.y || 0) + ', ' + Math.round(pos.z) });
     }
 
-    const panelsEl = document.getElementById('player-modal-panels');
+    var panelsEl = document.getElementById('player-modal-panels');
     if (panelsEl) {
         panelsEl.innerHTML =
             renderPanel('Учётная запись', accountRows) +
@@ -644,28 +658,28 @@ function openPlayer(name) {
             renderPanel('Активность', actRows);
     }
 
-    const actions = [];
+    var actions = [];
     if (player.country) actions.push('<button class="player-modal-btn" onclick="gotoCountry(\'' + escapeAttr(player.country) + '\')">🏛️ Перейти к стране</button>');
     if (player.position) actions.push('<button class="player-modal-btn" onclick="gotoPlayerOnMap(\'' + escapeAttr(name) + '\')">🗺️ На карте</button>');
     actions.push('<button class="player-modal-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(name) + '\')">📋 Скопировать ник</button>');
-    const actBtnEl = document.getElementById('player-modal-actions');
+    var actBtnEl = document.getElementById('player-modal-actions');
     if (actBtnEl) actBtnEl.innerHTML = actions.join('');
 
     openPlayerModal();
-    setTimeout(() => initSkinViewer(name, player.uuid), 100);
+    setTimeout(function () { initSkinViewer(name, player.uuid); }, 100);
 }
 
 function renderPanel(title, rows) {
-    const valid = (rows || []).filter(r => r.value !== undefined && r.value !== null && r.value !== '');
+    var valid = (rows || []).filter(function (r) { return r.value !== undefined && r.value !== null && r.value !== ''; });
     if (valid.length === 0) return '';
     return '<div class="player-panel">' +
         '<div class="player-panel-title">' + escapeHtml(title) + '</div>' +
-        valid.map(r => renderPanelRow(r)).join('') +
+        valid.map(renderPanelRow).join('') +
         '</div>';
 }
 
 function renderPanelRow(r) {
-    const copyBtn = r.copy
+    var copyBtn = r.copy
         ? '<button class="player-copy-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(r.copy) + '\')" title="Скопировать">📋 Копировать</button>'
         : '';
     return '<div class="player-panel-row">' +
@@ -675,196 +689,164 @@ function renderPanelRow(r) {
         '</div>';
 }
 
-// ==================== 3D SKIN VIEWER ====================
+/* ================= 3D VIEWER ================= */
 
-/**
- * Камера сбоку-сверху? Нет — строго спереди, чуть-чуть сверху для объёма.
- * Позиция: спереди (по +Z), с небольшим подъёмом (y=17 вместо 16), смотрит в (0,16,0).
- * Это даёт лёгкий «top-down» вид как на NameMC.
- */
 function applyDefaultCamera(viewer) {
     try {
         viewer.fov = SKIN_CAMERA_FOV;
-        // target — центр модели (по y=16)
         viewer.camera.position.set(0, SKIN_CAMERA_TARGET_Y + 1.2, SKIN_CAMERA_DISTANCE);
         viewer.camera.lookAt(0, SKIN_CAMERA_TARGET_Y, 0);
         viewer.controls.target.set(0, SKIN_CAMERA_TARGET_Y, 0);
         viewer.controls.update();
-    } catch (e) {
-        console.warn('[skinview3d] applyDefaultCamera:', e);
-    }
+    } catch (e) {}
 }
 
 function resolveSkinUrl(name, uuid) {
-    if (localSkinCache.has(name)) {
-        return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
-    }
-    if (uuid) {
-        return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
-    }
+    if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
+    if (uuid) return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
     return CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve';
 }
 
-async function initSkinViewer(name, uuid) {
-    const wrap = document.getElementById('player-viewer-wrap');
+function initSkinViewer(name, uuid) {
+    var wrap = document.getElementById('player-viewer-wrap');
     if (!wrap) return;
-
-    // Новый canvas — избегаем конфликтов WebGL контекстов
-    const oldCanvas = document.getElementById('skin-canvas');
+    var oldCanvas = document.getElementById('skin-canvas');
     if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
-    const newCanvas = document.createElement('canvas');
+    var newCanvas = document.createElement('canvas');
     newCanvas.id = 'skin-canvas';
     wrap.insertBefore(newCanvas, wrap.firstChild);
 
-    const loading = document.getElementById('skin-loading');
+    var loading = document.getElementById('skin-loading');
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
+    if (loading) {
+        loading.classList.remove('hidden');
+        loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
+    }
 
-    loading.classList.remove('hidden');
-    loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
-
-    let waited = 0;
-    while (window.__skinview3dStatus === 'loading' && waited < 5000) {
-        await new Promise(r => setTimeout(r, 100));
+    var waited = 0;
+    function waitSkinview() {
+        if (window.__skinview3dStatus === 'loaded' && typeof skinview3d !== 'undefined') { startViewer(); return; }
+        if (window.__skinview3dStatus === 'failed' || waited >= 5000) {
+            if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
+                '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
+                '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div></div>';
+            return;
+        }
         waited += 100;
+        setTimeout(waitSkinview, 100);
     }
+    waitSkinview();
 
-    if (window.__skinview3dStatus !== 'loaded' || typeof skinview3d === 'undefined') {
-        loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-            '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div></div>';
-        return;
-    }
+    function startViewer() {
+        wrap.getBoundingClientRect();
+        setTimeout(function () {
+            var rect = wrap.getBoundingClientRect();
+            var size = Math.max(280, Math.round(rect.width || 380));
+            var skinUrl = resolveSkinUrl(name, uuid);
+            console.log('[skinview3d] canvas=' + size + ' skin=' + skinUrl);
 
-    wrap.getBoundingClientRect();
-    await new Promise(r => setTimeout(r, 60));
+            try {
+                var viewer = new skinview3d.SkinViewer({
+                    canvas: newCanvas,
+                    width: size,
+                    height: size,
+                    skin: skinUrl
+                });
 
-    const rect = wrap.getBoundingClientRect();
-    const size = Math.max(280, Math.round(rect.width || 380));
+                try {
+                    if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
+                    if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
+                } catch (e) {}
 
-    const skinUrl = resolveSkinUrl(name, uuid);
-    console.log('[skinview3d] canvas=' + size + ', skin=' + skinUrl);
+                applyDefaultCamera(viewer);
 
-    try {
-        const viewer = new skinview3d.SkinViewer({
-            canvas: newCanvas,
-            width: size,
-            height: size,
-            skin: skinUrl
-        });
+                viewer.controls.enableZoom = true;
+                viewer.controls.enablePan = false;
+                viewer.controls.enableRotate = true;
+                viewer.controls.rotateSpeed = 1.0;
+                viewer.controls.zoomSpeed = 0.8;
+                viewer.controls.minPolarAngle = 0.02;
+                viewer.controls.maxPolarAngle = Math.PI - 0.02;
+                viewer.controls.minDistance = SKIN_CAMERA_MIN_DIST;
+                viewer.controls.maxDistance = SKIN_CAMERA_MAX_DIST;
 
-        // === СВЕТ: два источника, ярче по умолчанию ===
-        try {
-            if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
-            if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
-        } catch (e) {}
+                try {
+                    viewer.nameTag = new skinview3d.NameTagObject(name);
+                    viewer.nameTag.visible = true;
+                } catch (e) {}
 
-        // === КАМЕРА ===
-        applyDefaultCamera(viewer);
+                try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
 
-        // === Контролы: полная свобода вращения ===
-        viewer.controls.enableZoom = true;
-        viewer.controls.enablePan = false;
-        viewer.controls.enableRotate = true;
-        viewer.controls.rotateSpeed = 1.0;
-        viewer.controls.zoomSpeed = 0.8;
+                var userInteracting = false;
+                newCanvas.addEventListener('pointerdown', function () {
+                    userInteracting = true;
+                    if (currentRotateAnim) { try { currentRotateAnim.paused = true; } catch (e) {} }
+                });
+                newCanvas.addEventListener('pointerup', function () {
+                    userInteracting = false;
+                    setTimeout(function () {
+                        if (userInteracting || rotatePaused) return;
+                        if (currentRotateAnim) { try { currentRotateAnim.paused = false; } catch (e) {} }
+                    }, 1500);
+                });
+                newCanvas.addEventListener('pointercancel', function () { userInteracting = false; });
 
-        // Полный поворот по вертикали: от строго сверху до строго снизу
-        viewer.controls.minPolarAngle = 0.02;
-        viewer.controls.maxPolarAngle = Math.PI - 0.02;
+                currentSkinViewer = viewer;
+                if (loading) loading.classList.add('hidden');
 
-        // Без ограничений по горизонтали (по умолчанию в OrbitControls это так)
-        // Дистанция зума
-        viewer.controls.minDistance = SKIN_CAMERA_MIN_DISTANCE;
-        viewer.controls.maxDistance = SKIN_CAMERA_MAX_DISTANCE;
+                var ro = new ResizeObserver(function () {
+                    if (!currentSkinViewer) return;
+                    var w = wrap.clientWidth, h = wrap.clientHeight;
+                    if (w > 0 && h > 0) {
+                        currentSkinViewer.width = w;
+                        currentSkinViewer.height = h;
+                    }
+                });
+                ro.observe(wrap);
 
-        // Ник над головой
-        try {
-            viewer.nameTag = new skinview3d.NameTagObject(name);
-            viewer.nameTag.visible = true;
-        } catch (e) {}
-
-        // Автовращение (отключается кнопкой Пауза)
-        try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
-
-        // Пауза автовращения при ручном перетаскивании — чтобы не мешало
-        const canvasEl = newCanvas;
-        let userInteracting = false;
-        canvasEl.addEventListener('pointerdown', () => {
-            userInteracting = true;
-            if (currentRotateAnim) { try { currentRotateAnim.paused = true; } catch (e) {} }
-        });
-        canvasEl.addEventListener('pointerup', () => {
-            userInteracting = false;
-            // Через небольшую паузу возвращаем вращение, если пользователь не нажал "Пауза"
-            setTimeout(() => {
-                if (userInteracting || rotatePaused) return;
-                if (currentRotateAnim) { try { currentRotateAnim.paused = false; } catch (e) {} }
-            }, 1500);
-        });
-        canvasEl.addEventListener('pointercancel', () => { userInteracting = false; });
-
-        currentSkinViewer = viewer;
-        loading.classList.add('hidden');
-
-        const ro = new ResizeObserver(() => {
-            if (!currentSkinViewer) return;
-            const w = wrap.clientWidth, h = wrap.clientHeight;
-            if (w > 0 && h > 0) {
-                currentSkinViewer.width = w;
-                currentSkinViewer.height = h;
+                console.log('[skinview3d] ✓ viewer создан для ' + name);
+            } catch (err) {
+                console.error('[skinview3d] Ошибка:', err);
+                if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
+                    '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
+                    '<div style="color:#ef4444;font-weight:600;">Ошибка 3D-модели</div>' +
+                    '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' + escapeHtml(err.message || String(err)) + '</div>' +
+                    '</div>';
             }
-        });
-        ro.observe(wrap);
-
-        console.log('[skinview3d] ✓ viewer создан для ' + name);
-
-    } catch (err) {
-        console.error('[skinview3d] Ошибка:', err);
-        loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-            '<div style="color:#ef4444;font-weight:600;">Ошибка 3D-модели</div>' +
-            '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' + escapeHtml(err.message || String(err)) + '</div>' +
-            '</div>';
+        }, 60);
     }
 }
 
-// Слежение за флагом паузы — синхронизируем с animation
-setInterval(() => {
-    if (!currentRotateAnim) return;
-    try {
-        if (rotatePaused && !currentRotateAnim.paused) currentRotateAnim.paused = true;
-    } catch (e) {}
-}, 300);
-
-// ==================== NAV ====================
+/* ================= NAV ================= */
 
 function gotoCountry(name) {
     closePlayerModal();
-    document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
-    const ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
+    document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
+    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
     if (ov) ov.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    const ovTab = document.getElementById('tab-overview');
+    document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+    var ovTab = document.getElementById('tab-overview');
     if (ovTab) ovTab.classList.add('active');
     highlightCountry(name);
     showDetails(name);
 }
 
 function gotoPlayerOnMap(name) {
-    const players = currentData && currentData.players ? currentData.players : [];
-    const p = players.find(x => x.name === name);
+    var players = currentData && currentData.players ? currentData.players : [];
+    var p = players.filter(function (x) { return x.name === name; })[0];
     if (!p || !p.position || !currentData.map_meta) return;
     closePlayerModal();
-    document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
-    const mp = document.querySelector('.main-nav .nav-btn[data-tab="map"]');
+    document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
+    var mp = document.querySelector('.main-nav .nav-btn[data-tab="map"]');
     if (mp) mp.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    const mpTab = document.getElementById('tab-map');
+    document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+    var mpTab = document.getElementById('tab-map');
     if (mpTab) mpTab.classList.add('active');
-    setTimeout(() => {
+    setTimeout(function () {
         if (!mapReady) return;
-        const pt = worldToImagePx(p.position.x, p.position.z, currentData.map_meta);
-        const vp = document.getElementById('map-viewport');
-        const vw = vp.clientWidth, vh = vp.clientHeight;
+        var pt = worldToImagePx(p.position.x, p.position.z, currentData.map_meta);
+        var vp = document.getElementById('map-viewport');
+        var vw = vp.clientWidth, vh = vp.clientHeight;
         mapZoom = 1.5;
         mapOffsetX = vw / 2 - pt.px * mapZoom;
         mapOffsetY = vh / 2 - pt.pz * mapZoom;
@@ -873,28 +855,246 @@ function gotoPlayerOnMap(name) {
 }
 
 function copyToClipboardSafe(text) {
-    copyToClipboard(text).then(ok => { if (ok) showToast('✓ Скопировано: ' + text); });
+    copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
 }
+
+/* ================= BONUS ================= */
 
 function renderBonus() {
     if (!currentData) return;
-    const jp = currentData.jackpot;
-    const jpEl = document.getElementById('panel-jackpot');
+    var jp = currentData.jackpot;
+    var jpEl = document.getElementById('panel-jackpot');
     if (jpEl) {
         if (jp != null && jp > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jp)); }
         else jpEl.style.display = 'none';
     }
-    const events = currentData.events || [];
-    const ep = document.getElementById('panel-events');
+    var events = currentData.events || [];
+    var ep = document.getElementById('panel-events');
     if (ep) {
         if (events.length > 0) {
             ep.style.display = 'block';
-            document.getElementById('events-list').innerHTML = events.map(e =>
-                '<div class="event-item ' + (e.type === 'negative' ? 'negative' : 'positive') + '"><div><div class="name">' + escapeHtml(e.name || e.id || '?') + '</div><div class="desc">' + escapeHtml(e.description || '') + '</div></div></div>'
-            ).join('');
+            document.getElementById('events-list').innerHTML = events.map(function (e) {
+                return '<div class="event-item ' + (e.type === 'negative' ? 'negative' : 'positive') + '"><div><div class="name">' + escapeHtml(e.name || e.id || '?') + '</div><div class="desc">' + escapeHtml(e.description || '') + '</div></div></div>';
+            }).join('');
         } else ep.style.display = 'none';
     }
-    const wars = currentData.wars || [];
-    const wp = document.getElementById('panel-wars');
+    var wars = currentData.wars || [];
+    var wp = document.getElementById('panel-wars');
     if (wp) {
-        if (wars.length > 0
+        if (wars.length > 0) {
+            wp.style.display = 'block';
+            document.getElementById('wars-list').innerHTML = wars.map(function (w) {
+                return '<div class="war-item"><div><div class="name">' + escapeHtml(w.attacker) + ' ⚔ ' + escapeHtml(w.defender) + '</div><div class="desc">С ' + formatDate(w.started_at) + '</div></div></div>';
+            }).join('');
+        } else wp.style.display = 'none';
+    }
+    var poker = currentData.top_poker || [];
+    var pp = document.getElementById('panel-poker');
+    if (pp) {
+        if (poker.length > 0) {
+            pp.style.display = 'block';
+            document.getElementById('poker-body').innerHTML = poker.map(function (p, i) {
+                return '<tr><td class="rank">#' + (i + 1) + '</td><td class="name">' + escapeHtml(p.name || '?') + '</td><td class="' + (p.profit >= 0 ? 'money' : '') + '">' + (p.profit >= 0 ? '+' : '') + formatMoney(p.profit || 0) + '</td><td>' + (p.hands || 0) + '</td></tr>';
+            }).join('');
+        } else pp.style.display = 'none';
+    }
+    var bounties = currentData.bounties || [];
+    var bp = document.getElementById('panel-bounties');
+    if (bp) {
+        if (bounties.length > 0) {
+            bp.style.display = 'block';
+            document.getElementById('bounties-list').innerHTML = bounties.map(function (b) {
+                return '<div class="bounty-item"><div><div class="name">' + escapeHtml(b.target || '?') + '</div><div class="desc">Награда: ' + formatMoney(b.amount || 0) + '</div></div></div>';
+            }).join('');
+        } else bp.style.display = 'none';
+    }
+    var anyBonus = (jp > 0) || events.length > 0 || wars.length > 0 || poker.length > 0 || bounties.length > 0;
+    var be = document.getElementById('panel-bonus-empty');
+    if (be) be.style.display = anyBonus ? 'none' : 'block';
+}
+
+/* ================= COPY ================= */
+
+function initCommandCopy() {
+    document.body.addEventListener('click', function (e) {
+        var t = e.target.closest('code[data-copy]');
+        if (!t) return;
+        e.preventDefault();
+        var text = t.getAttribute('data-copy');
+        if (!text) return;
+        copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
+    });
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return fallbackCopy(text); });
+    }
+    return Promise.resolve(fallbackCopy(text));
+}
+
+function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+}
+
+var toastTimer = null;
+function showToast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
+}
+
+/* ================= GUIDE NAV ================= */
+
+function initGuideNav() {
+    var nav = document.getElementById('guide-nav');
+    if (!nav) return;
+    var sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
+    sections.forEach(function (h2) {
+        var section = h2.closest('.guide-section');
+        if (!section) return;
+        var a = document.createElement('a');
+        a.href = '#' + section.id;
+        a.textContent = h2.textContent.trim();
+        a.dataset.target = section.id;
+        nav.appendChild(a);
+    });
+    var navLinks = nav.querySelectorAll('a');
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) navLinks.forEach(function (a) { a.classList.toggle('active', a.dataset.target === entry.target.id); });
+        });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+    sections.forEach(function (h2) {
+        var s = h2.closest('.guide-section');
+        if (s) observer.observe(s);
+    });
+    navLinks.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            var el = document.getElementById(a.dataset.target);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+}
+
+/* ================= COMMANDS ================= */
+
+var COMMANDS = [
+    { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
+    { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
+    { cmd: '/c claim', desc: 'Захватить чанк', plugin: 'Sovereignty' },
+    { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
+    { cmd: '/c bank', desc: 'Баланс казны', plugin: 'Sovereignty' },
+    { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
+    { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
+    { cmd: '/c upgrade', desc: 'Прокачка', plugin: 'Sovereignty' },
+    { cmd: '/c boost', desc: 'Буст регенерации', plugin: 'Sovereignty' },
+    { cmd: '/c research', desc: 'Исследования', plugin: 'Sovereignty' },
+    { cmd: '/c court', desc: 'Суд', plugin: 'Sovereignty' },
+    { cmd: '/c ally Steve', desc: 'Союз', plugin: 'Sovereignty' },
+    { cmd: '/c enemy Steve', desc: 'Война', plugin: 'Sovereignty' },
+    { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
+    { cmd: '/c accept', desc: 'Принять', plugin: 'Sovereignty' },
+    { cmd: '/c decline', desc: 'Отклонить', plugin: 'Sovereignty' },
+    { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
+    { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
+    { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
+    { cmd: '/bounty Steve 5000', desc: 'Награда', plugin: 'Bounty' },
+    { cmd: '/roll', desc: 'Казино', plugin: 'RollGame' },
+    { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
+    { cmd: '/roll duel 1000', desc: 'Дуэль', plugin: 'RollGame' },
+    { cmd: '/roll mines 1000 3 5', desc: 'Мины', plugin: 'RollGame' },
+    { cmd: '/roll wheel 1000', desc: 'Колесо', plugin: 'RollGame' },
+    { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
+    { cmd: '/roll poker', desc: 'Покер', plugin: 'RollGame' },
+    { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
+    { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
+    { cmd: '/sethome', desc: 'Дом', plugin: 'EssentialsX' },
+    { cmd: '/home', desc: 'Домой', plugin: 'EssentialsX' },
+    { cmd: '/jobs browse', desc: 'Профессии', plugin: 'Jobs' },
+    { cmd: '/skin Steve', desc: 'Скин', plugin: 'SkinsRestorer' }
+];
+
+function initCommandSearch() {
+    var list = document.getElementById('commands-list');
+    if (!list) return;
+    list.innerHTML = COMMANDS.map(function (c) {
+        return '<div class="command-item"><div class="cmd-name"><code data-copy="' + escapeAttr(c.cmd) + '">' + escapeHtml(c.cmd) + '</code></div><div class="cmd-desc">' + escapeHtml(c.desc) + '</div><div class="cmd-plugin">' + escapeHtml(c.plugin) + '</div></div>';
+    }).join('');
+    var inp = document.getElementById('cmd-search');
+    if (!inp) return;
+    inp.addEventListener('input', function () {
+        var q = inp.value.trim().toLowerCase();
+        document.querySelectorAll('.command-item').forEach(function (item) {
+            item.classList.toggle('hidden', q.length > 0 && item.textContent.toLowerCase().indexOf(q) === -1);
+        });
+    });
+}
+
+/* ================= UTILS ================= */
+
+function formatMoney(amount) {
+    if (amount == null) return '0';
+    if (Math.abs(amount) >= 1000000) return (amount / 1000000).toFixed(2) + 'M';
+    if (Math.abs(amount) >= 1000) return (amount / 1000).toFixed(1) + 'k';
+    return Math.round(amount).toString();
+}
+
+function formatPlaytime(sec) {
+    if (sec == null || sec <= 0) return '';
+    var d = Math.floor(sec / 86400);
+    var h = Math.floor((sec % 86400) / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return h > 0 ? d + 'д ' + h + 'ч' : d + 'д';
+    if (h > 0) return m > 0 ? h + 'ч ' + m + 'м' : h + 'ч';
+    if (m > 0) return m + 'м';
+    return (sec % 60) + 'с';
+}
+
+function timeAgo(ts) {
+    if (!ts) return '—';
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'только что';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + ' мин назад';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + ' ч назад';
+    var d = Math.floor(h / 24);
+    if (d < 30) return d + ' дн назад';
+    return Math.floor(d / 30) + ' мес назад';
+}
+
+function formatDate(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function shortenUuid(uuid) {
+    if (!uuid) return '—';
+    return uuid.length > 13 ? uuid.substring(0, 8) + '…' : uuid;
+}
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    var div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+function escapeAttr(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
