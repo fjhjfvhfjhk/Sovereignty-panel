@@ -1,4 +1,4 @@
-/* Sovereignty panel v2.8 — панели в стиле сайта */
+/* Sovereignty panel v2.9 */
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
@@ -27,7 +27,13 @@ let showPlayerMarkers = true;
 let mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 let currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
 
+// Кеши
+const localSkinCache = new Map();   // name → HTMLImageElement (загруженный PNG)
+const headCache = new Map();         // name → dataURL готовой головы
+
 const PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
+
+// ==================== INIT ====================
 
 document.addEventListener('DOMContentLoaded', () => {
     try {
@@ -106,6 +112,79 @@ function closePlayerModal() {
     if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
+// ==================== LOCAL SKINS PRELOAD ====================
+
+/**
+ * Пробует загрузить локальный PNG для каждого игрока (data/skins/{ник}.png).
+ * При успехе — сохраняет в localSkinCache и создаёт из него голову в headCache.
+ * Ошибки (404) тихо игнорируются — тогда используется mc-heads.
+ */
+async function preloadLocalSkins() {
+    const players = currentData && currentData.players ? currentData.players : [];
+    if (players.length === 0) return;
+
+    const jobs = players.map(p => loadLocalSkin(p.name).catch(() => null));
+    await Promise.all(jobs);
+}
+
+function loadLocalSkin(name) {
+    if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
+
+    const url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        // Same-origin — canvas не будет tainted
+        img.onload = () => {
+            // Скин должен быть 64x32 или 64x64
+            if (img.width < 64 || (img.height !== 32 && img.height !== 64)) {
+                reject(new Error('Неверный формат скина: ' + img.width + 'x' + img.height));
+                return;
+            }
+            localSkinCache.set(name, img);
+            // Сразу готовим голову
+            try {
+                headCache.set(name, headFromSkin(img));
+            } catch (e) { /* ignore */ }
+            resolve(img);
+        };
+        img.onerror = () => reject(new Error('404'));
+        img.src = url;
+    });
+}
+
+/**
+ * Извлекает голову (лицо + шапка) из PNG-скина через canvas.
+ * Возвращает dataURL 8×8 (без масштабирования — на экране CSS увеличит).
+ */
+function headFromSkin(skinImg) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 8;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    // Лицо: x=8, y=8, 8x8
+    ctx.drawImage(skinImg, 8, 8, 8, 8, 0, 0, 8, 8);
+    // Шапка (если есть — 64x64)
+    if (skinImg.width >= 64 && skinImg.height >= 64) {
+        ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 8, 8);
+    }
+    return canvas.toDataURL('image/png');
+}
+
+/**
+ * Синхронно возвращает URL головы:
+ *   - если есть локальный скин → dataURL из headCache
+ *   - иначе → mc-heads.net
+ *
+ * Используется везде, где рендерится <img> головы.
+ */
+function getHeadUrl(name, size) {
+    if (headCache.has(name)) return headCache.get(name);
+    return SKIN_API + '/avatar/' + encodeURIComponent(name) + '/' + (size || 64);
+}
+
+// ==================== DATA LOAD ====================
+
 async function loadData() {
     const tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) {
@@ -117,6 +196,11 @@ async function loadData() {
         const text = await r.text();
         if (!text || !text.trim()) throw new Error('Пустой файл');
         currentData = JSON.parse(text);
+
+        // Загружаем локальные скины ДО первого рендера,
+        // чтобы головы сразу были локальными.
+        await preloadLocalSkins();
+
         render();
         loadMap();
     } catch (err) {
@@ -126,6 +210,8 @@ async function loadData() {
         if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading" style="color:#ef4444;">❌ ' + escapeHtml(err.message) + '</td></tr>';
     }
 }
+
+// ==================== RENDER ====================
 
 function render() {
     if (!currentData) return;
@@ -245,6 +331,8 @@ function showDetails(countryName) {
     const cd = document.getElementById('country-details');
     if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
+
+// ==================== MAP ====================
 
 function loadMap() {
     const ph = document.getElementById('map-placeholder');
@@ -393,6 +481,8 @@ function resetMapView() {
     applyMapTransform();
 }
 
+// ==================== PLAYER MARKERS ====================
+
 function worldToImagePx(x, z, meta) {
     const minBX = meta.min_chunk_x * BLOCKS_PER_CHUNK;
     const minBZ = meta.min_chunk_z * BLOCKS_PER_CHUNK;
@@ -415,7 +505,8 @@ function renderPlayerMarkers() {
         if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) continue;
         const online = !!p.online;
         const name = p.name || '?';
-        const headUrl = SKIN_API + '/avatar/' + encodeURIComponent(name) + '/32';
+        // getHeadUrl вернёт либо dataURL из локального скина, либо mc-heads.net
+        const headUrl = getHeadUrl(name, 32);
         const fallback = SKIN_API + '/avatar/Steve/32';
         markers.push('<div class="map-marker ' + (online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + '">' +
             '<div class="map-marker-content">' +
@@ -425,6 +516,8 @@ function renderPlayerMarkers() {
     overlay.innerHTML = markers.join('');
     updateMarkerScale();
 }
+
+// ==================== PLAYERS GRID ====================
 
 function initPlayerControls() {
     const s = document.getElementById('player-search');
@@ -462,7 +555,7 @@ function renderPlayers() {
 
 function renderPlayerCard(p) {
     const name = p.name || '?';
-    const avatar = SKIN_API + '/avatar/' + encodeURIComponent(name) + '/64';
+    const avatar = getHeadUrl(name, 64);
     const fallback = SKIN_API + '/avatar/Steve/64';
     const online = !!p.online;
     let badge = '';
@@ -484,7 +577,91 @@ function renderPlayerCard(p) {
         '</div></div></div>';
 }
 
-// ==================== PLAYER PANEL RENDERERS ====================
+// ==================== PLAYER MODAL ====================
+
+function openPlayer(name) {
+    const players = currentData && currentData.players ? currentData.players : [];
+    const player = players.find(p => p.name === name);
+    if (!player) return;
+    const online = !!player.online;
+    setText('player-modal-name', name);
+    const st = document.getElementById('player-modal-status');
+    if (st) {
+        st.textContent = online ? '● Онлайн' : '○ Оффлайн';
+        st.className = 'player-modal-status ' + (online ? 'online' : 'offline');
+    }
+
+    const accountRows = [];
+    if (player.uuid) accountRows.push({ label: 'UUID', value: shortenUuid(player.uuid), copy: player.uuid });
+    if (player.first_seen) accountRows.push({ label: 'Первый вход', value: timeAgo(player.first_seen) });
+    if (player.last_seen) accountRows.push({ label: 'Был в игре', value: timeAgo(player.last_seen) });
+    if (player.playtime_seconds != null) accountRows.push({ label: 'Время в игре', value: formatPlaytime(player.playtime_seconds) });
+    if (player.playtime_seconds > 0) accountRows.push({ label: 'Дней в игре', value: Math.floor(player.playtime_seconds / 86400) });
+
+    const ecoRows = [];
+    if (player.balance != null) ecoRows.push({ label: 'Баланс', value: formatMoney(player.balance), cls: 'success' });
+    if (player.job) ecoRows.push({ label: 'Профессия', value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '') });
+    if (player.kills != null || player.deaths != null) {
+        const k = player.kills || 0, d = player.deaths || 0;
+        const kd = d > 0 ? (k / d).toFixed(2) : k;
+        ecoRows.push({ label: 'Убийств', value: k });
+        ecoRows.push({ label: 'Смертей', value: d });
+        ecoRows.push({ label: 'K/D', value: kd });
+    }
+    if (player.bounty != null && player.bounty > 0) ecoRows.push({ label: '💀 Награда', value: formatMoney(player.bounty), cls: 'danger' });
+
+    const countryRows = [];
+    if (player.country) {
+        countryRows.push({ label: 'Название', value: player.country, cls: 'accent', copy: player.country });
+        if (player.country_role) {
+            const rn = player.country_role === 'leader' ? 'Лидер'
+                : player.country_role === 'co_ruler' ? 'Соправитель' : player.country_role;
+            countryRows.push({ label: 'Роль', value: rn });
+        }
+        const cd = (currentData.countries || []).find(c => c.name === player.country);
+        if (cd) {
+            if (cd.bank != null) countryRows.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
+            if (cd.claims != null) countryRows.push({ label: 'Территория', value: cd.claims + ' чанков' });
+            if (cd.allies != null) countryRows.push({ label: 'Союзы', value: cd.allies });
+            if (cd.pacts != null) countryRows.push({ label: 'Пакты', value: cd.pacts });
+        }
+    } else {
+        countryRows.push({ label: 'Страна', value: 'Нет' });
+    }
+
+    const actRows = [];
+    if (player.energy != null) actRows.push({
+        label: 'Энергия',
+        value: player.energy.toFixed(1) + (player.max_energy != null ? ' / ' + player.max_energy.toFixed(1) : ''),
+        cls: 'warning'
+    });
+    if (player.achievements_count != null) actRows.push({ label: 'Достижений', value: player.achievements_count });
+    if (player.position) {
+        const pos = player.position;
+        actRows.push({ label: 'Локация', value: Math.round(pos.x) + ', ' + Math.round(pos.y || 0) + ', ' + Math.round(pos.z) });
+    }
+
+    const panelsEl = document.getElementById('player-modal-panels');
+    if (panelsEl) {
+        panelsEl.innerHTML =
+            renderPanel('Учётная запись', accountRows) +
+            renderPanel('Экономика', ecoRows) +
+            renderPanel('Страна', countryRows) +
+            renderPanel('Активность', actRows);
+    }
+
+    const actions = [];
+    if (player.country) actions.push('<button class="player-modal-btn" onclick="gotoCountry(\'' + escapeAttr(player.country) + '\')">🏛️ Перейти к стране</button>');
+    if (player.position) actions.push('<button class="player-modal-btn" onclick="gotoPlayerOnMap(\'' + escapeAttr(name) + '\')">🗺️ На карте</button>');
+    actions.push('<button class="player-modal-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(name) + '\')">📋 Скопировать ник</button>');
+    const actBtnEl = document.getElementById('player-modal-actions');
+    if (actBtnEl) actBtnEl.innerHTML = actions.join('');
+
+    openPlayerModal();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        setTimeout(() => initSkinViewer(name, player.uuid), 80);
+    }));
+}
 
 function renderPanel(title, rows) {
     const valid = (rows || []).filter(r => r.value !== undefined && r.value !== null && r.value !== '');
@@ -506,135 +683,7 @@ function renderPanelRow(r) {
         '</div>';
 }
 
-// ==================== PLAYER MODAL ====================
-
-function openPlayer(name) {
-    const players = currentData && currentData.players ? currentData.players : [];
-    const player = players.find(p => p.name === name);
-    if (!player) return;
-    const online = !!player.online;
-    setText('player-modal-name', name);
-    const st = document.getElementById('player-modal-status');
-    if (st) {
-        st.textContent = online ? '● Онлайн' : '○ Оффлайн';
-        st.className = 'player-modal-status ' + (online ? 'online' : 'offline');
-    }
-
-    // Панель «Учётная запись»
-    const accountRows = [];
-    if (player.uuid) accountRows.push({
-        label: 'UUID',
-        value: shortenUuid(player.uuid),
-        copy: player.uuid
-    });
-    if (player.first_seen) accountRows.push({
-        label: 'Первый вход',
-        value: timeAgo(player.first_seen)
-    });
-    if (player.last_seen) accountRows.push({
-        label: 'Был в игре',
-        value: timeAgo(player.last_seen)
-    });
-    if (player.playtime_seconds != null) accountRows.push({
-        label: 'Время в игре',
-        value: formatPlaytime(player.playtime_seconds)
-    });
-    if (player.playtime_seconds > 0) accountRows.push({
-        label: 'Дней в игре',
-        value: Math.floor(player.playtime_seconds / 86400)
-    });
-
-    // Панель «Экономика»
-    const ecoRows = [];
-    if (player.balance != null) ecoRows.push({
-        label: 'Баланс',
-        value: formatMoney(player.balance),
-        cls: 'success'
-    });
-    if (player.job) ecoRows.push({
-        label: 'Профессия',
-        value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '')
-    });
-    if (player.kills != null || player.deaths != null) {
-        const k = player.kills || 0, d = player.deaths || 0;
-        const kd = d > 0 ? (k / d).toFixed(2) : k;
-        ecoRows.push({ label: 'Убийств', value: k });
-        ecoRows.push({ label: 'Смертей', value: d });
-        ecoRows.push({ label: 'K/D', value: kd });
-    }
-    if (player.bounty != null && player.bounty > 0) ecoRows.push({
-        label: '💀 Награда',
-        value: formatMoney(player.bounty),
-        cls: 'danger'
-    });
-
-    // Панель «Страна»
-    const countryRows = [];
-    if (player.country) {
-        countryRows.push({
-            label: 'Название',
-            value: player.country,
-            cls: 'accent',
-            copy: player.country
-        });
-        if (player.country_role) {
-            const rn = player.country_role === 'leader' ? 'Лидер'
-                : player.country_role === 'co_ruler' ? 'Соправитель'
-                : player.country_role;
-            countryRows.push({ label: 'Роль', value: rn });
-        }
-        const cd = (currentData.countries || []).find(c => c.name === player.country);
-        if (cd) {
-            if (cd.bank != null) countryRows.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
-            if (cd.claims != null) countryRows.push({ label: 'Территория', value: cd.claims + ' чанков' });
-            if (cd.allies != null) countryRows.push({ label: 'Союзы', value: cd.allies });
-            if (cd.pacts != null) countryRows.push({ label: 'Пакты', value: cd.pacts });
-        }
-    } else {
-        countryRows.push({ label: 'Страна', value: 'Нет' });
-    }
-
-    // Панель «Активность»
-    const actRows = [];
-    if (player.energy != null) actRows.push({
-        label: 'Энергия',
-        value: player.energy.toFixed(1) + (player.max_energy != null ? ' / ' + player.max_energy.toFixed(1) : ''),
-        cls: 'warning'
-    });
-    if (player.achievements_count != null) actRows.push({
-        label: 'Достижений',
-        value: player.achievements_count
-    });
-    if (player.position) {
-        const pos = player.position;
-        actRows.push({
-            label: 'Локация',
-            value: Math.round(pos.x) + ', ' + Math.round(pos.y || 0) + ', ' + Math.round(pos.z)
-        });
-    }
-
-    const panelsEl = document.getElementById('player-modal-panels');
-    if (panelsEl) {
-        panelsEl.innerHTML =
-            renderPanel('Учётная запись', accountRows) +
-            renderPanel('Экономика', ecoRows) +
-            renderPanel('Страна', countryRows) +
-            renderPanel('Активность', actRows);
-    }
-
-    // Кнопки действий
-    const actions = [];
-    if (player.country) actions.push('<button class="player-modal-btn" onclick="gotoCountry(\'' + escapeAttr(player.country) + '\')">🏛️ Перейти к стране</button>');
-    if (player.position) actions.push('<button class="player-modal-btn" onclick="gotoPlayerOnMap(\'' + escapeAttr(name) + '\')">🗺️ На карте</button>');
-    actions.push('<button class="player-modal-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(name) + '\')">📋 Скопировать ник</button>');
-    const actBtnEl = document.getElementById('player-modal-actions');
-    if (actBtnEl) actBtnEl.innerHTML = actions.join('');
-
-    openPlayerModal();
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        setTimeout(() => initSkinViewer(name, player.uuid), 80);
-    }));
-}
+// ==================== 3D SKIN VIEWER ====================
 
 function applyDefaultCamera(viewer) {
     try {
@@ -654,15 +703,26 @@ async function initSkinViewer(name, uuid) {
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
+
+    // Ждём загрузку skinview3d — до 5 сек
     let waited = 0;
-    while (window.__skinview3dStatus === 'loading' && waited < 4000) {
+    while (window.__skinview3dStatus === 'loading' && waited < 5000) {
         await new Promise(r => setTimeout(r, 100));
         waited += 100;
     }
-    if (typeof skinview3d === 'undefined') {
-        loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:32px;margin-bottom:8px;">⚠</div><div style="color:#f59e0b;font-weight:600;">skinview3d не загрузился</div></div>';
+
+    if (window.__skinview3dStatus !== 'loaded' || typeof skinview3d === 'undefined') {
+        loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
+            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
+            '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div>' +
+            '<div style="font-size:11px;color:#8b91a6;margin-top:8px;line-height:1.5;max-width:280px;">' +
+            'Все CDN недоступны. Скачай <code style="font-size:10px;">skinview3d.bundle.js</code> ' +
+            'с <a href="https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js" target="_blank" style="color:#818cf8;">jsdelivr</a> ' +
+            'и положи в корень репозитория панели.' +
+            '</div></div>';
         return;
     }
+
     try {
         const size = Math.max(320, Math.round(wrap.clientWidth || 380));
         const viewer = new skinview3d.SkinViewer({ canvas: canvas, width: size, height: size });
@@ -684,7 +744,11 @@ async function initSkinViewer(name, uuid) {
         const ok = await loadSkinBytes(viewer, name, uuid);
         if (ok) loading.classList.add('hidden');
         else {
-            loading.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:32px;margin-bottom:8px;">🎭</div><div style="color:#f59e0b;font-weight:600;">Скин недоступен</div><div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:260px;">Показан стандартный Steve.<br>Для пиратки: data/skins/' + escapeHtml(name) + '.png</div></div>';
+            loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
+                '<div style="font-size:32px;margin-bottom:8px;">🎭</div>' +
+                '<div style="color:#f59e0b;font-weight:600;">Скин недоступен</div>' +
+                '<div style="font-size:11px;color:#8b91a6;margin-top:6px;max-width:260px;">' +
+                'Показан стандартный Steve.<br>Для пиратки: data/skins/' + escapeHtml(name) + '.png</div></div>';
             setTimeout(() => loading.classList.add('hidden'), 2000);
         }
         currentSkinViewer = viewer;
@@ -701,19 +765,22 @@ async function initSkinViewer(name, uuid) {
 }
 
 async function loadSkinBytes(viewer, name, uuid) {
-    const sources = [LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png'];
-    if (uuid) sources.push(CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve');
-    sources.push(CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve');
-    for (const url of sources) {
+    // 1. Локальный (уже может быть в кеше как Image — но для fetch используем URL)
+    const sources = [];
+    sources.push({ url: LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png', local: true });
+    if (uuid) sources.push({ url: CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve', local: false });
+    sources.push({ url: CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve', local: false });
+
+    for (const s of sources) {
         try {
-            const r = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+            const r = await fetch(s.url, { mode: 'cors', cache: 'no-cache' });
             if (!r.ok) continue;
             const buf = await r.arrayBuffer();
             if (!isPng(buf)) continue;
             await viewer.loadSkin(buf);
-            console.log('[skinview3d] ✓ ' + name + ': ' + url.substring(0, 60) + ' (' + buf.byteLength + 'B)');
+            console.log('[skinview3d] ✓ ' + name + ': ' + s.url.substring(0, 80) + ' (' + buf.byteLength + 'B)');
             return true;
-        } catch (e) {}
+        } catch (e) { /* тихо */ }
     }
     return false;
 }
@@ -723,6 +790,8 @@ function isPng(buffer) {
     const b = new Uint8Array(buffer, 0, 8);
     return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47 && b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A;
 }
+
+// ==================== NAV ====================
 
 function gotoCountry(name) {
     closePlayerModal();
@@ -762,6 +831,8 @@ function gotoPlayerOnMap(name) {
 function copyToClipboardSafe(text) {
     copyToClipboard(text).then(ok => { if (ok) showToast('✓ Скопировано: ' + text); });
 }
+
+// ==================== BONUS ====================
 
 function renderBonus() {
     if (!currentData) return;
@@ -816,6 +887,8 @@ function renderBonus() {
     if (be) be.style.display = anyBonus ? 'none' : 'block';
 }
 
+// ==================== COPY ====================
+
 function initCommandCopy() {
     document.body.addEventListener('click', e => {
         const t = e.target.closest('code[data-copy]');
@@ -857,6 +930,8 @@ function showToast(msg) {
     toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
 }
 
+// ==================== GUIDE NAV ====================
+
 function initGuideNav() {
     const nav = document.getElementById('guide-nav');
     if (!nav) return;
@@ -888,6 +963,8 @@ function initGuideNav() {
         });
     });
 }
+
+// ==================== COMMANDS ====================
 
 const COMMANDS = [
     { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
@@ -940,6 +1017,8 @@ function initCommandSearch() {
         });
     });
 }
+
+// ==================== UTILS ====================
 
 function formatMoney(amount) {
     if (amount == null) return '0';

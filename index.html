@@ -10,23 +10,58 @@
     <meta name="theme-color" content="#6366f1">
 
     <script>
+    /*
+     * Загрузчик skinview3d.
+     * Порядок источников:
+     *   1. jsdelivr (обычно работает лучше всего)
+     *   2. unpkg (зеркало)
+     *   3. cdnjs (третий CDN)
+     *   4. локальный skinview3d.bundle.js в корне репозитория — если всё заблокировано
+     *
+     * После каждой попытки проверяем что window.skinview3d реально существует.
+     */
     (function () {
         var cdns = [
             'https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js',
             'https://unpkg.com/skinview3d@3/bundles/skinview3d.bundle.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/skinview3d/3.4.2/skinview3d.bundle.min.js'
+            'https://cdnjs.cloudflare.com/ajax/libs/skinview3d/3.4.2/skinview3d.bundle.min.js',
+            'skinview3d.bundle.js'
         ];
         window.__skinview3dStatus = 'loading';
+        window.__skinview3dSource = null;
         var i = 0;
+
+        function done(src) {
+            window.__skinview3dStatus = 'loaded';
+            window.__skinview3dSource = src;
+            console.log('[skinview3d] Загружен: ' + src);
+        }
+
         function tryNext() {
-            if (i >= cdns.length) { window.__skinview3dStatus = 'failed'; return; }
+            if (i >= cdns.length) {
+                window.__skinview3dStatus = 'failed';
+                console.error('[skinview3d] ВСЕ источники недоступны. Скачай skinview3d.bundle.js ' +
+                    'с https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js и положи ' +
+                    'в корень репозитория как skinview3d.bundle.js');
+                return;
+            }
+            var src = cdns[i++];
+            console.log('[skinview3d] Пробую: ' + src);
             var s = document.createElement('script');
-            s.src = cdns[i++];
+            s.src = src;
+            s.async = false;
             s.onload = function () {
-                if (typeof skinview3d !== 'undefined') window.__skinview3dStatus = 'loaded';
-                else tryNext();
+                if (typeof skinview3d !== 'undefined') {
+                    done(src);
+                } else {
+                    console.warn('[skinview3d] Загрузился, но объект не найден: ' + src);
+                    tryNext();
+                }
             };
-            s.onerror = tryNext;
+            s.onerror = function () {
+                console.warn('[skinview3d] Ошибка сети: ' + src);
+                tryNext();
+            };
             document.head.appendChild(s);
         }
         tryNext();
@@ -56,34 +91,13 @@
     </header>
 
     <main class="container">
-
         <section class="tab-content active" id="tab-overview">
             <section class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">🏛️</div>
-                    <div class="stat-value" id="countries-count">—</div>
-                    <div class="stat-label">Стран</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">🗺️</div>
-                    <div class="stat-value" id="total-claims">—</div>
-                    <div class="stat-label">Всего чанков</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">💰</div>
-                    <div class="stat-value" id="total-bank">—</div>
-                    <div class="stat-label">Общая казна</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">⚡</div>
-                    <div class="stat-value" id="total-energy">—</div>
-                    <div class="stat-label">Энергия лидеров</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">👥</div>
-                    <div class="stat-value" id="total-players">—</div>
-                    <div class="stat-label">Игроков</div>
-                </div>
+                <div class="stat-card"><div class="stat-icon">🏛️</div><div class="stat-value" id="countries-count">—</div><div class="stat-label">Стран</div></div>
+                <div class="stat-card"><div class="stat-icon">🗺️</div><div class="stat-value" id="total-claims">—</div><div class="stat-label">Всего чанков</div></div>
+                <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value" id="total-bank">—</div><div class="stat-label">Общая казна</div></div>
+                <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-value" id="total-energy">—</div><div class="stat-label">Энергия лидеров</div></div>
+                <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="total-players">—</div><div class="stat-label">Игроков</div></div>
             </section>
 
             <section class="panel">
@@ -96,21 +110,8 @@
                 </div>
                 <div class="table-wrap">
                     <table id="countries-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Страна</th>
-                                <th>Лидер</th>
-                                <th>Чанков</th>
-                                <th>Казна</th>
-                                <th>Энергия</th>
-                                <th>Союзы</th>
-                                <th>Пакты</th>
-                            </tr>
-                        </thead>
-                        <tbody id="countries-body">
-                            <tr><td colspan="8" class="loading">Загрузка данных...</td></tr>
-                        </tbody>
+                        <thead><tr><th>#</th><th>Страна</th><th>Лидер</th><th>Чанков</th><th>Казна</th><th>Энергия</th><th>Союзы</th><th>Пакты</th></tr></thead>
+                        <tbody id="countries-body"><tr><td colspan="8" class="loading">Загрузка данных...</td></tr></tbody>
                     </table>
                 </div>
             </section>
@@ -169,11 +170,8 @@
 
         <section class="tab-content" id="tab-guide">
             <div class="guide-layout">
-                <aside class="guide-nav" id="guide-nav">
-                    <div class="guide-nav-title">Содержание</div>
-                </aside>
+                <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
                 <div class="guide-content">
-
                     <article class="guide-section" id="guide-start">
                         <h2 data-guide-title>🌱 С чего начать</h2>
                         <ol class="guide-steps">
@@ -250,14 +248,13 @@
                         </details>
                         <details class="faq-item">
                             <summary>Скины на панели</summary>
-                            <p>Грузятся с crafatar.com. Для пиратки — попроси админа выгрузить PNG в <code>data/skins/&lt;ник&gt;.png</code>.</p>
+                            <p>Для пиратки положи PNG в <code>data/skins/&lt;ник&gt;.png</code> — он подхватится и в 3D, и в головы.</p>
                         </details>
                         <details class="faq-item">
-                            <summary>3D-модель не крутится</summary>
-                            <p>Обнови страницу (Ctrl+F5). Библиотека грузится с CDN.</p>
+                            <summary>3D-модель не появилась</summary>
+                            <p>Если в консоли «все источники недоступны» — скачай <code>skinview3d.bundle.js</code> с jsdelivr и положи в корень репозитория.</p>
                         </details>
                     </article>
-
                 </div>
             </div>
         </section>
@@ -276,38 +273,17 @@
         <section class="tab-content" id="tab-bonus">
             <section class="panel" id="panel-jackpot" style="display:none;">
                 <h2>💎 Джекпот казино</h2>
-                <div class="jackpot-display">
-                    <div class="jackpot-value" id="jackpot-value">—</div>
-                    <div class="jackpot-hint">1% с каждой ставки • 0.1% шанс сорвать</div>
-                </div>
+                <div class="jackpot-display"><div class="jackpot-value" id="jackpot-value">—</div><div class="jackpot-hint">1% с каждой ставки • 0.1% шанс сорвать</div></div>
             </section>
-            <section class="panel" id="panel-events" style="display:none;">
-                <h2>🌍 Активные события</h2>
-                <div class="events-list" id="events-list"></div>
-            </section>
-            <section class="panel" id="panel-wars" style="display:none;">
-                <h2>⚔️ Активные войны</h2>
-                <div class="wars-list" id="wars-list"></div>
-            </section>
+            <section class="panel" id="panel-events" style="display:none;"><h2>🌍 Активные события</h2><div class="events-list" id="events-list"></div></section>
+            <section class="panel" id="panel-wars" style="display:none;"><h2>⚔️ Активные войны</h2><div class="wars-list" id="wars-list"></div></section>
             <section class="panel" id="panel-poker" style="display:none;">
                 <h2>🃏 Топ покера за неделю</h2>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>#</th><th>Игрок</th><th>Профит</th><th>Раздач</th></tr></thead>
-                        <tbody id="poker-body"></tbody>
-                    </table>
-                </div>
+                <div class="table-wrap"><table><thead><tr><th>#</th><th>Игрок</th><th>Профит</th><th>Раздач</th></tr></thead><tbody id="poker-body"></tbody></table></div>
             </section>
-            <section class="panel" id="panel-bounties" style="display:none;">
-                <h2>💀 Награды за головы</h2>
-                <div class="bounties-list" id="bounties-list"></div>
-            </section>
-            <section class="panel" id="panel-bonus-empty">
-                <h2>🎁 Бонусы</h2>
-                <p class="empty-hint">Секции появятся автоматически, когда плагины начнут экспортировать данные.</p>
-            </section>
+            <section class="panel" id="panel-bounties" style="display:none;"><h2>💀 Награды за головы</h2><div class="bounties-list" id="bounties-list"></div></section>
+            <section class="panel" id="panel-bonus-empty"><h2>🎁 Бонусы</h2><p class="empty-hint">Секции появятся автоматически, когда плагины начнут экспортировать данные.</p></section>
         </section>
-
     </main>
 
     <footer>
@@ -327,10 +303,7 @@
                 <div class="player-viewer-col">
                     <div class="player-viewer-wrap" id="player-viewer-wrap">
                         <canvas id="skin-canvas"></canvas>
-                        <div class="player-viewer-loading" id="skin-loading">
-                            <div class="spinner"></div>
-                            <div>Загрузка скина...</div>
-                        </div>
+                        <div class="player-viewer-loading" id="skin-loading"><div class="spinner"></div><div>Загрузка скина...</div></div>
                     </div>
                     <div class="player-viewer-hint">🖱 Зажми и потяни — повернуть</div>
                     <div class="player-viewer-controls">
