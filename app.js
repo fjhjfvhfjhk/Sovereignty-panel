@@ -1,4 +1,4 @@
-/* Sovereignty panel v3.1 */
+/* Sovereignty panel v3.2 */
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
@@ -10,10 +10,20 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const LOCAL_SKIN_TIMEOUT_MS = 3000;
 const BLOCKS_PER_CHUNK = 16;
 const PIXELS_PER_BLOCK = 2;
+
+// === Камера: крупный план, центр модели ===
+// Модель: 32 unit height, центр по y = 16
+// FOV 42°, distance 46 → видимая высота ≈ 36 unit, модель занимает ~88% кадра
 const SKIN_CAMERA_TARGET_Y = 16;
-const SKIN_CAMERA_DISTANCE = 50;
-const SKIN_CAMERA_FOV = 45;
-const SKIN_LIGHT_INTENSITY = 1.2;
+const SKIN_CAMERA_DISTANCE = 46;
+const SKIN_CAMERA_FOV = 42;
+const SKIN_CAMERA_MIN_DISTANCE = 22;
+const SKIN_CAMERA_MAX_DISTANCE = 90;
+
+// === Свет: 2 источника ===
+const SKIN_GLOBAL_LIGHT = 1.8;   // ambient сверху
+const SKIN_CAMERA_LIGHT = 1.5;   // point light на камере
+
 const MARKER_BASE_PX = 32;
 const MARKER_MIN_PX = 18;
 const MARKER_MAX_PX = 72;
@@ -27,7 +37,6 @@ let highlightedCountry = null;
 let showPlayerMarkers = true;
 let mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 let currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
-let currentSkinCanvasId = 0;
 
 const localSkinCache = new Map();
 const headCache = new Map();
@@ -107,7 +116,7 @@ function closePlayerModal() {
     if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
-// ==================== LOCAL SKINS (non-blocking) ====================
+// ==================== LOCAL SKINS ====================
 
 function preloadLocalSkins() {
     const players = currentData && currentData.players ? currentData.players : [];
@@ -249,7 +258,6 @@ function render() {
         } else tp.textContent = String(currentData.online_players || 0);
     }
     renderCountries(); renderLegend(); renderPlayers(); renderBonus(); renderPlayerMarkers();
-    console.log('[Sovereignty] render() завершён');
 }
 
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
@@ -644,7 +652,6 @@ function openPlayer(name) {
     if (actBtnEl) actBtnEl.innerHTML = actions.join('');
 
     openPlayerModal();
-    // Ждём пока модалка отрисуется и получит размеры, потом initSkinViewer
     setTimeout(() => initSkinViewer(name, player.uuid), 100);
 }
 
@@ -670,20 +677,24 @@ function renderPanelRow(r) {
 
 // ==================== 3D SKIN VIEWER ====================
 
+/**
+ * Камера сбоку-сверху? Нет — строго спереди, чуть-чуть сверху для объёма.
+ * Позиция: спереди (по +Z), с небольшим подъёмом (y=17 вместо 16), смотрит в (0,16,0).
+ * Это даёт лёгкий «top-down» вид как на NameMC.
+ */
 function applyDefaultCamera(viewer) {
     try {
         viewer.fov = SKIN_CAMERA_FOV;
-        viewer.camera.position.set(0, SKIN_CAMERA_TARGET_Y, SKIN_CAMERA_DISTANCE);
+        // target — центр модели (по y=16)
+        viewer.camera.position.set(0, SKIN_CAMERA_TARGET_Y + 1.2, SKIN_CAMERA_DISTANCE);
         viewer.camera.lookAt(0, SKIN_CAMERA_TARGET_Y, 0);
         viewer.controls.target.set(0, SKIN_CAMERA_TARGET_Y, 0);
         viewer.controls.update();
-    } catch (e) {}
+    } catch (e) {
+        console.warn('[skinview3d] applyDefaultCamera:', e);
+    }
 }
 
-/**
- * Определяет URL скина.
- * Приоритет: локальный PNG → Crafatar по UUID → Steve.
- */
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) {
         return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
@@ -698,8 +709,7 @@ async function initSkinViewer(name, uuid) {
     const wrap = document.getElementById('player-viewer-wrap');
     if (!wrap) return;
 
-    // Заменяем canvas на новый — избегаем WebGL context conflicts при переоткрытии
-    currentSkinCanvasId++;
+    // Новый canvas — избегаем конфликтов WebGL контекстов
     const oldCanvas = document.getElementById('skin-canvas');
     if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
     const newCanvas = document.createElement('canvas');
@@ -712,7 +722,6 @@ async function initSkinViewer(name, uuid) {
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
 
-    // Ждём skinview3d
     let waited = 0;
     while (window.__skinview3dStatus === 'loading' && waited < 5000) {
         await new Promise(r => setTimeout(r, 100));
@@ -725,41 +734,47 @@ async function initSkinViewer(name, uuid) {
         return;
     }
 
-    // Форсируем layout — иначе clientWidth может быть 0
     wrap.getBoundingClientRect();
     await new Promise(r => setTimeout(r, 60));
 
     const rect = wrap.getBoundingClientRect();
     const size = Math.max(280, Math.round(rect.width || 380));
-    console.log('[skinview3d] canvas size = ' + size + ' (wrap rect.width=' + rect.width + ')');
 
     const skinUrl = resolveSkinUrl(name, uuid);
-    console.log('[skinview3d] skin URL = ' + skinUrl);
+    console.log('[skinview3d] canvas=' + size + ', skin=' + skinUrl);
 
     try {
         const viewer = new skinview3d.SkinViewer({
             canvas: newCanvas,
             width: size,
             height: size,
-            skin: skinUrl        // ← URL-based, skinview3d сам грузит через Image
+            skin: skinUrl
         });
 
-        // Свет (усиленный, чтобы модель была яркой)
+        // === СВЕТ: два источника, ярче по умолчанию ===
         try {
-            if (viewer.globalLight) viewer.globalLight.intensity = SKIN_LIGHT_INTENSITY;
-            if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_LIGHT_INTENSITY;
+            if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
+            if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
         } catch (e) {}
 
-        // Камера: центр на модели, дистанция с запасом
+        // === КАМЕРА ===
         applyDefaultCamera(viewer);
 
-        // Контролы
+        // === Контролы: полная свобода вращения ===
         viewer.controls.enableZoom = true;
         viewer.controls.enablePan = false;
-        viewer.controls.minDistance = 25;
-        viewer.controls.maxDistance = 90;
-        viewer.controls.minPolarAngle = 0.15;
-        viewer.controls.maxPolarAngle = Math.PI - 0.15;
+        viewer.controls.enableRotate = true;
+        viewer.controls.rotateSpeed = 1.0;
+        viewer.controls.zoomSpeed = 0.8;
+
+        // Полный поворот по вертикали: от строго сверху до строго снизу
+        viewer.controls.minPolarAngle = 0.02;
+        viewer.controls.maxPolarAngle = Math.PI - 0.02;
+
+        // Без ограничений по горизонтали (по умолчанию в OrbitControls это так)
+        // Дистанция зума
+        viewer.controls.minDistance = SKIN_CAMERA_MIN_DISTANCE;
+        viewer.controls.maxDistance = SKIN_CAMERA_MAX_DISTANCE;
 
         // Ник над головой
         try {
@@ -767,13 +782,29 @@ async function initSkinViewer(name, uuid) {
             viewer.nameTag.visible = true;
         } catch (e) {}
 
-        // Автовращение
+        // Автовращение (отключается кнопкой Пауза)
         try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
+
+        // Пауза автовращения при ручном перетаскивании — чтобы не мешало
+        const canvasEl = newCanvas;
+        let userInteracting = false;
+        canvasEl.addEventListener('pointerdown', () => {
+            userInteracting = true;
+            if (currentRotateAnim) { try { currentRotateAnim.paused = true; } catch (e) {} }
+        });
+        canvasEl.addEventListener('pointerup', () => {
+            userInteracting = false;
+            // Через небольшую паузу возвращаем вращение, если пользователь не нажал "Пауза"
+            setTimeout(() => {
+                if (userInteracting || rotatePaused) return;
+                if (currentRotateAnim) { try { currentRotateAnim.paused = false; } catch (e) {} }
+            }, 1500);
+        });
+        canvasEl.addEventListener('pointercancel', () => { userInteracting = false; });
 
         currentSkinViewer = viewer;
         loading.classList.add('hidden');
 
-        // Реагируем на изменение размера окна
         const ro = new ResizeObserver(() => {
             if (!currentSkinViewer) return;
             const w = wrap.clientWidth, h = wrap.clientHeight;
@@ -795,6 +826,14 @@ async function initSkinViewer(name, uuid) {
             '</div>';
     }
 }
+
+// Слежение за флагом паузы — синхронизируем с animation
+setInterval(() => {
+    if (!currentRotateAnim) return;
+    try {
+        if (rotatePaused && !currentRotateAnim.paused) currentRotateAnim.paused = true;
+    } catch (e) {}
+}, 300);
 
 // ==================== NAV ====================
 
@@ -858,212 +897,4 @@ function renderBonus() {
     const wars = currentData.wars || [];
     const wp = document.getElementById('panel-wars');
     if (wp) {
-        if (wars.length > 0) {
-            wp.style.display = 'block';
-            document.getElementById('wars-list').innerHTML = wars.map(w =>
-                '<div class="war-item"><div><div class="name">' + escapeHtml(w.attacker) + ' ⚔ ' + escapeHtml(w.defender) + '</div><div class="desc">С ' + formatDate(w.started_at) + '</div></div></div>'
-            ).join('');
-        } else wp.style.display = 'none';
-    }
-    const poker = currentData.top_poker || [];
-    const pp = document.getElementById('panel-poker');
-    if (pp) {
-        if (poker.length > 0) {
-            pp.style.display = 'block';
-            document.getElementById('poker-body').innerHTML = poker.map((p, i) =>
-                '<tr><td class="rank">#' + (i + 1) + '</td><td class="name">' + escapeHtml(p.name || '?') + '</td><td class="' + (p.profit >= 0 ? 'money' : '') + '">' + (p.profit >= 0 ? '+' : '') + formatMoney(p.profit || 0) + '</td><td>' + (p.hands || 0) + '</td></tr>'
-            ).join('');
-        } else pp.style.display = 'none';
-    }
-    const bounties = currentData.bounties || [];
-    const bp = document.getElementById('panel-bounties');
-    if (bp) {
-        if (bounties.length > 0) {
-            bp.style.display = 'block';
-            document.getElementById('bounties-list').innerHTML = bounties.map(b =>
-                '<div class="bounty-item"><div><div class="name">' + escapeHtml(b.target || '?') + '</div><div class="desc">Награда: ' + formatMoney(b.amount || 0) + '</div></div></div>'
-            ).join('');
-        } else bp.style.display = 'none';
-    }
-    const anyBonus = (jp > 0) || events.length > 0 || wars.length > 0 || poker.length > 0 || bounties.length > 0;
-    const be = document.getElementById('panel-bonus-empty');
-    if (be) be.style.display = anyBonus ? 'none' : 'block';
-}
-
-function initCommandCopy() {
-    document.body.addEventListener('click', e => {
-        const t = e.target.closest('code[data-copy]');
-        if (!t) return;
-        e.preventDefault();
-        const text = t.getAttribute('data-copy');
-        if (!text) return;
-        copyToClipboard(text).then(ok => { if (ok) showToast('✓ Скопировано: ' + text); });
-    });
-}
-
-function copyToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text));
-    }
-    return Promise.resolve(fallbackCopy(text));
-}
-
-function fallbackCopy(text) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    let ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) {}
-    document.body.removeChild(ta);
-    return ok;
-}
-
-let toastTimer = null;
-function showToast(msg) {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
-}
-
-function initGuideNav() {
-    const nav = document.getElementById('guide-nav');
-    if (!nav) return;
-    const sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
-    sections.forEach(h2 => {
-        const section = h2.closest('.guide-section');
-        if (!section) return;
-        const a = document.createElement('a');
-        a.href = '#' + section.id;
-        a.textContent = h2.textContent.trim();
-        a.dataset.target = section.id;
-        nav.appendChild(a);
-    });
-    const navLinks = nav.querySelectorAll('a');
-    const observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) navLinks.forEach(a => a.classList.toggle('active', a.dataset.target === entry.target.id));
-        });
-    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
-    sections.forEach(h2 => {
-        const s = h2.closest('.guide-section');
-        if (s) observer.observe(s);
-    });
-    navLinks.forEach(a => {
-        a.addEventListener('click', e => {
-            e.preventDefault();
-            const el = document.getElementById(a.dataset.target);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    });
-}
-
-const COMMANDS = [
-    { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
-    { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
-    { cmd: '/c claim', desc: 'Захватить чанк', plugin: 'Sovereignty' },
-    { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
-    { cmd: '/c bank', desc: 'Баланс казны', plugin: 'Sovereignty' },
-    { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
-    { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
-    { cmd: '/c upgrade', desc: 'Прокачка', plugin: 'Sovereignty' },
-    { cmd: '/c boost', desc: 'Буст регенерации', plugin: 'Sovereignty' },
-    { cmd: '/c research', desc: 'Исследования', plugin: 'Sovereignty' },
-    { cmd: '/c court', desc: 'Суд', plugin: 'Sovereignty' },
-    { cmd: '/c ally Steve', desc: 'Союз', plugin: 'Sovereignty' },
-    { cmd: '/c enemy Steve', desc: 'Война', plugin: 'Sovereignty' },
-    { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
-    { cmd: '/c accept', desc: 'Принять', plugin: 'Sovereignty' },
-    { cmd: '/c decline', desc: 'Отклонить', plugin: 'Sovereignty' },
-    { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
-    { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
-    { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
-    { cmd: '/bounty Steve 5000', desc: 'Награда', plugin: 'Bounty' },
-    { cmd: '/roll', desc: 'Казино', plugin: 'RollGame' },
-    { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
-    { cmd: '/roll duel 1000', desc: 'Дуэль', plugin: 'RollGame' },
-    { cmd: '/roll mines 1000 3 5', desc: 'Мины', plugin: 'RollGame' },
-    { cmd: '/roll wheel 1000', desc: 'Колесо', plugin: 'RollGame' },
-    { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
-    { cmd: '/roll poker', desc: 'Покер', plugin: 'RollGame' },
-    { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
-    { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
-    { cmd: '/sethome', desc: 'Дом', plugin: 'EssentialsX' },
-    { cmd: '/home', desc: 'Домой', plugin: 'EssentialsX' },
-    { cmd: '/jobs browse', desc: 'Профессии', plugin: 'Jobs' },
-    { cmd: '/skin Steve', desc: 'Скин', plugin: 'SkinsRestorer' }
-];
-
-function initCommandSearch() {
-    const list = document.getElementById('commands-list');
-    if (!list) return;
-    list.innerHTML = COMMANDS.map(c =>
-        '<div class="command-item"><div class="cmd-name"><code data-copy="' + escapeAttr(c.cmd) + '">' + escapeHtml(c.cmd) + '</code></div><div class="cmd-desc">' + escapeHtml(c.desc) + '</div><div class="cmd-plugin">' + escapeHtml(c.plugin) + '</div></div>'
-    ).join('');
-    const inp = document.getElementById('cmd-search');
-    if (!inp) return;
-    inp.addEventListener('input', () => {
-        const q = inp.value.trim().toLowerCase();
-        document.querySelectorAll('.command-item').forEach(item => {
-            item.classList.toggle('hidden', q.length > 0 && !item.textContent.toLowerCase().includes(q));
-        });
-    });
-}
-
-function formatMoney(amount) {
-    if (amount == null) return '0';
-    if (Math.abs(amount) >= 1_000_000) return (amount / 1_000_000).toFixed(2) + 'M';
-    if (Math.abs(amount) >= 1_000) return (amount / 1_000).toFixed(1) + 'k';
-    return Math.round(amount).toString();
-}
-
-function formatPlaytime(sec) {
-    if (sec == null || sec <= 0) return '';
-    const d = Math.floor(sec / 86400);
-    const h = Math.floor((sec % 86400) / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    if (d > 0) return h > 0 ? d + 'д ' + h + 'ч' : d + 'д';
-    if (h > 0) return m > 0 ? h + 'ч ' + m + 'м' : h + 'ч';
-    if (m > 0) return m + 'м';
-    return (sec % 60) + 'с';
-}
-
-function timeAgo(ts) {
-    if (!ts) return '—';
-    const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 60) return 'только что';
-    const m = Math.floor(s / 60);
-    if (m < 60) return m + ' мин назад';
-    const h = Math.floor(m / 60);
-    if (h < 24) return h + ' ч назад';
-    const d = Math.floor(h / 24);
-    if (d < 30) return d + ' дн назад';
-    return Math.floor(d / 30) + ' мес назад';
-}
-
-function formatDate(ts) {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-function shortenUuid(uuid) {
-    if (!uuid) return '—';
-    return uuid.length > 13 ? uuid.substring(0, 8) + '…' : uuid;
-}
-
-function escapeHtml(str) {
-    if (str == null) return '';
-    const div = document.createElement('div');
-    div.textContent = String(str);
-    return div.innerHTML;
-}
-
-function escapeAttr(str) {
-    if (str == null) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+        if (wars.length > 0
