@@ -4,21 +4,28 @@
  * Возможности:
  *   - табы: Обзор / Карта / Игроки / Гайд / Команды / Бонусы
  *   - интерактивная карта (pan + zoom + click по стране через canvas)
- *   - копирование команд в буфер (клик по <code data-copy>)
- *   - карточки игроков с скинами (mc-heads.net), модальное окно с деталями
- *   - единый поиск по командам
- *   - условные секции Бонусов (джекпот, события, войны, топ покера, наёмники)
+ *   - маркеры игроков на карте (голова + ник)
+ *   - 3D-модель игрока в модалке (skinview3d, можно крутить мышью)
+ *   - копирование команд в буфер
+ *   - условные секции Бонусов
+ *
+ * Скины:
+ *   1) Сначала пробуем локальный файл  data/skins/{name}.png
+ *      (для пираток — админ кладёт свои PNG вручную)
+ *   2) Если нет — mc-heads.net/skin/{name} (лицензия)
+ *   3) Если и там нет — Steve
  */
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-
-// ==== API для скинов (по имени, работает и для offline-mode) ====
-// https://mc-heads.net/avatar/{name}/64 — аватар
-// https://mc-heads.net/body/{name}/256   — тело
-// Fallback: если mc-heads недоступен, onerror подменяет на Steve
+const LOCAL_SKIN_DIR = 'data/skins/';
 const SKIN_API = 'https://mc-heads.net';
+const REFRESH_INTERVAL_MS = 60 * 1000; // 1 минута — чтобы позиции были актуальны
+
+// Размеры берём из плагина TerrainRenderer
+const IMG_SIZE_PER_CHUNK = 32;   // PIXELS_PER_BLOCK(2) × CHUNK_SIZE(16)
+const BLOCKS_PER_CHUNK = 16;
+const PIXELS_PER_BLOCK = 2;
 
 let currentData = null;
 let currentSort = 'claims';
@@ -30,11 +37,18 @@ let dragStartX = 0;
 let dragStartY = 0;
 let dragMoved = false;
 let highlightedCountry = null;
+let showPlayerMarkers = true;
 
 let mapImage = null;
 let mapCanvas = null;
 let mapCtx = null;
 let mapReady = false;
+
+// Текущий viewer (skinview3d) — уничтожаем при закрытии модалки
+let currentSkinViewer = null;
+let currentRotateAnim = null;
+let currentNameTag = null;
+let rotatePaused = false;
 
 const PALETTE = [
     '#6366f1', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
@@ -53,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initGuideNav();
     initCommandSearch();
     initPlayerControls();
-    initModalClose();
+    initModalControls();
 
     document.getElementById('refresh-btn').onclick = () => {
         loadData();
@@ -92,30 +106,61 @@ function initSortTabs() {
     });
 }
 
-function initModalClose() {
+function initModalControls() {
     document.querySelectorAll('[data-modal-close]').forEach(el => {
-        el.addEventListener('click', () => closeModal());
+        el.addEventListener('click', () => closePlayerModal());
     });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Escape') closePlayerModal();
     });
+
+    document.getElementById('skin-toggle-rotate').onclick = () => {
+        rotatePaused = !rotatePaused;
+        const btn = document.getElementById('skin-toggle-rotate');
+        btn.textContent = rotatePaused ? '▶ Пуск' : '⏸ Пауза';
+        btn.classList.toggle('active', rotatePaused);
+    };
+
+    document.getElementById('skin-reset-view').onclick = () => {
+        if (!currentSkinViewer) return;
+        currentSkinViewer.camera.position.set(20, 25, 40);
+        currentSkinViewer.camera.lookAt(0, 15, 0);
+    };
+
+    document.getElementById('skin-toggle-name').onclick = () => {
+        if (!currentSkinViewer) return;
+        currentSkinViewer.nameTag.visible = !currentSkinViewer.nameTag.visible;
+    };
 }
 
-function openModal() {
+function openPlayerModal() {
     document.getElementById('player-modal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function closeModal() {
+function closePlayerModal() {
     document.getElementById('player-modal').classList.remove('show');
     document.body.style.overflow = '';
+
+    // Уничтожаем 3D-сцену, чтобы не жрала ресурсы
+    if (currentSkinViewer) {
+        try { currentSkinViewer.dispose(); } catch (e) { /* ignore */ }
+        currentSkinViewer = null;
+    }
+    currentRotateAnim = null;
+    currentNameTag = null;
+    rotatePaused = false;
+    const btn = document.getElementById('skin-toggle-rotate');
+    if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 
 async function loadData() {
     const tbody = document.getElementById('countries-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
+    if (tbody && tbody.children.length <= 1) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
+    }
 
     try {
         const url = DATA_URL + '?t=' + Date.now();
@@ -157,12 +202,16 @@ function loadMap() {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+        const firstLoad = !mapReady;
         mapImage = img;
         setupCanvas(img.naturalWidth, img.naturalHeight);
         mapReady = true;
         placeholder.style.display = 'none';
         canvas.style.display = 'block';
-        setTimeout(resetMapView, 50);
+        // Сбрасываем вид только при первой загрузке; иначе — сохраняем
+        if (firstLoad) setTimeout(resetMapView, 50);
+        else applyMapTransform();
+        renderPlayerMarkers();
     };
     img.onerror = () => {
         mapReady = false;
@@ -194,6 +243,8 @@ function initMapControls() {
 
     viewport.addEventListener('mousedown', (e) => {
         if (!mapReady) return;
+        // Игнорируем клики по маркерам игроков
+        if (e.target.closest('.map-marker')) return;
         isDragging = true;
         dragMoved = false;
         dragStartX = e.clientX - mapOffsetX;
@@ -216,6 +267,7 @@ function initMapControls() {
 
     viewport.addEventListener('click', (e) => {
         if (!mapReady || dragMoved) return;
+        if (e.target.closest('.map-marker')) return; // маркеры обрабатываются сами
         handleMapClick(e);
     });
 
@@ -249,6 +301,14 @@ function initMapControls() {
         document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('highlight'));
         document.getElementById('country-details').style.display = 'none';
     });
+
+    const showPlayersCheckbox = document.getElementById('map-show-players');
+    if (showPlayersCheckbox) {
+        showPlayersCheckbox.addEventListener('change', () => {
+            showPlayerMarkers = showPlayersCheckbox.checked;
+            renderPlayerMarkers();
+        });
+    }
 }
 
 function handleMapClick(e) {
@@ -308,8 +368,11 @@ function hexToRgb(hex) {
 
 function applyMapTransform() {
     const canvas = document.getElementById('map-canvas');
+    const overlay = document.getElementById('map-overlay');
     if (!canvas) return;
-    canvas.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
+    const t = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
+    canvas.style.transform = t;
+    if (overlay) overlay.style.transform = t;
 }
 
 function resetMapView() {
@@ -326,6 +389,80 @@ function resetMapView() {
     mapOffsetX = (vw - iw * scale) / 2;
     mapOffsetY = (vh - ih * scale) / 2;
     applyMapTransform();
+}
+
+// ==================== МАРКЕРЫ ИГРОКОВ НА КАРТЕ ====================
+
+/**
+ * Конвертирует мировые координаты игрока в пиксели на карте.
+ *
+ * Расчёт:
+ *   chunkX = floor(x / 16)
+ *   relChunk = chunkX - min_chunk_x
+ *   imgX = relChunk * 32 + (x - chunkX * 16) * 2
+ *        = (x - min_chunk_x * 16) * 2
+ *
+ * Требуется map_meta в JSON:
+ *   { "world": "world", "min_chunk_x": -100, "min_chunk_z": -100 }
+ */
+function worldToImagePx(x, z, mapMeta) {
+    const minBX = mapMeta.min_chunk_x * BLOCKS_PER_CHUNK;
+    const minBZ = mapMeta.min_chunk_z * BLOCKS_PER_CHUNK;
+    return {
+        px: (x - minBX) * PIXELS_PER_BLOCK,
+        pz: (z - minBZ) * PIXELS_PER_BLOCK
+    };
+}
+
+function renderPlayerMarkers() {
+    const overlay = document.getElementById('map-overlay');
+    if (!overlay) return;
+
+    if (!showPlayerMarkers || !mapReady || !currentData) {
+        overlay.innerHTML = '';
+        return;
+    }
+
+    const mapMeta = currentData.map_meta;
+    const players = currentData.players || [];
+
+    if (!mapMeta || !mapMeta.min_chunk_x == null || players.length === 0) {
+        overlay.innerHTML = '';
+        return;
+    }
+
+    const markers = [];
+    for (const p of players) {
+        if (!p.position) continue;
+        const pos = p.position;
+        if (pos.world && mapMeta.world && pos.world !== mapMeta.world) continue;
+        if (pos.x == null || pos.z == null) continue;
+
+        const { px, pz } = worldToImagePx(pos.x, pos.z, mapMeta);
+        if (px < 0 || pz < 0 || px > mapCanvas.width || pz > mapCanvas.height) continue;
+
+        const online = !!p.online;
+        const name = p.name || '?';
+        // Для маленьких голов на карте используем размер 32 (для скинов достаточно)
+        const headUrl = `${SKIN_API}/avatar/${encodeURIComponent(name)}/32`;
+        const fallback = `${SKIN_API}/avatar/Steve/32`;
+
+        markers.push(`
+            <div class="map-marker ${online ? 'online' : ''}"
+                 style="left: ${px}px; top: ${pz}px;"
+                 onclick="openPlayer('${escapeAttr(name)}'); event.stopPropagation();"
+                 title="${escapeAttr(name)} — ${online ? 'онлайн' : 'оффлайн'}">
+                <img class="map-marker-head"
+                     src="${headUrl}"
+                     alt=""
+                     loading="lazy"
+                     onerror="this.onerror=null;this.src='${fallback}'">
+                <div class="map-marker-label">${escapeHtml(name)}</div>
+            </div>
+        `);
+    }
+
+    overlay.innerHTML = markers.join('');
 }
 
 // ==================== РЕНДЕР ДАННЫХ ====================
@@ -371,6 +508,7 @@ function render() {
     renderLegend();
     renderPlayers();
     renderBonus();
+    renderPlayerMarkers();
 }
 
 function renderCountries() {
@@ -476,13 +614,9 @@ function showDetails(countryName) {
 
 function initPlayerControls() {
     const search = document.getElementById('player-search');
-    if (search) {
-        search.addEventListener('input', () => renderPlayers());
-    }
+    if (search) search.addEventListener('input', () => renderPlayers());
     const onlineOnly = document.getElementById('player-online-only');
-    if (onlineOnly) {
-        onlineOnly.addEventListener('change', () => renderPlayers());
-    }
+    if (onlineOnly) onlineOnly.addEventListener('change', () => renderPlayers());
 }
 
 function renderPlayers() {
@@ -513,7 +647,6 @@ function renderPlayers() {
         filtered = filtered.filter(p => p.online);
     }
 
-    // Сортировка: онлайн сверху, потом по времени игры
     filtered.sort((a, b) => {
         if (!!b.online !== !!a.online) return b.online ? 1 : -1;
         return (b.playtime_seconds || 0) - (a.playtime_seconds || 0);
@@ -566,38 +699,27 @@ function renderPlayerCard(p) {
     `;
 }
 
+/**
+ * Открывает модалку игрока с 3D-моделью.
+ */
 function openPlayer(name) {
     const player = (currentData?.players || []).find(p => p.name === name);
     if (!player) return;
 
     const online = !!player.online;
-    const avatarUrl = `${SKIN_API}/avatar/${encodeURIComponent(name)}/128`;
-    const bodyUrl = `${SKIN_API}/body/${encodeURIComponent(name)}/256`;
-    const fallbackAvatar = `${SKIN_API}/avatar/Steve/128`;
-    const fallbackBody = `${SKIN_API}/body/Steve/256`;
 
-    // Скин
-    const bodyImg = document.getElementById('player-modal-body');
-    bodyImg.onerror = () => { bodyImg.onerror = null; bodyImg.src = fallbackBody; };
-    bodyImg.src = bodyUrl;
-
-    const avatarImg = document.getElementById('player-modal-avatar');
-    avatarImg.onerror = () => { avatarImg.onerror = null; avatarImg.src = fallbackAvatar; };
-    avatarImg.src = avatarUrl;
-
-    document.getElementById('player-modal-name-small').textContent = name;
     document.getElementById('player-modal-name').textContent = name;
-
     const statusEl = document.getElementById('player-modal-status');
     statusEl.textContent = online ? '● Онлайн' : '○ Оффлайн';
     statusEl.className = 'player-modal-status ' + (online ? 'online' : 'offline');
 
-    // ===== Основное =====
+    // === Основное ===
     const mainStats = [];
     if (player.uuid) mainStats.push({ label: 'UUID', value: shortenUuid(player.uuid) });
     if (player.balance != null) mainStats.push({ label: 'Баланс', value: formatMoney(player.balance), cls: 'success' });
     if (player.playtime_seconds != null) mainStats.push({ label: 'Время в игре', value: formatPlaytime(player.playtime_seconds) });
     if (player.last_seen) mainStats.push({ label: 'Был в игре', value: timeAgo(player.last_seen) });
+    if (player.first_seen) mainStats.push({ label: 'Первый вход', value: timeAgo(player.first_seen) });
     if (player.job) mainStats.push({ label: 'Профессия', value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '') });
     if (player.kills != null || player.deaths != null) {
         const k = player.kills || 0, d = player.deaths || 0;
@@ -606,10 +728,10 @@ function openPlayer(name) {
     }
 
     document.getElementById('player-modal-stats-main').innerHTML =
-        mainStats.map(s => statHtml(s)).join('') ||
-        '<div class="player-stat"><div class="label">—</div><div class="value">Нет данных</div></div>';
+        mainStats.map(s => statRowHtml(s)).join('') ||
+        statRowHtml({ label: '—', value: 'Нет данных' });
 
-    // ===== Страна =====
+    // === Страна ===
     const countryStats = [];
     if (player.country) {
         countryStats.push({ label: 'Страна', value: player.country, cls: 'accent' });
@@ -619,62 +741,182 @@ function openPlayer(name) {
                 : player.country_role;
             countryStats.push({ label: 'Роль', value: roleName });
         }
-        // Найдём страну в списке, чтобы дать ссылку
         const countryData = (currentData.countries || []).find(c => c.name === player.country);
         if (countryData) {
             countryStats.push({ label: 'Казна страны', value: formatMoney(countryData.bank || 0) });
             countryStats.push({ label: 'Территория', value: `${countryData.claims || 0} чанков` });
         }
     } else {
-        countryStats.push({ label: 'Страна', value: 'Нет', cls: '' });
+        countryStats.push({ label: 'Страна', value: 'Нет' });
     }
     if (player.bounty != null && player.bounty > 0) {
-        countryStats.push({ label: '💀 За голову', value: formatMoney(player.bounty), cls: 'danger' });
+        countryStats.push({ label: '💀 Награда за голову', value: formatMoney(player.bounty), cls: 'danger' });
     }
 
     document.getElementById('player-modal-stats-country').innerHTML =
-        countryStats.map(s => statHtml(s)).join('');
+        countryStats.map(s => statRowHtml(s)).join('');
 
-    // ===== Активность =====
+    // === Активность ===
     const activityStats = [];
     if (player.energy != null) activityStats.push({ label: 'Энергия', value: (player.energy).toFixed(1) });
     if (player.max_energy != null) activityStats.push({ label: 'Макс. энергия', value: (player.max_energy).toFixed(1) });
-    if (player.first_seen) activityStats.push({ label: 'Первый вход', value: timeAgo(player.first_seen) });
     if (player.achievements_count != null) activityStats.push({ label: 'Достижений', value: player.achievements_count });
     if (player.playtime_seconds != null && player.playtime_seconds > 0) {
         const days = Math.floor(player.playtime_seconds / 86400);
         activityStats.push({ label: 'Дней в игре', value: days });
     }
-
+    if (player.position) {
+        const pos = player.position;
+        const posStr = `${Math.round(pos.x)}, ${Math.round(pos.y || 0)}, ${Math.round(pos.z)}`;
+        activityStats.push({ label: 'Локация', value: posStr });
+    }
     if (activityStats.length === 0) {
         activityStats.push({ label: '—', value: 'Нет данных' });
     }
-
     document.getElementById('player-modal-stats-activity').innerHTML =
-        activityStats.map(s => statHtml(s)).join('');
+        activityStats.map(s => statRowHtml(s)).join('');
 
-    // ===== Кнопки действий =====
+    // === Кнопки ===
     const actions = [];
     if (player.country) {
         actions.push(`<button class="player-modal-btn" onclick="gotoCountry('${escapeAttr(player.country)}')">🏛️ Перейти к стране</button>`);
     }
+    if (player.position) {
+        actions.push(`<button class="player-modal-btn" onclick="gotoPlayerOnMap('${escapeAttr(name)}')">🗺️ Показать на карте</button>`);
+    }
     actions.push(`<button class="player-modal-btn" onclick="copyToClipboardSafe('${escapeAttr(name)}')">📋 Скопировать ник</button>`);
     document.getElementById('player-modal-actions').innerHTML = actions.join('');
 
-    openModal();
+    // Открываем модалку и инициализируем 3D-модель
+    openPlayerModal();
+    // Небольшая задержка — нужно, чтобы canvas получил размеры после display:block
+    setTimeout(() => initSkinViewer(name), 30);
 }
 
-function statHtml(s) {
+function statRowHtml(s) {
     return `
-        <div class="player-stat">
+        <div class="player-stat-row">
             <div class="label">${s.label}</div>
             <div class="value ${s.cls || ''}">${escapeHtml(String(s.value))}</div>
         </div>
     `;
 }
 
+// ==================== 3D SKIN VIEWER ====================
+
+/**
+ * Загружает и инициализирует 3D-модель игрока через skinview3d.
+ *
+ * Приоритет скина:
+ *   1) data/skins/{name}.png  — локальный PNG (для пираток, залитый вручную)
+ *   2) mc-heads.net/skin/{name}  — Mojang
+ *   3) mc-heads.net/skin/Steve   — фоллбэк
+ */
+async function initSkinViewer(name) {
+    const canvas = document.getElementById('skin-canvas');
+    const loading = document.getElementById('skin-loading');
+    if (!canvas) return;
+
+    // Очищаем предыдущий viewer
+    if (currentSkinViewer) {
+        try { currentSkinViewer.dispose(); } catch (e) {}
+        currentSkinViewer = null;
+    }
+
+    loading.classList.remove('hidden');
+    loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
+
+    if (typeof skinview3d === 'undefined') {
+        loading.innerHTML = '<div>⚠ skinview3d не загрузился</div><div style="font-size:11px;">Проверь подключение к интернету</div>';
+        return;
+    }
+
+    try {
+        const viewer = new skinview3d.SkinViewer({
+            canvas: canvas,
+            width: canvas.clientWidth || 380,
+            height: canvas.clientHeight || 380,
+            skin: `${SKIN_API}/skin/Steve` // временный скин, сразу перезапишем
+        });
+
+        // Настройки камеры и света
+        viewer.camera.position.set(20, 25, 40);
+        viewer.camera.lookAt(0, 15, 0);
+        viewer.controls.enableZoom = true;
+        viewer.controls.enablePan = false;
+        viewer.controls.minDistance = 20;
+        viewer.controls.maxDistance = 100;
+        viewer.controls.target.set(0, 15, 0);
+        viewer.fov = 50;
+        viewer.globalLight.intensity = 0.6;
+        viewer.cameraLight.intensity = 1.0;
+
+        // Показываем ник над головой
+        viewer.nameTag = new skinview3d.NameTagObject(name);
+        viewer.nameTag.visible = true;
+
+        // Анимация вращения (idle-подобная, можно паузить)
+        currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation);
+
+        // Пробуем загрузить скин по цепочке
+        const skinUrl = await resolveSkinUrl(name);
+        await viewer.loadSkin(skinUrl);
+
+        // Скрываем лоадер
+        loading.classList.add('hidden');
+
+        currentSkinViewer = viewer;
+
+        // Реагируем на ресайз окна
+        const ro = new ResizeObserver(() => {
+            if (!currentSkinViewer) return;
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            if (w > 0 && h > 0) {
+                currentSkinViewer.width = w;
+                currentSkinViewer.height = h;
+            }
+        });
+        ro.observe(canvas.parentElement);
+
+    } catch (err) {
+        console.error('Ошибка инициализации skinview3d:', err);
+        loading.innerHTML = '<div>⚠ Не удалось загрузить модель</div><div style="font-size:11px;">' + escapeHtml(err.message || '') + '</div>';
+    }
+}
+
+/**
+ * Разрешает URL скина: сначала локальный, потом mc-heads, потом Steve.
+ */
+async function resolveSkinUrl(name) {
+    // 1. Локальный файл
+    const localUrl = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
+    if (await imageExists(localUrl)) {
+        return localUrl;
+    }
+    // 2. Mojang
+    const mojangUrl = `${SKIN_API}/skin/${encodeURIComponent(name)}`;
+    if (await imageExists(mojangUrl)) {
+        return mojangUrl;
+    }
+    // 3. Steve
+    return `${SKIN_API}/skin/Steve`;
+}
+
+function imageExists(url) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url + '?t=' + Date.now();
+    });
+}
+
+// ==================== НАВИГАЦИЯ ====================
+
 function gotoCountry(name) {
-    closeModal();
+    closePlayerModal();
     document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector('.main-nav .nav-btn[data-tab="overview"]').classList.add('active');
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -683,13 +925,43 @@ function gotoCountry(name) {
     showDetails(name);
 }
 
+/**
+ * Закрывает модалку, идёт на карту и центрирует на игроке.
+ */
+function gotoPlayerOnMap(name) {
+    const player = (currentData?.players || []).find(p => p.name === name);
+    if (!player || !player.position || !currentData.map_meta) return;
+
+    closePlayerModal();
+
+    // Переключаемся на карту
+    document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.main-nav .nav-btn[data-tab="map"]').classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-map').classList.add('active');
+
+    // Даём вкладке "проявиться", потом центрируем
+    setTimeout(() => {
+        if (!mapReady) return;
+        const { px, pz } = worldToImagePx(player.position.x, player.position.z, currentData.map_meta);
+        const viewport = document.getElementById('map-viewport');
+        const vw = viewport.clientWidth;
+        const vh = viewport.clientHeight;
+
+        mapZoom = 1.5;
+        mapOffsetX = vw / 2 - px * mapZoom;
+        mapOffsetY = vh / 2 - pz * mapZoom;
+        applyMapTransform();
+    }, 80);
+}
+
 function copyToClipboardSafe(text) {
     copyToClipboard(text).then(ok => {
         if (ok) showToast('✓ Скопировано: ' + text);
     });
 }
 
-// ==================== BONUS (условные секции) ====================
+// ==================== BONUS ====================
 
 function renderBonus() {
     if (!currentData) return;
@@ -774,7 +1046,7 @@ function renderBonus() {
     document.getElementById('panel-bonus-empty').style.display = anyBonus ? 'none' : 'block';
 }
 
-// ==================== КОПИРОВАНИЕ КОМАНД ====================
+// ==================== КОПИРОВАНИЕ ====================
 
 function initCommandCopy() {
     document.body.addEventListener('click', (e) => {
@@ -870,17 +1142,16 @@ function initGuideNav() {
 const COMMANDS = [
     { cmd: '/c', desc: 'Главное меню страны', plugin: 'Sovereignty' },
     { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
-    { cmd: '/c rename НовоеИмя', desc: 'Переименовать страну (лидер)', plugin: 'Sovereignty' },
+    { cmd: '/c rename НовоеИмя', desc: 'Переименовать', plugin: 'Sovereignty' },
     { cmd: '/c info', desc: 'Информация о стране', plugin: 'Sovereignty' },
-    { cmd: '/c list', desc: 'Список всех стран', plugin: 'Sovereignty' },
+    { cmd: '/c list', desc: 'Список стран', plugin: 'Sovereignty' },
     { cmd: '/c top', desc: 'Топ стран', plugin: 'Sovereignty' },
-    { cmd: '/c claim', desc: 'Захватить чанк (2 энергии)', plugin: 'Sovereignty' },
+    { cmd: '/c claim', desc: 'Захватить чанк', plugin: 'Sovereignty' },
     { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
-    { cmd: '/c autoclaim', desc: 'Автозахват (вкл/выкл)', plugin: 'Sovereignty' },
-    { cmd: '/c seechunk', desc: 'Отображение границ', plugin: 'Sovereignty' },
-    { cmd: '/c map', desc: 'Текстовая карта территорий', plugin: 'Sovereignty' },
+    { cmd: '/c autoclaim', desc: 'Автозахват', plugin: 'Sovereignty' },
+    { cmd: '/c seechunk', desc: 'Границы территории', plugin: 'Sovereignty' },
     { cmd: '/c unstuck', desc: 'Телепорт с чужой территории', plugin: 'Sovereignty' },
-    { cmd: '/c chunkupgrade', desc: 'Типы чанков', plugin: 'Sovereignty' },
+    { cmd: '/c map', desc: 'Текстовая карта', plugin: 'Sovereignty' },
     { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
     { cmd: '/c kick Steve', desc: 'Исключить соправителя', plugin: 'Sovereignty' },
     { cmd: '/c accept', desc: 'Принять приглашение', plugin: 'Sovereignty' },
@@ -888,66 +1159,46 @@ const COMMANDS = [
     { cmd: '/c bank', desc: 'Баланс казны', plugin: 'Sovereignty' },
     { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
     { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
-    { cmd: '/c bank withdraw all', desc: 'Снять всё из казны', plugin: 'Sovereignty' },
     { cmd: '/c upgrade', desc: 'Меню прокачки', plugin: 'Sovereignty' },
     { cmd: '/c buyenergy 10', desc: 'Купить энергию', plugin: 'Sovereignty' },
     { cmd: '/c boost', desc: 'Буст регенерации', plugin: 'Sovereignty' },
     { cmd: '/c research', desc: 'Дерево технологий', plugin: 'Sovereignty' },
     { cmd: '/c achievements', desc: 'Достижения', plugin: 'Sovereignty' },
     { cmd: '/c court', desc: 'Международный суд', plugin: 'Sovereignty' },
-    { cmd: '/c court file Steve Причина', desc: 'Подать жалобу', plugin: 'Sovereignty' },
-    { cmd: '/c ally Steve', desc: 'Предложить союз', plugin: 'Sovereignty' },
-    { cmd: '/c enemy Steve', desc: 'Объявить войну', plugin: 'Sovereignty' },
+    { cmd: '/c ally Steve', desc: 'Союз', plugin: 'Sovereignty' },
+    { cmd: '/c enemy Steve', desc: 'Война', plugin: 'Sovereignty' },
     { cmd: '/c neutral Steve', desc: 'Нейтралитет', plugin: 'Sovereignty' },
     { cmd: '/c pact trade Steve', desc: 'Пакт', plugin: 'Sovereignty' },
-    { cmd: '/c surrender', desc: 'Капитулировать', plugin: 'Sovereignty' },
-    { cmd: '/c miningboost', desc: 'Шахтёрский бонус', plugin: 'Sovereignty' },
-
-    { cmd: '/tax', desc: 'Меню налогов', plugin: 'TaxCollector' },
+    { cmd: '/c surrender', desc: 'Капитуляция', plugin: 'Sovereignty' },
+    { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
     { cmd: '/tax pay', desc: 'Оплатить долг', plugin: 'TaxCollector' },
-    { cmd: '/tax debts', desc: 'Список должников', plugin: 'TaxCollector' },
-
-    { cmd: '/shop', desc: 'Открыть рынок', plugin: 'MarketGUI' },
+    { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
     { cmd: '/shop add diamond 10', desc: 'Продать за ресурсы', plugin: 'MarketGUI' },
     { cmd: '/shop add money 500', desc: 'Продать за валюту', plugin: 'MarketGUI' },
-    { cmd: '/shop add diamond 10 money 500', desc: 'Смешанная цена', plugin: 'MarketGUI' },
-    { cmd: '/shop add diamond 10 for Steve', desc: 'Личная продажа', plugin: 'MarketGUI' },
     { cmd: '/shop sell', desc: 'Свои товары', plugin: 'MarketGUI' },
-
-    { cmd: '/auc', desc: 'Открыть аукцион', plugin: 'AuctionHouse' },
+    { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
     { cmd: '/auc add 100 60', desc: 'Выставить предмет', plugin: 'AuctionHouse' },
     { cmd: '/auc bid 1 200', desc: 'Сделать ставку', plugin: 'AuctionHouse' },
-    { cmd: '/auc info 1', desc: 'Инфо об аукционе', plugin: 'AuctionHouse' },
-    { cmd: '/auc cancel 1', desc: 'Отменить', plugin: 'AuctionHouse' },
-
-    { cmd: '/bounty Steve 5000', desc: 'Назначить награду', plugin: 'Bounty' },
+    { cmd: '/bounty Steve 5000', desc: 'Награда за голову', plugin: 'Bounty' },
     { cmd: '/bounty list', desc: 'Топ целей', plugin: 'Bounty' },
     { cmd: '/bounty menu', desc: 'GUI наёмников', plugin: 'Bounty' },
-    { cmd: '/bounty remove Steve', desc: 'Снять награду', plugin: 'Bounty' },
-
     { cmd: '/roll', desc: 'Хаб казино', plugin: 'RollGame' },
     { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
-    { cmd: '/roll duel 1000', desc: 'Дуэль 50/50', plugin: 'RollGame' },
+    { cmd: '/roll duel 1000', desc: 'Дуэль', plugin: 'RollGame' },
     { cmd: '/roll mines 1000 3 5', desc: 'Мины', plugin: 'RollGame' },
-    { cmd: '/roll wheel 1000', desc: 'Колесо Фортуны', plugin: 'RollGame' },
+    { cmd: '/roll wheel 1000', desc: 'Колесо', plugin: 'RollGame' },
     { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
     { cmd: '/roll poker', desc: 'Покер', plugin: 'RollGame' },
     { cmd: '/roll poker tables', desc: 'Список столов', plugin: 'RollGame' },
     { cmd: '/roll poker create 5000', desc: 'Создать стол', plugin: 'RollGame' },
     { cmd: '/roll poker join 1', desc: 'Присоединиться', plugin: 'RollGame' },
-    { cmd: '/roll poker start', desc: 'Начать игру', plugin: 'RollGame' },
-    { cmd: '/roll poker leave', desc: 'Покинуть стол', plugin: 'RollGame' },
     { cmd: '/roll poker top', desc: 'Топ покера', plugin: 'RollGame' },
-    { cmd: '/roll poker history', desc: 'Последние раздачи', plugin: 'RollGame' },
-    { cmd: '/roll classic', desc: 'Классическая рулетка', plugin: 'RollGame' },
-    { cmd: '/roll bet 1000', desc: 'Ставка', plugin: 'RollGame' },
-    { cmd: '/roll raise 500', desc: 'Увеличить ставку', plugin: 'RollGame' },
-    { cmd: '/roll jackpot', desc: 'Текущий джекпот', plugin: 'RollGame' },
+    { cmd: '/roll bet 1000', desc: 'Ставка в рулетке', plugin: 'RollGame' },
+    { cmd: '/roll jackpot', desc: 'Джекпот', plugin: 'RollGame' },
     { cmd: '/roll stats', desc: 'Личная статистика', plugin: 'RollGame' },
     { cmd: '/roll top', desc: 'Топ игроков', plugin: 'RollGame' },
-
     { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
-    { cmd: '/pay Steve 1000', desc: 'Перевести деньги', plugin: 'EssentialsX' },
+    { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
     { cmd: '/baltop', desc: 'Топ богачей', plugin: 'EssentialsX' },
     { cmd: '/sell hand', desc: 'Продать из руки', plugin: 'EssentialsX' },
     { cmd: '/sell all', desc: 'Продать всё', plugin: 'EssentialsX' },
@@ -956,11 +1207,9 @@ const COMMANDS = [
     { cmd: '/home', desc: 'Телепорт домой', plugin: 'EssentialsX' },
     { cmd: '/spawn', desc: 'На спавн', plugin: 'EssentialsX' },
     { cmd: '/tpa Steve', desc: 'Запрос ТП', plugin: 'EssentialsX' },
-
     { cmd: '/jobs browse', desc: 'Список профессий', plugin: 'Jobs' },
-    { cmd: '/jobs stats', desc: 'Статистика работы', plugin: 'Jobs' },
+    { cmd: '/jobs stats', desc: 'Статистика', plugin: 'Jobs' },
     { cmd: '/jobs leave', desc: 'Уволиться', plugin: 'Jobs' },
-
     { cmd: '/skin Steve', desc: 'Скин по нику', plugin: 'SkinsRestorer' },
     { cmd: '/skins', desc: 'Меню скинов', plugin: 'SkinsRestorer' },
     { cmd: '/skin set 12345', desc: 'Свой скин (Mineskin)', plugin: 'SkinsRestorer' },
@@ -999,9 +1248,6 @@ function formatMoney(amount) {
     return Math.round(amount).toString();
 }
 
-/**
- * Форматирует секунды в читаемый вид: 2д 4ч 15м / 4ч 15м / 15м / 45с
- */
 function formatPlaytime(seconds) {
     if (seconds == null || seconds <= 0) return '';
     const d = Math.floor(seconds / 86400);
