@@ -1,28 +1,39 @@
 /**
- * Веб-панель Sovereignty.
- * Загружает JSON-файл, сгенерированный плагином, и рендерит данные.
+ * Веб-панель Sovereignty: данные + интерактивная карта территорий.
  */
 
 // ==================== НАСТРОЙКИ ====================
 
-// Путь к JSON-файлу в репозитории (относительный, чтобы работало на GitHub Pages)
 const DATA_URL = 'data/server1.json';
-
-// Интервал автообновления (5 минут)
+const MAP_URL = 'data/map.png';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 // ==================== СОСТОЯНИЕ ====================
 
 let currentData = null;
 let currentSort = 'claims';
+let mapZoom = 1;
+let mapOffsetX = 0;
+let mapOffsetY = 0;
+let isDragging = false;
+let dragStartX = 0, dragStartY = 0;
+let highlightedCountry = null;
+
+// Стабильный список цветов (должен совпадать с серверным MapRenderer.java!)
+const PALETTE = [
+    '#6366f1', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6',
+    '#a855f7', '#f43f5e', '#22d3ee', '#a3e635', '#facc15',
+    '#fb923c', '#e879f9', '#4ade80', '#60a5fa', '#fca5a5'
+];
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
+    initMapControls();
 
-    // Привязка табов
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -37,33 +48,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadData() {
     try {
-        // Cache-busting
         const url = DATA_URL + '?t=' + Date.now();
         const response = await fetch(url);
         if (!response.ok) throw new Error('HTTP ' + response.status);
         currentData = await response.json();
         render();
+        loadMap();
     } catch (err) {
         console.error('Ошибка загрузки данных:', err);
         document.getElementById('server-name').textContent = 'Ошибка загрузки';
-        document.getElementById('countries-body').innerHTML =
-            '<tr><td colspan="8" class="loading">❌ Не удалось загрузить данные. Проверьте, что плагин отправил их.</td></tr>';
     }
 }
 
-// ==================== РЕНДЕР ====================
+function loadMap() {
+    const img = document.getElementById('map-canvas');
+    const placeholder = document.getElementById('map-placeholder');
+
+    const testImg = new Image();
+    testImg.onload = () => {
+        img.src = MAP_URL + '?t=' + Date.now();
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+        resetMapView();
+    };
+    testImg.onerror = () => {
+        img.style.display = 'none';
+        placeholder.style.display = 'block';
+    };
+    testImg.src = MAP_URL + '?t=' + Date.now();
+}
+
+// ==================== РЕНДЕР ДАННЫХ ====================
 
 function render() {
     if (!currentData) return;
 
-    // Шапка
     document.getElementById('server-name').textContent = currentData.server_name || 'Сервер';
     document.getElementById('online-badge').textContent =
         `Онлайн: ${currentData.online_players || 0} / ${currentData.max_players || 0}`;
 
     const updated = currentData.updated_at;
     if (updated) {
-        const date = new Date(updated);
         const minutes = Math.floor((Date.now() - updated) / 60000);
         const ago = minutes < 1 ? 'только что'
             : minutes < 60 ? `${minutes} мин назад`
@@ -71,7 +96,6 @@ function render() {
         document.getElementById('updated-badge').textContent = `Обновлено: ${ago}`;
     }
 
-    // Сводка
     const countries = currentData.countries || [];
     document.getElementById('countries-count').textContent = countries.length;
     document.getElementById('total-claims').textContent =
@@ -82,13 +106,13 @@ function render() {
         countries.reduce((sum, c) => sum + (c.energy || 0), 0).toFixed(1);
 
     renderCountries();
+    renderLegend();
 }
 
 function renderCountries() {
     if (!currentData) return;
     const countries = [...(currentData.countries || [])];
 
-    // Сортировка
     countries.sort((a, b) => {
         switch (currentSort) {
             case 'bank': return (b.bank || 0) - (a.bank || 0);
@@ -120,6 +144,39 @@ function renderCountries() {
             </tr>
         `;
     }).join('');
+}
+
+function renderLegend() {
+    if (!currentData) return;
+    const countries = currentData.countries || [];
+    const legend = document.getElementById('map-legend');
+
+    if (countries.length === 0) {
+        legend.innerHTML = '';
+        return;
+    }
+
+    legend.innerHTML = countries.map((c, i) => {
+        const color = PALETTE[i % PALETTE.length];
+        return `
+            <div class="legend-item" data-country="${escapeAttr(c.name)}" onclick="highlightCountry('${escapeAttr(c.name)}')">
+                <div class="legend-color" style="background:${color}"></div>
+                <span>${escapeHtml(c.name)}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function highlightCountry(name) {
+    highlightedCountry = highlightedCountry === name ? null : name;
+    document.querySelectorAll('.legend-item').forEach(el => {
+        el.classList.toggle('highlight', el.dataset.country === highlightedCountry);
+    });
+    // TODO: подсветка на PNG-карте пока невозможна (карта — цельное изображение).
+    // Пока просто подсвечиваем в легенде и в таблице.
+    if (highlightedCountry) {
+        showDetails(highlightedCountry);
+    }
 }
 
 function showDetails(countryName) {
@@ -156,6 +213,65 @@ function showDetails(countryName) {
     document.getElementById('country-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+// ==================== КАРТА (PAN + ZOOM) ====================
+
+function initMapControls() {
+    const viewport = document.getElementById('map-viewport');
+    const img = document.getElementById('map-canvas');
+
+    // Перетаскивание
+    viewport.addEventListener('mousedown', (e) => {
+        if (img.style.display === 'none') return;
+        isDragging = true;
+        dragStartX = e.clientX - mapOffsetX;
+        dragStartY = e.clientY - mapOffsetY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        mapOffsetX = e.clientX - dragStartX;
+        mapOffsetY = e.clientY - dragStartY;
+        applyMapTransform();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    // Зум
+    viewport.addEventListener('wheel', (e) => {
+        if (img.style.display === 'none') return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.85 : 1.15;
+        mapZoom = Math.max(0.2, Math.min(8, mapZoom * delta));
+        applyMapTransform();
+    }, { passive: false });
+
+    // Сброс
+    document.getElementById('map-reset').addEventListener('click', resetMapView);
+}
+
+function applyMapTransform() {
+    const img = document.getElementById('map-canvas');
+    img.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
+}
+
+function resetMapView() {
+    const img = document.getElementById('map-canvas');
+    const viewport = document.getElementById('map-viewport');
+    if (!img.complete || img.naturalWidth === 0) return;
+
+    mapZoom = 1;
+    // Центрируем
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+    const scale = Math.min(vw / iw, vh / ih) * 0.95;
+    mapZoom = scale;
+    mapOffsetX = (vw - iw * scale) / 2;
+    mapOffsetY = (vh - ih * scale) / 2;
+    applyMapTransform();
+}
+
 // ==================== УТИЛИТЫ ====================
 
 function formatMoney(amount) {
@@ -171,5 +287,4 @@ function escapeHtml(str) {
 }
 
 function escapeAttr(str) {
-    return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-}
+    return String(str).replace(/'/g, "\\'").replace(/"/

@@ -42,6 +42,25 @@
             </div>
         </section>
 
+        <!-- Карта территорий -->
+        <section class="panel">
+            <div class="panel-header">
+                <h2>🗺️ Карта территорий</h2>
+                <div class="map-controls">
+                    <button class="map-btn" id="map-reset">Сбросить вид</button>
+                    <span class="map-hint">Перетаскивайте мышью • Колёсико для зума</span>
+                </div>
+            </div>
+            <div class="map-viewport" id="map-viewport">
+                <img id="map-canvas" class="map-image" alt="Карта территорий" draggable="false" src="" style="display: none;">
+                <div class="map-placeholder" id="map-placeholder">
+                    <div class="map-placeholder-icon">🗺️</div>
+                    <p>Карта ещё не сгенерирована.<br>Подождите первого обновления от сервера.</p>
+                </div>
+            </div>
+            <div class="map-legend" id="map-legend"></div>
+        </section>
+
         <!-- Топ стран -->
         <section class="panel">
             <h2>🏆 Топ стран</h2>
