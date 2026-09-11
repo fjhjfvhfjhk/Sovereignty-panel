@@ -1,4 +1,4 @@
-/* Sovereignty panel v2.9 */
+/* Sovereignty panel v3.0 — неблокирующая загрузка скинов */
 
 const DATA_URL = 'data/server1.json';
 const MAP_URL = 'data/map.png';
@@ -7,6 +7,7 @@ const SKIN_API = 'https://mc-heads.net';
 const CRAFATAR = 'https://crafatar.com';
 const STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const LOCAL_SKIN_TIMEOUT_MS = 3000;
 const BLOCKS_PER_CHUNK = 16;
 const PIXELS_PER_BLOCK = 2;
 const SKIN_CAMERA_TARGET_Y = 16;
@@ -27,15 +28,16 @@ let showPlayerMarkers = true;
 let mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 let currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
 
-// Кеши
-const localSkinCache = new Map();   // name → HTMLImageElement (загруженный PNG)
-const headCache = new Map();         // name → dataURL готовой головы
+const localSkinCache = new Map();   // name → HTMLImageElement
+const headCache = new Map();        // name → dataURL
+const localLoadedAttempted = new Set();
 
 const PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
 // ==================== INIT ====================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Sovereignty] DOMContentLoaded');
     try {
         initTabs();
         initSortTabs();
@@ -112,19 +114,36 @@ function closePlayerModal() {
     if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
-// ==================== LOCAL SKINS PRELOAD ====================
+// ==================== LOCAL SKINS (non-blocking) ====================
 
 /**
- * Пробует загрузить локальный PNG для каждого игрока (data/skins/{ник}.png).
- * При успехе — сохраняет в localSkinCache и создаёт из него голову в headCache.
- * Ошибки (404) тихо игнорируются — тогда используется mc-heads.
+ * Не блокирует UI. Запускается в фоне после рендера.
+ * Каждый скин — с таймаутом 3 сек, чтобы не висело вечно.
  */
-async function preloadLocalSkins() {
+function preloadLocalSkins() {
     const players = currentData && currentData.players ? currentData.players : [];
     if (players.length === 0) return;
 
-    const jobs = players.map(p => loadLocalSkin(p.name).catch(() => null));
-    await Promise.all(jobs);
+    const toLoad = players.filter(p => p.name && !localLoadedAttempted.has(p.name));
+    if (toLoad.length === 0) return;
+
+    console.log('[Skins] Пробую загрузить локальные скины: ' + toLoad.length);
+
+    let done = 0;
+    let loaded = 0;
+    toLoad.forEach(p => {
+        localLoadedAttempted.add(p.name);
+        loadLocalSkin(p.name)
+            .then(() => { loaded++; })
+            .catch(() => {})
+            .finally(() => {
+                done++;
+                if (done === toLoad.length) {
+                    console.log('[Skins] Готово. Загружено: ' + loaded + '/' + toLoad.length);
+                    refreshHeadImages();
+                }
+            });
+    });
 }
 
 function loadLocalSkin(name) {
@@ -133,59 +152,73 @@ function loadLocalSkin(name) {
     const url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     return new Promise((resolve, reject) => {
         const img = new Image();
-        // Same-origin — canvas не будет tainted
+        let finished = false;
+        const timer = setTimeout(() => {
+            if (finished) return;
+            finished = true;
+            img.src = '';
+            reject(new Error('timeout'));
+        }, LOCAL_SKIN_TIMEOUT_MS);
+
         img.onload = () => {
-            // Скин должен быть 64x32 или 64x64
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
             if (img.width < 64 || (img.height !== 32 && img.height !== 64)) {
-                reject(new Error('Неверный формат скина: ' + img.width + 'x' + img.height));
+                reject(new Error('bad format: ' + img.width + 'x' + img.height));
                 return;
             }
             localSkinCache.set(name, img);
-            // Сразу готовим голову
-            try {
-                headCache.set(name, headFromSkin(img));
-            } catch (e) { /* ignore */ }
+            try { headCache.set(name, headFromSkin(img)); } catch (e) {}
             resolve(img);
         };
-        img.onerror = () => reject(new Error('404'));
+        img.onerror = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            reject(new Error('404'));
+        };
         img.src = url;
     });
 }
 
-/**
- * Извлекает голову (лицо + шапка) из PNG-скина через canvas.
- * Возвращает dataURL 8×8 (без масштабирования — на экране CSS увеличит).
- */
 function headFromSkin(skinImg) {
     const canvas = document.createElement('canvas');
-    canvas.width = 8;
-    canvas.height = 8;
+    canvas.width = 8; canvas.height = 8;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    // Лицо: x=8, y=8, 8x8
     ctx.drawImage(skinImg, 8, 8, 8, 8, 0, 0, 8, 8);
-    // Шапка (если есть — 64x64)
     if (skinImg.width >= 64 && skinImg.height >= 64) {
         ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 8, 8);
     }
     return canvas.toDataURL('image/png');
 }
 
-/**
- * Синхронно возвращает URL головы:
- *   - если есть локальный скин → dataURL из headCache
- *   - иначе → mc-heads.net
- *
- * Используется везде, где рендерится <img> головы.
- */
 function getHeadUrl(name, size) {
     if (headCache.has(name)) return headCache.get(name);
     return SKIN_API + '/avatar/' + encodeURIComponent(name) + '/' + (size || 64);
 }
 
-// ==================== DATA LOAD ====================
+/**
+ * Обновляет все <img data-pname> — заменяет mc-heads на локальную голову
+ * после того как локальные скины подгрузились.
+ */
+function refreshHeadImages() {
+    let updated = 0;
+    document.querySelectorAll('img[data-pname]').forEach(img => {
+        const name = img.getAttribute('data-pname');
+        if (headCache.has(name)) {
+            img.src = headCache.get(name);
+            updated++;
+        }
+    });
+    if (updated > 0) console.log('[Skins] Обновлено голов: ' + updated);
+}
+
+// ==================== DATA LOAD (не блокирует) ====================
 
 async function loadData() {
+    console.log('[Sovereignty] loadData() старт');
     const tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) {
         tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
@@ -196,13 +229,13 @@ async function loadData() {
         const text = await r.text();
         if (!text || !text.trim()) throw new Error('Пустой файл');
         currentData = JSON.parse(text);
-
-        // Загружаем локальные скины ДО первого рендера,
-        // чтобы головы сразу были локальными.
-        await preloadLocalSkins();
+        console.log('[Sovereignty] данные загружены, игроков: ' + ((currentData.players || []).length));
 
         render();
         loadMap();
+
+        // НЕ await — фоновая предзагрузка локальных скинов
+        setTimeout(preloadLocalSkins, 0);
     } catch (err) {
         console.error('[Sovereignty] load error:', err);
         const sn = document.getElementById('server-name');
@@ -246,6 +279,7 @@ function render() {
     renderPlayers();
     renderBonus();
     renderPlayerMarkers();
+    console.log('[Sovereignty] render() завершён');
 }
 
 function setText(id, val) {
@@ -331,8 +365,6 @@ function showDetails(countryName) {
     const cd = document.getElementById('country-details');
     if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
-
-// ==================== MAP ====================
 
 function loadMap() {
     const ph = document.getElementById('map-placeholder');
@@ -505,12 +537,11 @@ function renderPlayerMarkers() {
         if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) continue;
         const online = !!p.online;
         const name = p.name || '?';
-        // getHeadUrl вернёт либо dataURL из локального скина, либо mc-heads.net
         const headUrl = getHeadUrl(name, 32);
         const fallback = SKIN_API + '/avatar/Steve/32';
         markers.push('<div class="map-marker ' + (online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + '">' +
             '<div class="map-marker-content">' +
-            '<img class="map-marker-head" src="' + headUrl + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
+            '<img class="map-marker-head" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
             '<div class="map-marker-label">' + escapeHtml(name) + '</div></div></div>');
     }
     overlay.innerHTML = markers.join('');
@@ -566,7 +597,7 @@ function renderPlayerCard(p) {
     return '<div class="player-card" onclick="openPlayer(\'' + escapeAttr(name) + '\')">' +
         badge +
         '<div class="player-card-avatar">' +
-        '<img src="' + avatar + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
+        '<img src="' + avatar + '" data-pname="' + escapeAttr(name) + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
         '<div class="status-dot ' + (online ? 'online' : 'offline') + '"></div></div>' +
         '<div class="player-card-info">' +
         '<div class="player-card-name">' + escapeHtml(name) + '</div>' +
@@ -704,7 +735,6 @@ async function initSkinViewer(name, uuid) {
     loading.classList.remove('hidden');
     loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
 
-    // Ждём загрузку skinview3d — до 5 сек
     let waited = 0;
     while (window.__skinview3dStatus === 'loading' && waited < 5000) {
         await new Promise(r => setTimeout(r, 100));
@@ -716,9 +746,7 @@ async function initSkinViewer(name, uuid) {
             '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
             '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div>' +
             '<div style="font-size:11px;color:#8b91a6;margin-top:8px;line-height:1.5;max-width:280px;">' +
-            'Все CDN недоступны. Скачай <code style="font-size:10px;">skinview3d.bundle.js</code> ' +
-            'с <a href="https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js" target="_blank" style="color:#818cf8;">jsdelivr</a> ' +
-            'и положи в корень репозитория панели.' +
+            'Скачай skinview3d.bundle.js и положи в корень репозитория.' +
             '</div></div>';
         return;
     }
@@ -765,22 +793,39 @@ async function initSkinViewer(name, uuid) {
 }
 
 async function loadSkinBytes(viewer, name, uuid) {
-    // 1. Локальный (уже может быть в кеше как Image — но для fetch используем URL)
     const sources = [];
-    sources.push({ url: LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png', local: true });
-    if (uuid) sources.push({ url: CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve', local: false });
-    sources.push({ url: CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve', local: false });
-
-    for (const s of sources) {
+    // Локальный кеш как dataURL — если уже подгрузился
+    if (localSkinCache.has(name)) {
         try {
-            const r = await fetch(s.url, { mode: 'cors', cache: 'no-cache' });
+            const canvas = document.createElement('canvas');
+            const img = localSkinCache.get(name);
+            canvas.width = img.width; canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+            const buf = await blob.arrayBuffer();
+            if (isPng(buf)) {
+                await viewer.loadSkin(buf);
+                console.log('[skinview3d] ✓ ' + name + ': локальный кеш');
+                return true;
+            }
+        } catch (e) {}
+    }
+    // Прямой fetch локального файла
+    sources.push(LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png');
+    // Crafatar
+    if (uuid) sources.push(CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve');
+    sources.push(CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve');
+
+    for (const url of sources) {
+        try {
+            const r = await fetch(url, { mode: 'cors', cache: 'no-cache' });
             if (!r.ok) continue;
             const buf = await r.arrayBuffer();
             if (!isPng(buf)) continue;
             await viewer.loadSkin(buf);
-            console.log('[skinview3d] ✓ ' + name + ': ' + s.url.substring(0, 80) + ' (' + buf.byteLength + 'B)');
+            console.log('[skinview3d] ✓ ' + name + ': ' + url.substring(0, 80) + ' (' + buf.byteLength + 'B)');
             return true;
-        } catch (e) { /* тихо */ }
+        } catch (e) {}
     }
     return false;
 }
