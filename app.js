@@ -1,10 +1,10 @@
-/* Sovereignty panel v4.1 — CSS 3D скин, пиксель-перфект (без scale()) */
+/* Sovereignty panel v4.2 — CSS 3D скин + overlay layer (шапка/куртка/рукава/штаны) */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v4.1';
+var APP_VERSION = 'v4.2';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -719,22 +719,13 @@ function renderPanelRow(r) {
 }
 
 /* ============================================================
- * CSS 3D SKIN VIEWER — pixel-perfect (v4.1)
+ * CSS 3D SKIN VIEWER — с overlay-слоем (v4.2)
  * ============================================================
- * КЛЮЧЕВОЕ ИЗМЕНЕНИЕ vs v4.0:
- *   Было: U=1 (текстура рендерится 1:1 с CSS пикселями), потом scale()
- *         на фигуре — браузер интерполировал → мыло.
- *   Стало: U = целое число (10–18), все размеры сразу в U-пикселях,
- *          БЕЗ transform: scale(). image-rendering: pixelated работает.
- *
- * Размеры модели (юниты, 1 юнит = 1 текстура-пиксель):
- *   head      8×8×8   центр (0, -12, 0)
- *   body      8×12×4  центр (0,  -2, 0)
- *   rightArm  4×12×4  центр (-6, -2, 0)
- *   leftArm   4×12×4  центр ( 6, -2, 0)
- *   rightLeg  4×12×4  центр (-2, 10, 0)
- *   leftLeg   4×12×4  центр ( 2, 10, 0)
- * Итого высота: 32 юнита, центр в (0,0,0).
+ * v4.2 добавил overlay:
+ *   - Второй набор коробок (шапка / куртка / рукава / штаны)
+ *   - Overlay-коробки на 0.2 юнита больше базовых, поэтому рисуются снаружи
+ *   - UV-регион overlay берётся из правой нижней половины текстуры 64×64
+ *   - Прозрачные пиксели PNG автоматически показывают базовый слой сквозь себя
  * ============================================================ */
 
 function resolveSkinUrl(name, uuid) {
@@ -747,7 +738,6 @@ function computeU(wrap) {
     var w = wrap.clientWidth || 380;
     var h = wrap.clientHeight || 380;
     var minSide = Math.min(w, h);
-    // Хотим чтобы модель 32 юнита занимала ~72% меньшей стороны
     var u = Math.floor((minSide * 0.72) / 32);
     if (u < 6) u = 6;
     if (u > 24) u = 24;
@@ -810,18 +800,20 @@ function rebuildSkinScene(state, img, name, wrap) {
     var rotation = state.rotation;
     var rotationX = state.rotationX;
     var autoRotate = state.autoRotate;
+    var prevRo = state._resizeObserver;
     try { state.dispose(); } catch (e) {}
     var newState = createSkinScene(img, name, wrap);
     newState.rotation = rotation;
     newState.rotationX = rotationX;
     newState.autoRotate = autoRotate;
-    newState._resizeObserver = state._resizeObserver;
+    newState._resizeObserver = prevRo;
     applyFigureRotation(newState);
     currentSkinViewer = newState;
 }
 
 function createSkinScene(img, name, wrap) {
     var U = computeU(wrap);
+    var isModern = img.height === 64;
 
     var scene = document.createElement('div');
     scene.className = 'skin-scene';
@@ -844,32 +836,32 @@ function createSkinScene(img, name, wrap) {
     figure.style.willChange = 'transform';
     scene.appendChild(figure);
 
+    /* UV базового слоя */
     var UV = {
-        head: {
-            top:    [8, 0], bottom: [16, 0],
-            right:  [0, 8], front:  [8, 8], left: [16, 8], back: [24, 8]
-        },
-        body: {
-            top:    [20, 16], bottom: [28, 16],
-            right:  [16, 20], front:  [20, 20], left: [28, 20], back: [32, 20]
-        },
-        rightArm: {
-            top:    [44, 16], bottom: [48, 16],
-            right:  [40, 20], front:  [44, 20], left: [48, 20], back: [52, 20]
-        },
-        leftArm: {
-            top:    [36, 48], bottom: [40, 48],
-            right:  [32, 52], front:  [36, 52], left: [40, 52], back: [44, 52]
-        },
-        rightLeg: {
-            top:    [4, 16], bottom: [8, 16],
-            right:  [0, 20], front:  [4, 20], left: [8, 20], back: [12, 20]
-        },
-        leftLeg: {
-            top:    [20, 48], bottom: [24, 48],
-            right:  [16, 52], front:  [20, 52], left: [24, 52], back: [28, 52]
-        }
+        head:     { top: [8,0],   bottom: [16,0],  right: [0,8],   front: [8,8],   left: [16,8],  back: [24,8] },
+        body:     { top: [20,16], bottom: [28,16], right: [16,20], front: [20,20], left: [28,20], back: [32,20] },
+        rightArm: { top: [44,16], bottom: [48,16], right: [40,20], front: [44,20], left: [48,20], back: [52,20] },
+        leftArm:  { top: [36,48], bottom: [40,48], right: [32,52], front: [36,52], left: [40,52], back: [44,52] },
+        rightLeg: { top: [4,16],  bottom: [8,16],  right: [0,20],  front: [4,20],  left: [8,20],  back: [12,20] },
+        leftLeg:  { top: [20,48], bottom: [24,48], right: [16,52], front: [20,52], left: [24,52], back: [28,52] }
     };
+
+    /* UV overlay-слоя (шапка/куртка/рукава/штаны) */
+    var UVO = {
+        head:     { top: [40,0],  bottom: [48,0],  right: [32,8],  front: [40,8],  left: [48,8],  back: [56,8] },
+        body:     { top: [20,32], bottom: [28,32], right: [16,36], front: [20,36], left: [28,36], back: [32,36] },
+        rightArm: { top: [44,32], bottom: [48,32], right: [40,36], front: [44,36], left: [48,36], back: [52,36] },
+        leftArm:  { top: [52,48], bottom: [56,48], right: [48,52], front: [52,52], left: [56,52], back: [60,52] },
+        rightLeg: { top: [4,32],  bottom: [8,32],  right: [0,36],  front: [4,36],  left: [8,36],  back: [12,36] },
+        leftLeg:  { top: [4,48],  bottom: [8,48],  right: [0,52],  front: [4,52],  left: [8,52],  back: [12,52] }
+    };
+
+    /* Для legacy (64×32) скинов overlay-блок для arm/leg/body отсутствует.
+       Используем базовый UV правой руки для левой — так обе руки хотя бы видны. */
+    if (!isModern) {
+        UV.leftArm = UV.rightArm;
+        UV.leftLeg = UV.rightLeg;
+    }
 
     function makeFace(texUV, fw, fh, transform) {
         var d = document.createElement('div');
@@ -883,15 +875,15 @@ function createSkinScene(img, name, wrap) {
         d.style.backgroundPosition = (-texUV[0] * U) + 'px ' + (-texUV[1] * U) + 'px';
         d.style.backgroundRepeat = 'no-repeat';
         d.style.imageRendering = 'pixelated';
-        d.style.imageRendering = 'crisp-edges';
-        d.style.imageRendering = 'pixelated';
         d.style.transform = 'translate(-50%, -50%) ' + transform;
         d.style.transformOrigin = 'center';
         d.style.backfaceVisibility = 'hidden';
         return d;
     }
 
-    function makeBox(uv, w, h, d, centerX, centerY) {
+    /* inflate — смещение каждой грани наружу от центра (в юнитах). 0 = база, 0.2 = overlay. */
+    function makeBox(uv, w, h, d, centerX, centerY, inflate) {
+        inflate = inflate || 0;
         var box = document.createElement('div');
         box.style.position = 'absolute';
         box.style.left = '50%';
@@ -899,54 +891,43 @@ function createSkinScene(img, name, wrap) {
         box.style.width = '0';
         box.style.height = '0';
         box.style.transformStyle = 'preserve-3d';
-        // Центр куба смещён относительно центра фигуры.
-        // CSS Y растёт вниз, поэтому центр куба с centerY (где Y растёт вверх)
-        // = -centerY * U в CSS.
         box.style.transform = 'translate3d(' + (centerX * U) + 'px,' + (-centerY * U) + 'px,0)';
 
         var W = w * U, H = h * U, D = d * U;
+        var INF = inflate * U;
 
-        // front (+Z)
-        box.appendChild(makeFace(uv.front, w, h, 'translateZ(' + (D/2) + 'px)'));
-        // back (-Z)
-        box.appendChild(makeFace(uv.back, w, h, 'rotateY(180deg) translateZ(' + (D/2) + 'px)'));
-        // right (+X)
-        box.appendChild(makeFace(uv.right, d, h, 'rotateY(90deg) translateZ(' + (W/2) + 'px)'));
-        // left (-X)
-        box.appendChild(makeFace(uv.left, d, h, 'rotateY(-90deg) translateZ(' + (W/2) + 'px)'));
-        // top (+Y) — в CSS положительный rotateX(90deg) смотрит вверх
-        box.appendChild(makeFace(uv.top, w, d, 'rotateX(90deg) translateZ(' + (H/2) + 'px)'));
-        // bottom (-Y)
-        box.appendChild(makeFace(uv.bottom, w, d, 'rotateX(-90deg) translateZ(' + (H/2) + 'px)'));
+        box.appendChild(makeFace(uv.front,  w, h, 'translateZ(' + (D/2 + INF) + 'px)'));
+        box.appendChild(makeFace(uv.back,   w, h, 'rotateY(180deg) translateZ(' + (D/2 + INF) + 'px)'));
+        box.appendChild(makeFace(uv.right,  d, h, 'rotateY(90deg) translateZ(' + (W/2 + INF) + 'px)'));
+        box.appendChild(makeFace(uv.left,   d, h, 'rotateY(-90deg) translateZ(' + (W/2 + INF) + 'px)'));
+        box.appendChild(makeFace(uv.top,    w, d, 'rotateX(90deg) translateZ(' + (H/2 + INF) + 'px)'));
+        box.appendChild(makeFace(uv.bottom, w, d, 'rotateX(-90deg) translateZ(' + (H/2 + INF) + 'px)'));
 
         return box;
     }
 
-    // centerY: положительное вверх от центра фигуры.
-    // head центр Y = +16 (верх фигуры), голова 8 высотой → от +12 до +20
-    // body центр Y = 0, высота 12 → от -6 до +6
-    // ноги центр Y = -10, высота 12 → от -16 до -4  (СТОП: пересекаются с body)
+    /* Центры частей тела (в юнитах, Y растёт вверх, 0 = центр фигуры).
+       head: +12, body: +2, arms: +2 (по бокам), legs: -10.
+       Общая высота модели: 32 юнита. */
+    var INFLATE = 0.2;
 
-    // Пересчитаем аккуратно, Y растёт вверх, фигура от -16 до +16:
-    //   head:   +16 центр, занимает [+12, +20] — не влезает. Сдвигаем вниз на 4: центр +12, [+8,+16]
-    //   body:   +2 центр, занимает [-4, +8]
-    //   legs:   -10 центр, занимает [-16, -4]
-    //   руки:   +2 центр (как body), занимают [-4, +8]
-    // Итого фигура: [-16, +16]. 32 юнита. Центр = 0. ОК.
+    // --- Базовый слой ---
+    figure.appendChild(makeBox(UV.head,     8, 8,  8, 0,   12, 0));
+    figure.appendChild(makeBox(UV.body,     8, 12, 4, 0,    2, 0));
+    figure.appendChild(makeBox(UV.rightArm, 4, 12, 4, -6,   2, 0));
+    figure.appendChild(makeBox(UV.leftArm,  4, 12, 4,  6,   2, 0));
+    figure.appendChild(makeBox(UV.rightLeg, 4, 12, 4, -2, -10, 0));
+    figure.appendChild(makeBox(UV.leftLeg,  4, 12, 4,  2, -10, 0));
 
-    var head     = makeBox(UV.head,     8, 8,  8, 0,   12);
-    var body     = makeBox(UV.body,     8, 12, 4, 0,    2);
-    var rightArm = makeBox(UV.rightArm, 4, 12, 4, -6,   2);
-    var leftArm  = makeBox(UV.leftArm,  4, 12, 4,  6,   2);
-    var rightLeg = makeBox(UV.rightLeg, 4, 12, 4, -2, -10);
-    var leftLeg  = makeBox(UV.leftLeg,  4, 12, 4,  2, -10);
-
-    figure.appendChild(head);
-    figure.appendChild(body);
-    figure.appendChild(rightArm);
-    figure.appendChild(leftArm);
-    figure.appendChild(rightLeg);
-    figure.appendChild(leftLeg);
+    // --- Overlay-слой (только для 64×64) ---
+    if (isModern) {
+        figure.appendChild(makeBox(UVO.head,     8, 8,  8, 0,   12, INFLATE));
+        figure.appendChild(makeBox(UVO.body,     8, 12, 4, 0,    2, INFLATE));
+        figure.appendChild(makeBox(UVO.rightArm, 4, 12, 4, -6,   2, INFLATE));
+        figure.appendChild(makeBox(UVO.leftArm,  4, 12, 4,  6,   2, INFLATE));
+        figure.appendChild(makeBox(UVO.rightLeg, 4, 12, 4, -2, -10, INFLATE));
+        figure.appendChild(makeBox(UVO.leftLeg,  4, 12, 4,  2, -10, INFLATE));
+    }
 
     var tag = document.createElement('div');
     tag.id = 'skin-nametag';
@@ -985,7 +966,6 @@ function createSkinScene(img, name, wrap) {
     };
     applyFigureRotation(state);
 
-    // DRAG
     var dragActive = false, lastX = 0, lastY = 0;
     scene.addEventListener('mousedown', function (e) {
         dragActive = true;
@@ -996,348 +976,4 @@ function createSkinScene(img, name, wrap) {
     window.addEventListener('mousemove', function (e) {
         if (!dragActive || currentSkinViewer !== state) return;
         var dx = e.clientX - lastX, dy = e.clientY - lastY;
-        lastX = e.clientX; lastY = e.clientY;
-        state.rotation += dx * 0.7;
-        state.rotationX += dy * 0.3;
-        if (state.rotationX > 30) state.rotationX = 30;
-        if (state.rotationX < -30) state.rotationX = -30;
-        applyFigureRotation(state);
-    });
-    window.addEventListener('mouseup', function () {
-        if (!dragActive) return;
-        dragActive = false;
-        if (scene.parentNode) scene.style.cursor = 'grab';
-    });
-
-    // TOUCH
-    scene.addEventListener('touchstart', function (e) {
-        if (!e.touches[0]) return;
-        dragActive = true;
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
-    }, { passive: true });
-    scene.addEventListener('touchmove', function (e) {
-        if (!dragActive || !e.touches[0] || currentSkinViewer !== state) return;
-        var dx = e.touches[0].clientX - lastX;
-        var dy = e.touches[0].clientY - lastY;
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
-        state.rotation += dx * 1.0;
-        state.rotationX += dy * 0.4;
-        if (state.rotationX > 30) state.rotationX = 30;
-        if (state.rotationX < -30) state.rotationX = -30;
-        applyFigureRotation(state);
-        e.preventDefault();
-    }, { passive: false });
-    scene.addEventListener('touchend', function () { dragActive = false; });
-
-    return state;
-}
-
-/* ================= NAV ================= */
-
-function gotoCountry(name) {
-    closePlayerModal();
-    document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
-    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
-    if (ov) ov.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var ovTab = document.getElementById('tab-overview');
-    if (ovTab) ovTab.classList.add('active');
-    highlightCountry(name);
-    showDetails(name);
-}
-
-function gotoPlayerOnMap(name) {
-    var players = currentData && currentData.players ? currentData.players : [];
-    var p = players.filter(function (x) { return x.name === name; })[0];
-    if (!p || !p.position || !currentData.map_meta) return;
-    closePlayerModal();
-    document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
-    var mp = document.querySelector('.main-nav .nav-btn[data-tab="map"]');
-    if (mp) mp.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var mpTab = document.getElementById('tab-map');
-    if (mpTab) mpTab.classList.add('active');
-    setTimeout(function () {
-        if (!mapReady) return;
-        var pt = worldToImagePx(p.position.x, p.position.z, currentData.map_meta);
-        var vp = document.getElementById('map-viewport');
-        var vw = vp.clientWidth, vh = vp.clientHeight;
-        mapZoom = 1.5;
-        mapOffsetX = vw / 2 - pt.px * mapZoom;
-        mapOffsetY = vh / 2 - pt.pz * mapZoom;
-        applyMapTransform();
-    }, 80);
-}
-
-function copyToClipboardSafe(text) {
-    copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
-}
-
-/* ================= BONUS ================= */
-
-function renderBonus() {
-    if (!currentData) return;
-    var jp = currentData.jackpot;
-    var jpEl = document.getElementById('panel-jackpot');
-    if (jpEl) {
-        if (jp != null && jp > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jp)); }
-        else jpEl.style.display = 'none';
-    }
-    var events = currentData.events || [];
-    var ep = document.getElementById('panel-events');
-    if (ep) {
-        if (events.length > 0) {
-            ep.style.display = 'block';
-            document.getElementById('events-list').innerHTML = events.map(function (e) {
-                return '<div class="event-item ' + (e.type === 'negative' ? 'negative' : 'positive') + '"><div><div class="name">' + escapeHtml(e.name || e.id || '?') + '</div><div class="desc">' + escapeHtml(e.description || '') + '</div></div></div>';
-            }).join('');
-        } else ep.style.display = 'none';
-    }
-    var wars = currentData.wars || [];
-    var wp = document.getElementById('panel-wars');
-    if (wp) {
-        if (wars.length > 0) {
-            wp.style.display = 'block';
-            document.getElementById('wars-list').innerHTML = wars.map(function (w) {
-                return '<div class="war-item"><div><div class="name">' + escapeHtml(w.attacker) + ' ⚔ ' + escapeHtml(w.defender) + '</div><div class="desc">С ' + formatDate(w.started_at) + '</div></div></div>';
-            }).join('');
-        } else wp.style.display = 'none';
-    }
-    var poker = currentData.top_poker || [];
-    var pp = document.getElementById('panel-poker');
-    if (pp) {
-        if (poker.length > 0) {
-            pp.style.display = 'block';
-            document.getElementById('poker-body').innerHTML = poker.map(function (p, i) {
-                return '<tr><td class="rank">#' + (i + 1) + '</td><td class="name">' + escapeHtml(p.name || '?') + '</td><td class="' + (p.profit >= 0 ? 'money' : '') + '">' + (p.profit >= 0 ? '+' : '') + formatMoney(p.profit || 0) + '</td><td>' + (p.hands || 0) + '</td></tr>';
-            }).join('');
-        } else pp.style.display = 'none';
-    }
-    var bounties = currentData.bounties || [];
-    var bp = document.getElementById('panel-bounties');
-    if (bp) {
-        if (bounties.length > 0) {
-            bp.style.display = 'block';
-            document.getElementById('bounties-list').innerHTML = bounties.map(function (b) {
-                return '<div class="bounty-item"><div><div class="name">' + escapeHtml(b.target || '?') + '</div><div class="desc">Награда: ' + formatMoney(b.amount || 0) + '</div></div></div>';
-            }).join('');
-        } else bp.style.display = 'none';
-    }
-    var anyBonus = (jp > 0) || events.length > 0 || wars.length > 0 || poker.length > 0 || bounties.length > 0;
-    var be = document.getElementById('panel-bonus-empty');
-    if (be) be.style.display = anyBonus ? 'none' : 'block';
-}
-
-/* ================= COPY ================= */
-
-function initCommandCopy() {
-    document.body.addEventListener('click', function (e) {
-        var t = e.target.closest('code[data-copy]');
-        if (!t) return;
-        e.preventDefault();
-        var text = t.getAttribute('data-copy');
-        if (!text) return;
-        copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
-    });
-}
-
-function copyToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return fallbackCopy(text); });
-    }
-    return Promise.resolve(fallbackCopy(text));
-}
-
-function fallbackCopy(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) {}
-    document.body.removeChild(ta);
-    return ok;
-}
-
-var toastTimer = null;
-function showToast(msg) {
-    var t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
-}
-
-/* ================= GUIDE NAV ================= */
-
-function initGuideNav() {
-    var nav = document.getElementById('guide-nav');
-    if (!nav) return;
-    var sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
-    sections.forEach(function (h2) {
-        var section = h2.closest('.guide-section');
-        if (!section) return;
-        var a = document.createElement('a');
-        a.href = '#' + section.id;
-        a.textContent = h2.textContent.trim();
-        a.dataset.target = section.id;
-        nav.appendChild(a);
-    });
-    var navLinks = nav.querySelectorAll('a');
-    var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-            if (entry.isIntersecting) navLinks.forEach(function (a) { a.classList.toggle('active', a.dataset.target === entry.target.id); });
-        });
-    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
-    sections.forEach(function (h2) {
-        var s = h2.closest('.guide-section');
-        if (s) observer.observe(s);
-    });
-    navLinks.forEach(function (a) {
-        a.addEventListener('click', function (e) {
-            e.preventDefault();
-            var el = document.getElementById(a.dataset.target);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    });
-}
-
-/* ================= COMMANDS ================= */
-
-var COMMANDS = [
-    { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
-    { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
-    { cmd: '/c claim', desc: 'Захватить чанк', plugin: 'Sovereignty' },
-    { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
-    { cmd: '/c bank', desc: 'Баланс казны', plugin: 'Sovereignty' },
-    { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
-    { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
-    { cmd: '/c upgrade', desc: 'Прокачка', plugin: 'Sovereignty' },
-    { cmd: '/c boost', desc: 'Буст регенерации', plugin: 'Sovereignty' },
-    { cmd: '/c research', desc: 'Исследования', plugin: 'Sovereignty' },
-    { cmd: '/c court', desc: 'Суд', plugin: 'Sovereignty' },
-    { cmd: '/c court file Steve причина', desc: 'Подать жалобу', plugin: 'Sovereignty' },
-    { cmd: '/c ally Steve', desc: 'Союз', plugin: 'Sovereignty' },
-    { cmd: '/c enemy Steve', desc: 'Война', plugin: 'Sovereignty' },
-    { cmd: '/c neutral Steve', desc: 'Нейтралитет', plugin: 'Sovereignty' },
-    { cmd: '/c pact trade Steve', desc: 'Торговый пакт', plugin: 'Sovereignty' },
-    { cmd: '/c pact military Steve', desc: 'Военный пакт', plugin: 'Sovereignty' },
-    { cmd: '/c pact defense Steve', desc: 'Оборонительный пакт', plugin: 'Sovereignty' },
-    { cmd: '/c pact nonaggression Steve', desc: 'Пакт о ненападении', plugin: 'Sovereignty' },
-    { cmd: '/c surrender', desc: 'Капитуляция', plugin: 'Sovereignty' },
-    { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
-    { cmd: '/c kick Steve', desc: 'Исключить соправителя', plugin: 'Sovereignty' },
-    { cmd: '/c accept', desc: 'Принять приглашение', plugin: 'Sovereignty' },
-    { cmd: '/c decline', desc: 'Отклонить приглашение', plugin: 'Sovereignty' },
-    { cmd: '/c rename НовоеИмя', desc: 'Переименовать страну', plugin: 'Sovereignty' },
-    { cmd: '/c top claims', desc: 'Топ стран', plugin: 'Sovereignty' },
-    { cmd: '/c achievements', desc: 'Достижения', plugin: 'Sovereignty' },
-    { cmd: '/c seechunk', desc: 'Показать границы', plugin: 'Sovereignty' },
-    { cmd: '/c autoclaim', desc: 'Автозахват', plugin: 'Sovereignty' },
-    { cmd: '/c unstuck', desc: 'Телепорт с чужой территории', plugin: 'Sovereignty' },
-    { cmd: '/c miningboost', desc: 'Шахтёрский бонус', plugin: 'Sovereignty' },
-    { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
-    { cmd: '/tax pay', desc: 'Оплатить долг', plugin: 'TaxCollector' },
-    { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
-    { cmd: '/shop sell', desc: 'Мои товары', plugin: 'MarketGUI' },
-    { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
-    { cmd: '/auc add 1000 60', desc: 'Выставить предмет', plugin: 'AuctionHouse' },
-    { cmd: '/auc bid 1 1500', desc: 'Сделать ставку', plugin: 'AuctionHouse' },
-    { cmd: '/bounty Steve 5000', desc: 'Награда за голову', plugin: 'Bounty' },
-    { cmd: '/bounty list', desc: 'Список целей', plugin: 'Bounty' },
-    { cmd: '/bounty remove Steve', desc: 'Снять свою награду', plugin: 'Bounty' },
-    { cmd: '/roll', desc: 'Казино (хаб)', plugin: 'RollGame' },
-    { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
-    { cmd: '/roll duel 1000', desc: 'Дуэль', plugin: 'RollGame' },
-    { cmd: '/roll mines 1000 3 5', desc: 'Мины', plugin: 'RollGame' },
-    { cmd: '/roll wheel 1000', desc: 'Колесо', plugin: 'RollGame' },
-    { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
-    { cmd: '/roll poker', desc: 'Покер', plugin: 'RollGame' },
-    { cmd: '/roll bet 1000', desc: 'Классическая рулетка', plugin: 'RollGame' },
-    { cmd: '/roll stats', desc: 'Статистика игрока', plugin: 'RollGame' },
-    { cmd: '/roll jackpot', desc: 'Размер джекпота', plugin: 'RollGame' },
-    { cmd: '/roll top', desc: 'Топ игроков', plugin: 'RollGame' },
-    { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
-    { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
-    { cmd: '/baltop', desc: 'Топ богачей', plugin: 'EssentialsX' },
-    { cmd: '/sethome', desc: 'Установить дом', plugin: 'EssentialsX' },
-    { cmd: '/home', desc: 'Телепорт домой', plugin: 'EssentialsX' },
-    { cmd: '/jobs browse', desc: 'Профессии', plugin: 'Jobs' },
-    { cmd: '/skin Steve', desc: 'Сменить скин', plugin: 'SkinsRestorer' }
-];
-
-function initCommandSearch() {
-    var list = document.getElementById('commands-list');
-    if (!list) return;
-    list.innerHTML = COMMANDS.map(function (c) {
-        return '<div class="command-item"><div class="cmd-name"><code data-copy="' + escapeAttr(c.cmd) + '">' + escapeHtml(c.cmd) + '</code></div><div class="cmd-desc">' + escapeHtml(c.desc) + '</div><div class="cmd-plugin">' + escapeHtml(c.plugin) + '</div></div>';
-    }).join('');
-    var inp = document.getElementById('cmd-search');
-    if (!inp) return;
-    inp.addEventListener('input', function () {
-        var q = inp.value.trim().toLowerCase();
-        document.querySelectorAll('.command-item').forEach(function (item) {
-            item.classList.toggle('hidden', q.length > 0 && item.textContent.toLowerCase().indexOf(q) === -1);
-        });
-    });
-}
-
-/* ================= UTILS ================= */
-
-function formatMoney(amount) {
-    if (amount == null) return '0';
-    if (Math.abs(amount) >= 1000000) return (amount / 1000000).toFixed(2) + 'M';
-    if (Math.abs(amount) >= 1000) return (amount / 1000).toFixed(1) + 'k';
-    return Math.round(amount).toString();
-}
-
-function formatPlaytime(sec) {
-    if (sec == null || sec <= 0) return '';
-    var d = Math.floor(sec / 86400);
-    var h = Math.floor((sec % 86400) / 3600);
-    var m = Math.floor((sec % 3600) / 60);
-    if (d > 0) return h > 0 ? d + 'д ' + h + 'ч' : d + 'д';
-    if (h > 0) return m > 0 ? h + 'ч ' + m + 'м' : h + 'ч';
-    if (m > 0) return m + 'м';
-    return (sec % 60) + 'с';
-}
-
-function timeAgo(ts) {
-    if (!ts) return '—';
-    var s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 60) return 'только что';
-    var m = Math.floor(s / 60);
-    if (m < 60) return m + ' мин назад';
-    var h = Math.floor(m / 60);
-    if (h < 24) return h + ' ч назад';
-    var d = Math.floor(h / 24);
-    if (d < 30) return d + ' дн назад';
-    return Math.floor(d / 30) + ' мес назад';
-}
-
-function formatDate(ts) {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-function shortenUuid(uuid) {
-    if (!uuid) return '—';
-    return uuid.length > 13 ? uuid.substring(0, 8) + '…' : uuid;
-}
-
-function escapeHtml(str) {
-    if (str == null) return '';
-    var div = document.createElement('div');
-    div.textContent = String(str);
-    return div.innerHTML;
-}
-
-function escapeAttr(str) {
-    if (str == null) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+        lastX = e.client
