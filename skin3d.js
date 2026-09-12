@@ -1,11 +1,11 @@
-/* skin3d.js — CSS 3D Minecraft skin viewer v4.6
+/* skin3d.js — CSS 3D Minecraft skin viewer v4.7
  * ============================================================
- * ФИКСЫ v4.6 vs v4.5:
- *   - Убран ДВОЙНОЙ url(...) в background-image. Раньше получалось
- *     url(url("data:image/png;...")) — невалидный CSS, браузер молча
- *     игнорировал → скин не отображался (но боксы в DOM были).
- *   - Возвращён perspective на сцену (был в v4.2, пропал в v4.5).
- *   - Чистка image-rendering (было два подряд — второе перезаписывало первое).
+ * ФИКСЫ v4.7 vs v4.6:
+ *   - Overlay-коробки больше не «парят» над базой.
+ *     Было: inflate = 1 юнит = U пикселей (при U=8 → 8px → слишком много).
+ *     Стало: inflate = Math.max(1, Math.round(U / 4)) пикселей → 2px при U=8.
+ *     Это как в Minecraft: outer-слой толще базового на ~0.25 юнита.
+ *   - INF теперь в CSS-пикселях, БЕЗ умножения на U (было INF = inflate*U).
  * ============================================================ */
 (function () {
     'use strict';
@@ -47,7 +47,7 @@
         return u;
     }
 
-    /* texUrl — СЫРОЙ data URL (начинается с "data:image/png;base64,..."). Оборачиваем в url() ЗДЕСЬ, один раз. */
+    /* texUrl — СЫРОЙ data URL, БЕЗ url(). Оборачиваем в makeFace. */
     function makeFace(texUrl, texW, texH, U, uv, fw, fh, transform) {
         var d = document.createElement('div');
         d.style.position = 'absolute';
@@ -66,8 +66,10 @@
         return d;
     }
 
-    function makeBox(texUrl, texW, texH, U, uv, w, h, d, cx, cy, inflate) {
-        inflate = inflate | 0;
+    /* inflatePx — СМЕЩЕНИЕ ГРАНЕЙ НАРУЖУ в CSS-пикселях (не в юнитах).
+       0 для базы, ~U/4 для overlay. */
+    function makeBox(texUrl, texW, texH, U, uv, w, h, d, cx, cy, inflatePx) {
+        var INF = inflatePx | 0;
         var box = document.createElement('div');
         box.style.position = 'absolute';
         box.style.left = '0';
@@ -77,7 +79,7 @@
         box.style.transformStyle = 'preserve-3d';
         box.style.transform = 'translate3d(' + (cx * U) + 'px,' + (-cy * U) + 'px,0)';
 
-        var W = w * U, H = h * U, D = d * U, INF = inflate * U;
+        var W = w * U, H = h * U, D = d * U;
         box.appendChild(makeFace(texUrl, texW, texH, U, uv.f,  w, h, 'translateZ(' + (D/2 + INF) + 'px)'));
         box.appendChild(makeFace(texUrl, texW, texH, U, uv.b,  w, h, 'rotateY(180deg) translateZ(' + (D/2 + INF) + 'px)'));
         box.appendChild(makeFace(texUrl, texW, texH, U, uv.r,  d, h, 'rotateY(90deg) translateZ(' + (W/2 + INF) + 'px)'));
@@ -101,10 +103,8 @@
 
         var texUrl;
         try {
-            // ВАЖНО: сырой data URL, БЕЗ url(...) — оборачивать будем в makeFace.
             texUrl = tc.toDataURL('image/png');
         } catch (e) {
-            // Tainted canvas: CDN не отдал CORS. Используем прямой URL изображения.
             console.warn('[skin3d] toDataURL failed (tainted canvas), fallback to img.src: ' + e.message);
             texUrl = img.src;
         }
@@ -117,7 +117,7 @@
         scene.style.overflow = 'hidden';
         scene.style.cursor = 'grab';
         scene.style.userSelect = 'none';
-        scene.style.perspective = '2000px';        // ← вернули
+        scene.style.perspective = '2000px';
         scene.style.perspectiveOrigin = '50% 50%';
 
         var figure = document.createElement('div');
@@ -131,12 +131,21 @@
         figure.style.transformStyle = 'preserve-3d';
         scene.appendChild(figure);
 
-        // Чередование base/overlay — overlay после base, чтобы z-order был стабилен.
+        /*
+         * Overlay-зазор в CSS-пикселях.
+         * При U=8  → 2px    (тонкая окантовка, как в Minecraft)
+         * При U=12 → 3px
+         * При U=16 → 4px
+         * При U=24 → 6px
+         * Округляем до целых, чтобы не было subpixel → размытия.
+         */
+        var OVERLAY_PAD = Math.max(1, Math.round(U / 4));
+
         for (var i = 0; i < PARTS.length; i++) {
             var p = PARTS[i];
             figure.appendChild(makeBox(texUrl, texW, texH, U, UV_BASE[p.name], p.w, p.h, p.d, p.cx, p.cy, 0));
             if (isModern) {
-                figure.appendChild(makeBox(texUrl, texW, texH, U, UV_OVERLAY[p.name], p.w, p.h, p.d, p.cx, p.cy, 1));
+                figure.appendChild(makeBox(texUrl, texW, texH, U, UV_OVERLAY[p.name], p.w, p.h, p.d, p.cx, p.cy, OVERLAY_PAD));
             }
         }
 
@@ -161,8 +170,8 @@
         wrap.insertBefore(scene, wrap.firstChild);
 
         var boxCount = figure.childElementCount - 1;
-        console.log('[skin3d] U=' + U + ' boxes=' + boxCount + ' isModern=' + isModern +
-            ' texUrl.len=' + texUrl.length + ' (ожидается 12 для 64x64, 6 для 64x32)');
+        console.log('[skin3d] U=' + U + ' pad=' + OVERLAY_PAD + 'px boxes=' + boxCount +
+            ' isModern=' + isModern + ' texUrl.len=' + texUrl.length);
 
         var state = {
             element: figure,
