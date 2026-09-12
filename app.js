@@ -1,16 +1,12 @@
-/* Sovereignty panel v4.7 — Xaero-style карта (4 px/block) */
+/* Sovereignty panel v4.7 — фикс маркеров + fullscreen */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
 var APP_VERSION = 'v4.7';
 var DATA_URL = 'data/server1.json', MAP_URL = 'data/map.png', LOCAL_SKIN_DIR = 'data/skins/';
 var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
 var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
 var REFRESH_INTERVAL_MS = 300000, LOCAL_SKIN_TIMEOUT_MS = 3000;
-
-/* === СИНХРОНИЗИРОВАНО С СЕРВЕРОМ ===
-   TerrainRenderer.PIXELS_PER_BLOCK = 4 → маркеры и сетка сдвинуты корректно.
-   Если менять — менять и там, и в index.html (pattern chunkGridPattern). */
-var BLOCKS_PER_CHUNK = 16, PIXELS_PER_BLOCK = 4;
-
+var BLOCKS_PER_CHUNK = 16;
+var DEFAULT_PIXELS_PER_BLOCK = 2;
 var MARKER_BASE_PX = 32, MARKER_MIN_PX = 18, MARKER_MAX_PX = 72, MARKER_GROWTH_POWER = 0.5;
 var PALETTE_FALLBACK = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
 
@@ -24,7 +20,7 @@ var localSkinCache = new Map(), headCache = new Map(), localLoadedAttempted = ne
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
-    ['initTabs','initSortTabs','initMapControls','initCommandCopy','initGuideNav',
+    ['initTabs','initSortTabs','initMapControls','initMapFullscreen','initCommandCopy','initGuideNav',
      'initCommandSearch','initPlayerControls','initModalControls'].forEach(function (fn) {
         try { window[fn](); } catch (e) { console.error(fn + ':', e); }
     });
@@ -35,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
     requestAnimationFrame(skinRotateLoop);
     window.addEventListener('resize', debounce(function () {
         if (currentData && currentData.online_history) drawSparkline(currentData.online_history);
+        if (mapReady) applyMapTransform();
     }, 200));
 });
 
@@ -192,7 +189,8 @@ function loadData() {
             if (!text || !text.trim()) throw new Error('Пустой файл');
             currentData = JSON.parse(text);
             console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
-                ', online_history: ' + ((currentData.online_history || []).length));
+                ', online_history: ' + ((currentData.online_history || []).length) +
+                ', ppb: ' + (currentData.map_meta && currentData.map_meta.pixels_per_block));
             render();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
@@ -304,8 +302,7 @@ function drawSparkline(history) {
         return;
     }
 
-    var maxCount = 1;
-    var sum = 0;
+    var maxCount = 1, sum = 0;
     history.forEach(function (h) { if (h.count > maxCount) maxCount = h.count; sum += h.count; });
     var avg = Math.round(sum / history.length);
     var now = history[history.length - 1].count;
@@ -372,6 +369,18 @@ function loadMap() {
     img.onload = function () {
         var first = !mapReady;
         mapImage = img;
+
+        // Sanity check: совпадают ли реальные размеры PNG с map_meta.img_width/height
+        if (currentData && currentData.map_meta) {
+            var m = currentData.map_meta;
+            if (m.img_width && Math.abs(img.naturalWidth - m.img_width) > 2) {
+                console.warn('[Map] Width mismatch: png=' + img.naturalWidth + ' meta=' + m.img_width);
+            }
+            if (m.img_height && Math.abs(img.naturalHeight - m.img_height) > 2) {
+                console.warn('[Map] Height mismatch: png=' + img.naturalHeight + ' meta=' + m.img_height);
+            }
+        }
+
         setupCanvas(img.naturalWidth, img.naturalHeight);
         mapReady = true;
         if (ph) ph.style.display = 'none';
@@ -395,14 +404,13 @@ function setupCanvas(w, h) {
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     mapCanvas = canvas;
     mapCtx = canvas.getContext('2d', { willReadFrequently: true });
-    mapCtx.imageSmoothingEnabled = false;
     mapCtx.drawImage(mapImage, 0, 0);
 }
 
 function initMapControls() {
     var vp = document.getElementById('map-viewport'); if (!vp) return;
     vp.addEventListener('mousedown', function (e) {
-        if (!mapReady || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel')) return;
+        if (!mapReady || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel') || e.target.closest('.map-layers-restore')) return;
         isDragging = true; dragMoved = false;
         dragStartX = e.clientX - mapOffsetX; dragStartY = e.clientY - mapOffsetY;
     });
@@ -415,7 +423,7 @@ function initMapControls() {
     });
     window.addEventListener('mouseup', function () { isDragging = false; });
     vp.addEventListener('click', function (e) {
-        if (!mapReady || dragMoved || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel')) return;
+        if (!mapReady || dragMoved || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel') || e.target.closest('.map-layers-restore')) return;
         handleMapClick(e);
     });
     vp.addEventListener('wheel', function (e) {
@@ -442,6 +450,49 @@ function initMapControls() {
         if (window.MapLayers) window.MapLayers.getState().players = showPlayerMarkers;
         renderPlayerMarkers();
     });
+}
+
+/* ============ FULLSCREEN ============ */
+function initMapFullscreen() {
+    var btn = document.getElementById('map-fullscreen');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        var vp = document.getElementById('map-viewport');
+        if (!vp) return;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            var req = vp.requestFullscreen || vp.webkitRequestFullscreen || vp.mozRequestFullScreen;
+            if (!req) { showToast('Fullscreen не поддерживается'); return; }
+            var promise = req.call(vp);
+            if (promise && promise.catch) promise.catch(function (err) {
+                showToast('Fullscreen: ' + err.message);
+            });
+        } else {
+            var exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) exit.call(document);
+        }
+    });
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+}
+
+function onFullscreenChange() {
+    var btn = document.getElementById('map-fullscreen');
+    var hint = document.getElementById('map-fullscreen-hint');
+    var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (btn) btn.textContent = isFs ? '⛶ Выйти (Esc)' : '⛶ Полный экран';
+    if (hint) hint.style.display = isFs ? 'block' : 'none';
+    document.body.classList.toggle('map-fullscreen-active', isFs);
+
+    setTimeout(function () {
+        if (mapReady) resetMapView();
+        if (currentData && currentData.online_history) drawSparkline(currentData.online_history);
+        // На случай если панель слоёв была показана до fullscreen
+        var panel = document.getElementById('map-layers-panel');
+        if (panel && window.MapLayers) {
+            var visible = window.MapLayers.getState().panelVisible !== false;
+            panel.style.display = visible ? '' : 'none';
+        }
+    }, 120);
 }
 
 function handleMapClick(e) {
@@ -499,10 +550,20 @@ function resetMapView() {
     applyMapTransform();
 }
 
+/**
+ * Перевод мировых координат в пиксели карты.
+ *
+ * ВАЖНО: pixels_per_block берём из map_meta, потому что карта может
+ * быть уменьшена (scale < 1) если её размер больше max-size.
+ * Раньше здесь было жёстко 2 — из-за этого маркеры уезжали.
+ */
 function worldToImagePx(x, z, meta) {
+    var ppb = (meta && typeof meta.pixels_per_block === 'number' && meta.pixels_per_block > 0)
+        ? meta.pixels_per_block
+        : DEFAULT_PIXELS_PER_BLOCK;
     return {
-        px: (x - meta.min_chunk_x * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK,
-        pz: (z - meta.min_chunk_z * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK
+        px: (x - meta.min_chunk_x * BLOCKS_PER_CHUNK) * ppb,
+        pz: (z - meta.min_chunk_z * BLOCKS_PER_CHUNK) * ppb
     };
 }
 
@@ -522,7 +583,8 @@ function renderPlayerMarkers() {
         var headUrl = getHeadUrl(name, 32);
         var fallback = SKIN_API + '/avatar/Steve/32';
         var borderColor = p.country_color || '#ffffff';
-        markers.push('<div class="map-marker ' + (p.online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + '">' +
+        var staleClass = pos.stale ? ' stale' : '';
+        markers.push('<div class="map-marker ' + (p.online ? 'online' : '') + staleClass + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + (pos.stale ? ' (последняя позиция)' : '') + '">' +
             '<div class="map-marker-content">' +
             '<img class="map-marker-head" style="border-color:' + borderColor + ';" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
             '<div class="map-marker-label">' + escapeHtml(name) + '</div></div></div>');
@@ -673,7 +735,10 @@ function openPlayer(name) {
     var aR = [];
     if (p.energy != null) aR.push({ label: 'Энергия', value: p.energy.toFixed(1) + (p.max_energy != null ? ' / ' + p.max_energy.toFixed(1) : ''), cls: 'warning' });
     if (p.achievements_count != null) aR.push({ label: 'Достижений', value: p.achievements_count });
-    if (p.position) aR.push({ label: 'Локация', value: Math.round(p.position.x) + ', ' + Math.round(p.position.y || 0) + ', ' + Math.round(p.position.z) });
+    if (p.position) {
+        var staleNote = p.position.stale ? ' §7(последняя)' : '';
+        aR.push({ label: 'Локация', value: Math.round(p.position.x) + ', ' + Math.round(p.position.y || 0) + ', ' + Math.round(p.position.z) + staleNote });
+    }
 
     var panel = document.getElementById('player-modal-panels');
     if (panel) panel.innerHTML = renderPanel('Учётная запись', acc) + renderPanel('Экономика', eco) + renderPanel('Страна', cR) + renderPanel('Активность', aR);
@@ -787,8 +852,7 @@ function renderBonus() {
     var jp = currentData.jackpot;
     var jpEl = document.getElementById('panel-jackpot');
     if (jpEl) {
-        var jackpotVal = jp && jp.jackpot != null ? jp.jackpot : (typeof jp === 'number' ? jp : null);
-        if (jackpotVal != null && jackpotVal > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jackpotVal)); }
+        if (jp != null && jp > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jp)); }
         else jpEl.style.display = 'none';
     }
     var ev = currentData.events || [];
@@ -831,7 +895,7 @@ function renderBonus() {
             }).join('');
         } else bp.style.display = 'none';
     }
-    var any = ((jp && jp.jackpot) || typeof jp === 'number') || ev.length > 0 || wr.length > 0 || pk.length > 0 || bn.length > 0;
+    var any = (jp > 0) || ev.length > 0 || wr.length > 0 || pk.length > 0 || bn.length > 0;
     var be = document.getElementById('panel-bonus-empty'); if (be) be.style.display = any ? 'none' : 'block';
 }
 

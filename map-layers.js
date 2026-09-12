@@ -1,9 +1,12 @@
-/* map-layers.js v1.0
+/* map-layers.js v1.1
  * ============================================================
- * Управление слоями карты:
- *   - Сетка чанков (SVG pattern)
- *   - Игроки (checkbox - уже в app.js, но синхронизируем)
- *   - День/Ночь overlay (зависит от map_meta.world_time)
+ * Управление слоями карты + видимостью панели слоёв.
+ *
+ * v1.1:
+ *   - Панель слоёв теперь можно скрыть (X). Состояние хранится
+ *     в localStorage и восстанавливается при следующей загрузке.
+ *   - Появился floating restore-кнопка 🎨 (показывает панель обратно).
+ *   - Fullscreen логика вынесена в app.js (там она ближе к карте).
  *
  * Экспортирует window.MapLayers с методами:
  *   onMapReady(width, height, meta)
@@ -19,7 +22,8 @@
     var state = {
         players: true,
         grid: false,
-        dayNight: true
+        dayNight: true,
+        panelVisible: true
     };
 
     var lastWorldTime = -1;
@@ -33,6 +37,7 @@
             if (typeof parsed.players === 'boolean') state.players = parsed.players;
             if (typeof parsed.grid === 'boolean') state.grid = parsed.grid;
             if (typeof parsed.dayNight === 'boolean') state.dayNight = parsed.dayNight;
+            if (typeof parsed.panelVisible === 'boolean') state.panelVisible = parsed.panelVisible;
         } catch (e) {}
     }
 
@@ -49,10 +54,20 @@
         var d = $('layer-daynight'); if (d) d.checked = state.dayNight;
     }
 
+    /** Показать/скрыть панель слоёв + floating restore-кнопку. */
+    function applyPanelVisibility() {
+        var panel = $('map-layers-panel');
+        var restore = $('map-layers-restore');
+        if (panel) {
+            panel.style.display = state.panelVisible ? '' : 'none';
+        }
+        if (restore) {
+            restore.style.display = state.panelVisible ? 'none' : 'flex';
+        }
+    }
+
     /** Применить видимость слоёв. */
     function applyLayers() {
-        // Игроки — управляется в app.js через showPlayerMarkers,
-        // но мы дублируем галочку в наш state
         if (window.showPlayerMarkers !== undefined) {
             window.showPlayerMarkers = state.players;
         }
@@ -69,11 +84,9 @@
             }
         }
 
-        // Обновить чекбокс игроков в app.js (он отдельный)
         var playerCb = $('map-show-players');
         if (playerCb) playerCb.checked = state.players;
 
-        // Пересобрать маркеры, если функция доступна
         if (typeof window.renderPlayerMarkers === 'function') {
             window.renderPlayerMarkers();
         }
@@ -102,28 +115,17 @@
             return;
         }
 
-        // Определяем фазу:
-        //   0..1000      рассвет (переход от ночи к дню)
-        //   1000..11000  день (прозрачно)
-        //   11000..13000 закат (переход от дня к ночи)
-        //   13000..22000 ночь (тёмно-синий)
-        //   22000..24000 рассвет-восход (переход к дню)
-
-        var r, g, b, opacity;
-        var phase;
+        var r, g, b, opacity, phase;
 
         if (worldTime < 1000) {
-            // рассвет 0..1000: opacity 0.35 → 0
             var t = worldTime / 1000.0;
             opacity = 0.35 * (1.0 - t);
             r = 40; g = 20; b = 60;
             phase = '🌅 Рассвет';
         } else if (worldTime < 11000) {
-            opacity = 0;
-            r = 0; g = 0; b = 0;
+            opacity = 0; r = 0; g = 0; b = 0;
             phase = '☀️ День';
         } else if (worldTime < 13000) {
-            // закат 11000..13000
             var t2 = (worldTime - 11000) / 2000.0;
             opacity = 0.40 * t2;
             r = 80; g = 30; b = 40;
@@ -133,7 +135,6 @@
             r = 15; g = 25; b = 70;
             phase = '🌙 Ночь';
         } else {
-            // 22000..24000 переход к рассвету
             var t3 = (worldTime - 22000) / 2000.0;
             opacity = 0.40 * (1.0 - t3) + 0.35 * t3;
             r = 40; g = 20; b = 60;
@@ -158,15 +159,9 @@
         }
     }
 
-    /**
-     * Вызывается из app.js после загрузки PNG.
-     * width, height — размер canvas (в пикселях).
-     * meta — map_meta из JSON.
-     */
     function onMapReady(width, height, meta) {
         lastMeta = meta;
 
-        // Проставить размер SVG-сетки = размер карты
         var gridSvg = $('map-grid-svg');
         if (gridSvg) {
             gridSvg.setAttribute('width', width);
@@ -180,22 +175,21 @@
             rect.setAttribute('height', height);
         }
 
-        // Day/night по времени мира
         if (meta && typeof meta.world_time === 'number') {
             updateDayNight(meta.world_time);
         } else {
             updateDayNight(-1);
         }
 
-        // Применить видимость слоёв
         applyLayers();
+        applyPanelVisibility();
     }
 
     function init() {
         loadState();
         syncCheckboxes();
+        applyPanelVisibility();
 
-        // Обработчики чекбоксов
         var p = $('layer-players');
         if (p) p.addEventListener('change', function () {
             state.players = p.checked;
@@ -215,12 +209,28 @@
             applyLayers();
         });
 
-        // Синхронизация с main чекбоксом игроков (он в app.js)
         var mc = $('map-show-players');
         if (mc) mc.addEventListener('change', function () {
             state.players = mc.checked;
             saveState();
             syncCheckboxes();
+        });
+
+        // Панель слоёв — закрытие / открытие
+        var closeBtn = $('map-layers-close');
+        if (closeBtn) closeBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            state.panelVisible = false;
+            saveState();
+            applyPanelVisibility();
+        });
+
+        var restoreBtn = $('map-layers-restore');
+        if (restoreBtn) restoreBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            state.panelVisible = true;
+            saveState();
+            applyPanelVisibility();
         });
     }
 
