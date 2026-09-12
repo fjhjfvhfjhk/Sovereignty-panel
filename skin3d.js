@@ -1,4 +1,12 @@
-/* skin3d.js — CSS 3D Minecraft skin viewer (без зависимостей) v4.5 */
+/* skin3d.js — CSS 3D Minecraft skin viewer v4.6
+ * ============================================================
+ * ФИКСЫ v4.6 vs v4.5:
+ *   - Убран ДВОЙНОЙ url(...) в background-image. Раньше получалось
+ *     url(url("data:image/png;...")) — невалидный CSS, браузер молча
+ *     игнорировал → скин не отображался (но боксы в DOM были).
+ *   - Возвращён perspective на сцену (был в v4.2, пропал в v4.5).
+ *   - Чистка image-rendering (было два подряд — второе перезаписывало первое).
+ * ============================================================ */
 (function () {
     'use strict';
 
@@ -39,29 +47,43 @@
         return u;
     }
 
+    /* texUrl — СЫРОЙ data URL (начинается с "data:image/png;base64,..."). Оборачиваем в url() ЗДЕСЬ, один раз. */
     function makeFace(texUrl, texW, texH, U, uv, fw, fh, transform) {
         var d = document.createElement('div');
-        d.style.cssText = 'position:absolute;left:0;top:0;width:' + (fw*U) + 'px;height:' + (fh*U) + 'px;' +
-            'background-image:url(' + texUrl + ');background-size:' + texW + 'px ' + texH + 'px;' +
-            'background-position:' + (-uv[0]*U) + 'px ' + (-uv[1]*U) + 'px;background-repeat:no-repeat;' +
-            'image-rendering:pixelated;image-rendering:crisp-edges;' +
-            'transform:translate(-50%,-50%) ' + transform + ';transform-origin:center;backface-visibility:hidden';
+        d.style.position = 'absolute';
+        d.style.left = '0';
+        d.style.top = '0';
+        d.style.width = (fw * U) + 'px';
+        d.style.height = (fh * U) + 'px';
+        d.style.backgroundImage = 'url("' + texUrl + '")';
+        d.style.backgroundSize = texW + 'px ' + texH + 'px';
+        d.style.backgroundPosition = (-uv[0] * U) + 'px ' + (-uv[1] * U) + 'px';
+        d.style.backgroundRepeat = 'no-repeat';
+        d.style.imageRendering = 'pixelated';
+        d.style.transform = 'translate(-50%, -50%) ' + transform;
+        d.style.transformOrigin = 'center';
+        d.style.backfaceVisibility = 'hidden';
         return d;
     }
 
     function makeBox(texUrl, texW, texH, U, uv, w, h, d, cx, cy, inflate) {
         inflate = inflate | 0;
         var box = document.createElement('div');
-        box.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;' +
-            'transform-style:preserve-3d;' +
-            'transform:translate3d(' + (cx*U) + 'px,' + (-cy*U) + 'px,0)';
-        var W = w*U, H = h*U, D = d*U, INF = inflate*U;
-        box.appendChild(makeFace(texUrl, texW, texH, U, uv.f,  w, h, 'translateZ(' + (D/2+INF) + 'px)'));
-        box.appendChild(makeFace(texUrl, texW, texH, U, uv.b,  w, h, 'rotateY(180deg) translateZ(' + (D/2+INF) + 'px)'));
-        box.appendChild(makeFace(texUrl, texW, texH, U, uv.r,  d, h, 'rotateY(90deg) translateZ(' + (W/2+INF) + 'px)'));
-        box.appendChild(makeFace(texUrl, texW, texH, U, uv.l,  d, h, 'rotateY(-90deg) translateZ(' + (W/2+INF) + 'px)'));
-        box.appendChild(makeFace(texUrl, texW, texH, U, uv.t,  w, d, 'rotateX(90deg) translateZ(' + (H/2+INF) + 'px)'));
-        box.appendChild(makeFace(texUrl, texW, texH, U, uv.bo, w, d, 'rotateX(-90deg) translateZ(' + (H/2+INF) + 'px)'));
+        box.style.position = 'absolute';
+        box.style.left = '0';
+        box.style.top = '0';
+        box.style.width = '0';
+        box.style.height = '0';
+        box.style.transformStyle = 'preserve-3d';
+        box.style.transform = 'translate3d(' + (cx * U) + 'px,' + (-cy * U) + 'px,0)';
+
+        var W = w * U, H = h * U, D = d * U, INF = inflate * U;
+        box.appendChild(makeFace(texUrl, texW, texH, U, uv.f,  w, h, 'translateZ(' + (D/2 + INF) + 'px)'));
+        box.appendChild(makeFace(texUrl, texW, texH, U, uv.b,  w, h, 'rotateY(180deg) translateZ(' + (D/2 + INF) + 'px)'));
+        box.appendChild(makeFace(texUrl, texW, texH, U, uv.r,  d, h, 'rotateY(90deg) translateZ(' + (W/2 + INF) + 'px)'));
+        box.appendChild(makeFace(texUrl, texW, texH, U, uv.l,  d, h, 'rotateY(-90deg) translateZ(' + (W/2 + INF) + 'px)'));
+        box.appendChild(makeFace(texUrl, texW, texH, U, uv.t,  w, d, 'rotateX(90deg) translateZ(' + (H/2 + INF) + 'px)'));
+        box.appendChild(makeFace(texUrl, texW, texH, U, uv.bo, w, d, 'rotateX(-90deg) translateZ(' + (H/2 + INF) + 'px)'));
         return box;
     }
 
@@ -69,60 +91,78 @@
         var U = computeU(wrap);
         var isModern = img.height >= 64;
 
-        // Пред-рендер текстуры. ВАЖНО: img уже должен быть загружен с crossOrigin='anonymous',
-        // иначе canvas будет tainted и toDataURL() выбросит DOMException.
+        // Пред-рендер текстуры в нативном разрешении (пиксель-перфект).
         var tc = document.createElement('canvas');
         tc.width = img.width * U;
         tc.height = img.height * U;
         var tctx = tc.getContext('2d');
         tctx.imageSmoothingEnabled = false;
         tctx.drawImage(img, 0, 0, tc.width, tc.height);
+
         var texUrl;
         try {
-            texUrl = 'url("' + tc.toDataURL('image/png') + '")';
+            // ВАЖНО: сырой data URL, БЕЗ url(...) — оборачивать будем в makeFace.
+            texUrl = tc.toDataURL('image/png');
         } catch (e) {
-            // Fallback: если canvas всё-таки tainted — используем прямой URL изображения.
-            // В этом случае возможна интерполяция, но зато работает.
-            console.warn('[skin3d] toDataURL заблокирован (tainted canvas), fallback на прямой URL. ' +
-                'Скорее всего CDN скина не отдал CORS-заголовок. Ошибка: ' + e.message);
-            texUrl = 'url("' + img.src + '")';
+            // Tainted canvas: CDN не отдал CORS. Используем прямой URL изображения.
+            console.warn('[skin3d] toDataURL failed (tainted canvas), fallback to img.src: ' + e.message);
+            texUrl = img.src;
         }
         var texW = img.width * U, texH = img.height * U;
 
         var scene = document.createElement('div');
         scene.className = 'skin-scene';
-        scene.style.cssText = 'position:absolute;inset:0;overflow:hidden;cursor:grab;user-select:none';
+        scene.style.position = 'absolute';
+        scene.style.inset = '0';
+        scene.style.overflow = 'hidden';
+        scene.style.cursor = 'grab';
+        scene.style.userSelect = 'none';
+        scene.style.perspective = '2000px';        // ← вернули
+        scene.style.perspectiveOrigin = '50% 50%';
 
         var figure = document.createElement('div');
         figure.className = 'skin-figure';
         var sw = wrap.clientWidth || 380, sh = wrap.clientHeight || 380;
-        figure.style.cssText = 'position:absolute;left:' + Math.floor(sw/2) + 'px;top:' + Math.floor(sh/2) + 'px;' +
-            'width:0;height:0;transform-style:preserve-3d';
+        figure.style.position = 'absolute';
+        figure.style.left = Math.floor(sw / 2) + 'px';
+        figure.style.top = Math.floor(sh / 2) + 'px';
+        figure.style.width = '0';
+        figure.style.height = '0';
+        figure.style.transformStyle = 'preserve-3d';
         scene.appendChild(figure);
 
+        // Чередование base/overlay — overlay после base, чтобы z-order был стабилен.
         for (var i = 0; i < PARTS.length; i++) {
             var p = PARTS[i];
-            var uvB = isModern ? UV_BASE[p.name] : UV_BASE[p.name];
-            figure.appendChild(makeBox(texUrl, texW, texH, U, uvB, p.w, p.h, p.d, p.cx, p.cy, 0));
+            figure.appendChild(makeBox(texUrl, texW, texH, U, UV_BASE[p.name], p.w, p.h, p.d, p.cx, p.cy, 0));
             if (isModern) {
-                var uvO = UV_OVERLAY[p.name];
-                figure.appendChild(makeBox(texUrl, texW, texH, U, uvO, p.w, p.h, p.d, p.cx, p.cy, 1));
+                figure.appendChild(makeBox(texUrl, texW, texH, U, UV_OVERLAY[p.name], p.w, p.h, p.d, p.cx, p.cy, 1));
             }
         }
 
         var tag = document.createElement('div');
         tag.id = 'skin-nametag';
         tag.textContent = name;
-        tag.style.cssText = 'position:absolute;left:0;top:' + (-18*U) + 'px;transform:translate(-50%,-100%);' +
-            'background:rgba(0,0,0,0.85);color:#fff;padding:3px 10px;border-radius:4px;font-size:14px;' +
-            'font-weight:600;white-space:nowrap;pointer-events:none;display:none';
+        tag.style.position = 'absolute';
+        tag.style.left = '0';
+        tag.style.top = (-18 * U) + 'px';
+        tag.style.transform = 'translate(-50%, -100%)';
+        tag.style.background = 'rgba(0,0,0,0.85)';
+        tag.style.color = '#fff';
+        tag.style.padding = '3px 10px';
+        tag.style.borderRadius = '4px';
+        tag.style.fontSize = '14px';
+        tag.style.fontWeight = '600';
+        tag.style.whiteSpace = 'nowrap';
+        tag.style.pointerEvents = 'none';
+        tag.style.display = 'none';
         figure.appendChild(tag);
 
         wrap.insertBefore(scene, wrap.firstChild);
 
         var boxCount = figure.childElementCount - 1;
         console.log('[skin3d] U=' + U + ' boxes=' + boxCount + ' isModern=' + isModern +
-            ' (ожидается 12 для 64x64, 6 для 64x32)');
+            ' texUrl.len=' + texUrl.length + ' (ожидается 12 для 64x64, 6 для 64x32)');
 
         var state = {
             element: figure,
