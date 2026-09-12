@@ -1,10 +1,10 @@
-/* Sovereignty panel v3.5 — фикс 3D-камеры (публичный API skinview3d) */
+/* Sovereignty panel v4.0 — CSS 3D скин (без skinview3d) */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v3.5';
+var APP_VERSION = 'v4.0';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -16,29 +16,6 @@ var REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
-
-/*
- * 3D-КАМЕРА — ИСПРАВЛЕНО
- * ============================================================
- * ПРОБЛЕМА прошлых версий:
- *   Писали viewer.camera.position.set(...) и viewer.controls.target.set(...)
- *   напрямую. skinview3d сбрасывает эти значения после loadSkin() и при
- *   каждом resize — поэтому модель обрезалась до половины тела.
- *
- * РЕШЕНИЕ:
- *   1. viewer.fov — публичный setter skinview3d (в его API есть).
- *   2. viewer.zoom — публичный setter, задаёт дистанцию камеры.
- *      Меньше 1.0 = дальше, больше 1.0 = ближе.
- *   3. После loadSkin() и resize ЗАНОВО применяем fov+zoom.
- *   4. Логируем диагностику — по ней видно, что реально применилось.
- */
-var SKIN_FOV = 40;
-var SKIN_ZOOM = 0.65;
-var SKIN_TARGET_Y = 16;
-var SKIN_CAMERA_MIN_DIST = 20;
-var SKIN_CAMERA_MAX_DIST = 200;
-var SKIN_GLOBAL_LIGHT = 1.8;
-var SKIN_CAMERA_LIGHT = 1.5;
 var MARKER_BASE_PX = 32;
 var MARKER_MIN_PX = 18;
 var MARKER_MAX_PX = 72;
@@ -51,7 +28,10 @@ var isDragging = false, dragStartX = 0, dragStartY = 0, dragMoved = false;
 var highlightedCountry = null;
 var showPlayerMarkers = true;
 var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
-var currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
+
+var currentSkinViewer = null;
+var rotatePaused = true;
+
 var localSkinCache = new Map();
 var headCache = new Map();
 var localLoadedAttempted = new Set();
@@ -74,11 +54,16 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (e) { console.error('refresh:', e); }
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
-    setInterval(function () {
-        if (!currentRotateAnim) return;
-        try { if (rotatePaused && !currentRotateAnim.paused) currentRotateAnim.paused = true; } catch (e) {}
-    }, 300);
+    requestAnimationFrame(skinRotateLoop);
 });
+
+function skinRotateLoop() {
+    if (currentSkinViewer && currentSkinViewer.autoRotate) {
+        currentSkinViewer.rotation += 0.8;
+        currentSkinViewer.refresh();
+    }
+    requestAnimationFrame(skinRotateLoop);
+}
 
 function initTabs() {
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (btn) {
@@ -110,24 +95,41 @@ function initModalControls() {
         el.addEventListener('click', function () { closePlayerModal(); });
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePlayerModal(); });
+
     var rotBtn = document.getElementById('skin-toggle-rotate');
-    if (rotBtn) rotBtn.onclick = function () {
-        rotatePaused = !rotatePaused;
-        rotBtn.textContent = rotatePaused ? '▶ Пуск' : '⏸ Пауза';
-        rotBtn.classList.toggle('active', rotatePaused);
-    };
+    if (rotBtn) {
+        updateRotateButton(rotBtn);
+        rotBtn.onclick = function () {
+            rotatePaused = !rotatePaused;
+            if (currentSkinViewer) currentSkinViewer.autoRotate = !rotatePaused;
+            updateRotateButton(rotBtn);
+        };
+    }
     var resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = function () {
         if (currentSkinViewer) {
-            applyDefaultCamera(currentSkinViewer);
+            currentSkinViewer.rotation = 0;
+            currentSkinViewer.rotationX = 0;
+            currentSkinViewer.refresh();
             showToast('✓ Вид сброшен');
         }
     };
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
-        if (currentSkinViewer && currentSkinViewer.nameTag)
-            currentSkinViewer.nameTag.visible = !currentSkinViewer.nameTag.visible;
+        var tag = document.getElementById('skin-nametag');
+        if (tag) tag.style.display = tag.style.display === 'none' ? 'block' : 'none';
     };
+}
+
+function updateRotateButton(btn) {
+    if (!btn) return;
+    if (rotatePaused) {
+        btn.textContent = '▶ Вращение';
+        btn.classList.add('active');
+    } else {
+        btn.textContent = '⏸ Пауза';
+        btn.classList.remove('active');
+    }
 }
 
 function openPlayerModal() {
@@ -141,10 +143,9 @@ function closePlayerModal() {
     if (m) m.classList.remove('show');
     document.body.style.overflow = '';
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
-    currentRotateAnim = null;
-    rotatePaused = false;
+    rotatePaused = true;
     var btn = document.getElementById('skin-toggle-rotate');
-    if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
+    if (btn) updateRotateButton(btn);
 }
 
 /* ================= LOCAL SKINS ================= */
@@ -154,7 +155,6 @@ function preloadLocalSkins() {
     if (players.length === 0) return;
     var toLoad = players.filter(function (p) { return p.name && !localLoadedAttempted.has(p.name); });
     if (toLoad.length === 0) return;
-    console.log('[Skins] Пробую загрузить: ' + toLoad.length);
     var done = 0, loaded = 0;
     toLoad.forEach(function (p) {
         localLoadedAttempted.add(p.name);
@@ -689,7 +689,7 @@ function openPlayer(name) {
     if (actBtnEl) actBtnEl.innerHTML = actions.join('');
 
     openPlayerModal();
-    setTimeout(function () { initSkinViewer(name, player.uuid); }, 100);
+    setTimeout(function () { initSkinViewer(name, player.uuid); }, 60);
 }
 
 function renderPanel(title, rows) {
@@ -713,61 +713,13 @@ function renderPanelRow(r) {
 }
 
 /* ============================================================
- * 3D VIEWER — ФИКС КАМЕРЫ
+ * CSS 3D SKIN VIEWER — БЕЗ БИБЛИОТЕК
  * ============================================================
- * Используем ТОЛЬКО публичный API skinview3d:
- *   viewer.fov   — setter угла обзора
- *   viewer.zoom  — setter дистанции камеры
- * Прошлая версия трогала viewer.camera.position и controls.target
- * напрямую — библиотека сбрасывала их после loadSkin() и при resize.
+ * Рендерит Minecraft-скин через CSS transform-style: preserve-3d.
+ * Каждая часть тела — куб из 6 граней, размеры как в текстуре.
+ * Вращение — CSS rotateY, зум не нужен (масштаб подгоняется под контейнер).
+ * Камеры нет — модель всегда в кадре. Проблема исчезла по определению.
  * ============================================================ */
-
-function applyDefaultCamera(viewer) {
-    if (!viewer) return;
-    try {
-        // Публичные setter'ы skinview3d.
-        try { viewer.fov = SKIN_FOV; } catch (e) {}
-        try { viewer.zoom = SKIN_ZOOM; } catch (e) {}
-
-        // Точку взгляда сдвигаем на центр тела (12 вместо 16 по умолчанию).
-        if (viewer.controls && viewer.controls.target) {
-            viewer.controls.target.set(0, SKIN_TARGET_Y - 4, 0);
-            viewer.controls.update();
-        }
-
-        // Диагностика — эту строку присылай из F12 → Console, если что-то не так.
-        var cam = viewer.camera;
-        var ctl = viewer.controls;
-        if (cam && ctl && ctl.target) {
-            var dist = Math.sqrt(
-                Math.pow(cam.position.x - ctl.target.x, 2) +
-                Math.pow(cam.position.y - ctl.target.y, 2) +
-                Math.pow(cam.position.z - ctl.target.z, 2)
-            );
-            var aspect = cam.aspect || 0;
-            console.log(
-                '[skinview3d] ' + APP_VERSION +
-                ' | fov=' + (cam.fov != null ? cam.fov.toFixed(1) : '?') +
-                ' zoom=' + (viewer.zoom != null ? viewer.zoom.toFixed(2) : '?') +
-                ' aspect=' + aspect.toFixed(3) +
-                ' dist=' + dist.toFixed(1) +
-                ' cam=(' + cam.position.x.toFixed(1) + ',' + cam.position.y.toFixed(1) + ',' + cam.position.z.toFixed(1) + ')' +
-                ' target=(' + ctl.target.x.toFixed(1) + ',' + ctl.target.y.toFixed(1) + ',' + ctl.target.z.toFixed(1) + ')'
-            );
-            if (Math.abs(aspect - 1.0) > 0.05) {
-                console.warn('[skinview3d] aspect=' + aspect.toFixed(3) +
-                    ' ≠ 1.0 — canvas не квадратный. Проверь CSS .player-viewer-wrap: должно быть aspect-ratio: 1/1 без min-height.');
-            }
-        }
-    } catch (e) {
-        console.error('[skinview3d] applyDefaultCamera:', e);
-    }
-}
-
-// Глобальный хелпер: resetSkinCamera() из F12 → Console применит текущие константы.
-window.resetSkinCamera = function () {
-    if (currentSkinViewer) applyDefaultCamera(currentSkinViewer);
-};
 
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
@@ -778,11 +730,12 @@ function resolveSkinUrl(name, uuid) {
 function initSkinViewer(name, uuid) {
     var wrap = document.getElementById('player-viewer-wrap');
     if (!wrap) return;
+
+    // Удаляем старый canvas и старый скин-элемент
     var oldCanvas = document.getElementById('skin-canvas');
     if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
-    var newCanvas = document.createElement('canvas');
-    newCanvas.id = 'skin-canvas';
-    wrap.insertBefore(newCanvas, wrap.firstChild);
+    var oldScene = wrap.querySelector('.skin-scene');
+    if (oldScene && oldScene.parentNode) oldScene.parentNode.removeChild(oldScene);
 
     var loading = document.getElementById('skin-loading');
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
@@ -791,115 +744,307 @@ function initSkinViewer(name, uuid) {
         loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
     }
 
-    var waited = 0;
-    function waitSkinview() {
-        if (window.__skinview3dStatus === 'loaded' && typeof skinview3d !== 'undefined') { startViewer(); return; }
-        if (window.__skinview3dStatus === 'failed' || waited >= 5000) {
+    var skinUrl = resolveSkinUrl(name, uuid);
+    console.log('[css3d] loading skin: ' + skinUrl);
+
+    var img = new Image();
+    // НЕ ставим crossOrigin: не нужно, мы не читаем canvas, только используем как CSS background.
+    img.onload = function () {
+        try {
+            var scene = buildSkinScene(img, name);
+            wrap.insertBefore(scene, wrap.firstChild);
+
+            var figure = scene.querySelector('.skin-figure');
+            if (!figure) throw new Error('figure not built');
+
+            var state = {
+                element: figure,
+                scene: scene,
+                rotation: 0,
+                rotationX: 0,
+                autoRotate: false,
+                scale: 1,
+                refresh: function () {
+                    this.element.style.transform =
+                        'scale(' + this.scale + ') ' +
+                        'rotateX(' + this.rotationX + 'deg) ' +
+                        'rotateY(' + this.rotation + 'deg)';
+                },
+                resetRotation: function () {
+                    this.rotation = 0;
+                    this.rotationX = 0;
+                    this.refresh();
+                },
+                dispose: function () {
+                    if (this.scene && this.scene.parentNode) {
+                        this.scene.parentNode.removeChild(this.scene);
+                    }
+                }
+            };
+            currentSkinViewer = state;
+
+            // Масштаб под размер контейнера
+            updateSkinScale(state, wrap);
+            state.refresh();
+
+            // ==== DRAG ====
+            var dragActive = false, lastX = 0, lastY = 0;
+            scene.addEventListener('mousedown', function (e) {
+                dragActive = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                scene.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+            window.addEventListener('mousemove', function (e) {
+                if (!dragActive || currentSkinViewer !== state) return;
+                var dx = e.clientX - lastX;
+                var dy = e.clientY - lastY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                state.rotation += dx * 0.7;
+                state.rotationX += dy * 0.3;
+                if (state.rotationX > 30) state.rotationX = 30;
+                if (state.rotationX < -30) state.rotationX = -30;
+                state.refresh();
+            });
+            window.addEventListener('mouseup', function () {
+                if (!dragActive) return;
+                dragActive = false;
+                if (scene.parentNode) scene.style.cursor = 'grab';
+            });
+
+            // ==== TOUCH ====
+            scene.addEventListener('touchstart', function (e) {
+                if (!e.touches[0]) return;
+                dragActive = true;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+            }, { passive: true });
+            scene.addEventListener('touchmove', function (e) {
+                if (!dragActive || !e.touches[0] || currentSkinViewer !== state) return;
+                var dx = e.touches[0].clientX - lastX;
+                var dy = e.touches[0].clientY - lastY;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                state.rotation += dx * 1.0;
+                state.rotationX += dy * 0.4;
+                if (state.rotationX > 30) state.rotationX = 30;
+                if (state.rotationX < -30) state.rotationX = -30;
+                state.refresh();
+                e.preventDefault();
+            }, { passive: false });
+            scene.addEventListener('touchend', function () {
+                dragActive = false;
+            });
+
+            // ==== RESIZE ====
+            var ro = new ResizeObserver(function () {
+                if (currentSkinViewer !== state) return;
+                updateSkinScale(state, wrap);
+                state.refresh();
+            });
+            ro.observe(wrap);
+
+            if (loading) loading.classList.add('hidden');
+            console.log('[css3d] ✓ viewer создан для ' + name);
+        } catch (err) {
+            console.error('[css3d] ошибка сборки:', err);
             if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
                 '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-                '<div style="color:#f59e0b;font-weight:600;">Библиотека 3D не загрузилась</div></div>';
-            return;
+                '<div style="color:#ef4444;font-weight:600;">Ошибка CSS-3D</div>' +
+                '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' + escapeHtml(err.message || String(err)) + '</div>' +
+                '</div>';
         }
-        waited += 100;
-        setTimeout(waitSkinview, 100);
+    };
+    img.onerror = function () {
+        console.warn('[css3d] skin load fail: ' + skinUrl);
+        if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
+            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
+            '<div style="color:#ef4444;font-weight:600;">Скин не загрузился</div></div>';
+    };
+    img.src = skinUrl;
+}
+
+function updateSkinScale(state, wrap) {
+    var w = wrap.clientWidth || 380;
+    // Модель в юнитах: 32 юнита в высоту (8 head + 12 body + 12 leg).
+    // Хотим заполнить ~75% высоты кадра → scale = w * 0.75 / 32
+    // Учитывая, что при вращении фигура по ширине может быть 16 юнитов,
+    // тоже нормируем по ширине.
+    var heightScale = (w * 0.78) / 32;
+    var widthScale = (w * 0.85) / 16;
+    state.scale = Math.min(heightScale, widthScale);
+}
+
+function buildSkinScene(img, name) {
+    // U = 1: 1 текстурный пиксель = 1 CSS px до применения scale.
+    // Масштаб навешивается через transform: scale(...) на фигуру.
+    var U = 1;
+
+    var scene = document.createElement('div');
+    scene.className = 'skin-scene';
+    scene.style.position = 'absolute';
+    scene.style.inset = '0';
+    scene.style.perspective = '1400px';
+    scene.style.display = 'flex';
+    scene.style.alignItems = 'center';
+    scene.style.justifyContent = 'center';
+    scene.style.overflow = 'hidden';
+    scene.style.cursor = 'grab';
+    scene.style.userSelect = 'none';
+
+    var figure = document.createElement('div');
+    figure.className = 'skin-figure';
+    figure.style.position = 'absolute';
+    figure.style.left = '50%';
+    figure.style.top = '50%';
+    figure.style.width = '0';
+    figure.style.height = '0';
+    figure.style.transformStyle = 'preserve-3d';
+    figure.style.willChange = 'transform';
+    scene.appendChild(figure);
+
+    // UV координаты (стандартный скин 64×64)
+    var UV = {
+        head: {
+            top:    [8, 0],
+            bottom: [16, 0],
+            right:  [0, 8],
+            front:  [8, 8],
+            left:   [16, 8],
+            back:   [24, 8]
+        },
+        body: {
+            top:    [20, 16],
+            bottom: [28, 16],
+            right:  [16, 20],
+            front:  [20, 20],
+            left:   [28, 20],
+            back:   [32, 20]
+        },
+        rightArm: {
+            top:    [44, 16],
+            bottom: [48, 16],
+            right:  [40, 20],
+            front:  [44, 20],
+            left:   [48, 20],
+            back:   [52, 20]
+        },
+        leftArm: {
+            top:    [36, 48],
+            bottom: [40, 48],
+            right:  [32, 52],
+            front:  [36, 52],
+            left:   [40, 52],
+            back:   [44, 52]
+        },
+        rightLeg: {
+            top:    [4, 16],
+            bottom: [8, 16],
+            right:  [0, 20],
+            front:  [4, 20],
+            left:   [8, 20],
+            back:   [12, 20]
+        },
+        leftLeg: {
+            top:    [20, 48],
+            bottom: [24, 48],
+            right:  [16, 52],
+            front:  [20, 52],
+            left:   [24, 52],
+            back:   [28, 52]
+        }
+    };
+
+    function makeFace(texUV, fw, fh, transform) {
+        var d = document.createElement('div');
+        d.style.position = 'absolute';
+        d.style.left = '0';
+        d.style.top = '0';
+        d.style.width = (fw * U) + 'px';
+        d.style.height = (fh * U) + 'px';
+        d.style.backgroundImage = 'url("' + img.src + '")';
+        d.style.backgroundSize = (img.width * U) + 'px ' + (img.height * U) + 'px';
+        d.style.backgroundPosition = (-texUV[0] * U) + 'px ' + (-texUV[1] * U) + 'px';
+        d.style.backgroundRepeat = 'no-repeat';
+        d.style.imageRendering = 'pixelated';
+        d.style.transform = 'translate(-50%, -50%) ' + transform;
+        d.style.transformOrigin = 'center';
+        return d;
     }
-    waitSkinview();
 
-    function startViewer() {
-        wrap.getBoundingClientRect();
-        setTimeout(function () {
-            var rect = wrap.getBoundingClientRect();
-            var size = Math.max(280, Math.round(Math.min(rect.width || 380, rect.height || 380)));
-            var skinUrl = resolveSkinUrl(name, uuid);
-            console.log('[skinview3d] ' + APP_VERSION + ' canvas=' + size +
-                ' wrapRect=' + Math.round(rect.width) + 'x' + Math.round(rect.height) +
-                ' skin=' + skinUrl);
+    function makeBox(uv, w, h, d, posX, posY, posZ) {
+        var box = document.createElement('div');
+        box.style.position = 'absolute';
+        box.style.left = '0';
+        box.style.top = '0';
+        box.style.width = '0';
+        box.style.height = '0';
+        box.style.transformStyle = 'preserve-3d';
+        box.style.transform = 'translate3d(' + (posX * U) + 'px,' + (posY * U) + 'px,' + (posZ * U) + 'px)';
 
-            try {
-                var viewer = new skinview3d.SkinViewer({
-                    canvas: newCanvas,
-                    width: size,
-                    height: size,
-                    fov: SKIN_FOV
-                });
+        var W = w * U, H = h * U, D = d * U;
 
-                try {
-                    if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
-                    if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
-                } catch (e) {}
+        // front (+Z)
+        box.appendChild(makeFace(uv.front, w, h, 'translateZ(' + (D/2) + 'px)'));
+        // back (-Z)
+        box.appendChild(makeFace(uv.back, w, h, 'rotateY(180deg) translateZ(' + (D/2) + 'px)'));
+        // right (+X) — смотрим справа
+        box.appendChild(makeFace(uv.right, d, h, 'rotateY(90deg) translateZ(' + (W/2) + 'px)'));
+        // left (-X)
+        box.appendChild(makeFace(uv.left, d, h, 'rotateY(-90deg) translateZ(' + (W/2) + 'px)'));
+        // top (+Y в CSS = низ; rotateX(90deg) = верх в 3D)
+        box.appendChild(makeFace(uv.top, w, d, 'rotateX(90deg) translateZ(' + (H/2) + 'px)'));
+        // bottom (-Y)
+        box.appendChild(makeFace(uv.bottom, w, d, 'rotateX(-90deg) translateZ(' + (H/2) + 'px)'));
 
-                // Камера ДО загрузки скина
-                applyDefaultCamera(viewer);
-
-                viewer.controls.enableZoom = true;
-                viewer.controls.enablePan = false;
-                viewer.controls.enableRotate = true;
-                viewer.controls.rotateSpeed = 1.0;
-                viewer.controls.zoomSpeed = 0.8;
-                viewer.controls.minPolarAngle = 0.02;
-                viewer.controls.maxPolarAngle = Math.PI - 0.02;
-                viewer.controls.minDistance = SKIN_CAMERA_MIN_DIST;
-                viewer.controls.maxDistance = SKIN_CAMERA_MAX_DIST;
-
-                try {
-                    viewer.nameTag = new skinview3d.NameTagObject(name);
-                    viewer.nameTag.visible = true;
-                } catch (e) {}
-
-                try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
-
-                var userInteracting = false;
-                newCanvas.addEventListener('pointerdown', function () {
-                    userInteracting = true;
-                    if (currentRotateAnim) { try { currentRotateAnim.paused = true; } catch (e) {} }
-                });
-                newCanvas.addEventListener('pointerup', function () {
-                    userInteracting = false;
-                    setTimeout(function () {
-                        if (userInteracting || rotatePaused) return;
-                        if (currentRotateAnim) { try { currentRotateAnim.paused = false; } catch (e) {} }
-                    }, 1500);
-                });
-                newCanvas.addEventListener('pointercancel', function () { userInteracting = false; });
-
-                currentSkinViewer = viewer;
-
-                // Скин грузим ЯВНО и применяем камеру ПОСЛЕ — skinview3d
-                // пересчитывает внутреннее состояние при loadSkin.
-                viewer.loadSkin(skinUrl).then(function () {
-                    console.log('[skinview3d] skin loaded, re-applying camera');
-                    if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
-                    if (loading) loading.classList.add('hidden');
-                }).catch(function (err) {
-                    console.warn('[skinview3d] skin load fail:', err);
-                    if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
-                    if (loading) loading.classList.add('hidden');
-                });
-
-                var ro = new ResizeObserver(function () {
-                    if (!currentSkinViewer) return;
-                    var w = wrap.clientWidth, h = wrap.clientHeight;
-                    if (w > 0 && h > 0) {
-                        var s = Math.min(w, h);
-                        currentSkinViewer.width = s;
-                        currentSkinViewer.height = s;
-                        // После resize Three.js пересчитывает aspect — переустановим.
-                        if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
-                    }
-                });
-                ro.observe(wrap);
-
-                console.log('[skinview3d] ✓ viewer создан для ' + name);
-            } catch (err) {
-                console.error('[skinview3d] Ошибка:', err);
-                if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-                    '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-                    '<div style="color:#ef4444;font-weight:600;">Ошибка 3D-модели</div>' +
-                    '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' + escapeHtml(err.message || String(err)) + '</div>' +
-                    '</div>';
-            }
-        }, 60);
+        return box;
     }
+
+    // Размеры в юнитах (1 unit = 1 texture px)
+    // Координаты подобраны так, чтобы центр фигуры был в (0,0,0).
+    // Body: 8w × 12h × 4d, центр (0, -2, 0), занимает y [-8, +4]
+    // Head: 8×8×8, над body, центр (0, -14, 0), занимает y [-18, -10]  — стоп, это перебор.
+    // Пересчитаем: body занимает [-8, +4] если центр на -2.
+    //   Тогда head должен быть [-16, -8], центр = -12.
+    //   Ноги под body: body bottom = +4. Ноги занимают [+4, +16], центр = +10.
+    //   Общая высота: [-16, +16] = 32. Центр = 0. ОК.
+
+    var head     = makeBox(UV.head,     8, 8,  8, 0,  -12, 0);
+    var body     = makeBox(UV.body,     8, 12, 4, 0,  -2,  0);
+    var rightArm = makeBox(UV.rightArm, 4, 12, 4, -6, -2,  0);
+    var leftArm  = makeBox(UV.leftArm,  4, 12, 4,  6, -2,  0);
+    var rightLeg = makeBox(UV.rightLeg, 4, 12, 4, -2, 10,  0);
+    var leftLeg  = makeBox(UV.leftLeg,  4, 12, 4,  2, 10,  0);
+
+    figure.appendChild(head);
+    figure.appendChild(body);
+    figure.appendChild(rightArm);
+    figure.appendChild(leftArm);
+    figure.appendChild(rightLeg);
+    figure.appendChild(leftLeg);
+
+    // Ник-плашка над головой
+    var tag = document.createElement('div');
+    tag.id = 'skin-nametag';
+    tag.textContent = name;
+    tag.style.position = 'absolute';
+    tag.style.left = '50%';
+    tag.style.top = '-6px';
+    tag.style.transform = 'translate(-50%, -100%)';
+    tag.style.background = 'rgba(0,0,0,0.85)';
+    tag.style.color = '#fff';
+    tag.style.padding = '3px 10px';
+    tag.style.borderRadius = '4px';
+    tag.style.fontSize = '14px';
+    tag.style.fontWeight = '600';
+    tag.style.whiteSpace = 'nowrap';
+    tag.style.pointerEvents = 'none';
+    tag.style.display = 'none'; // по умолчанию скрыт, включается кнопкой
+    figure.appendChild(tag);
+
+    return scene;
 }
 
 /* ================= NAV ================= */
