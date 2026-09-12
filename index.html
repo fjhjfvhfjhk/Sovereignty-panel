@@ -12,11 +12,8 @@
     <script>
     /*
      * Загрузчик skinview3d.
-     * Порядок источников:
-     *   1. jsdelivr (обычно работает лучше всего)
-     *   2. unpkg (зеркало)
-     *   3. cdnjs (третий CDN)
-     *   4. локальный skinview3d.bundle.js в корне репозитория — если всё заблокировано
+     * Порядок: jsdelivr → unpkg → cdnjs → локальный skinview3d.bundle.js
+     * После каждой попытки проверяем, что window.skinview3d реально существует.
      */
     (function () {
         var cdns = [
@@ -38,9 +35,7 @@
         function tryNext() {
             if (i >= cdns.length) {
                 window.__skinview3dStatus = 'failed';
-                console.error('[skinview3d] ВСЕ источники недоступны. Скачай skinview3d.bundle.js ' +
-                    'с https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js и положи ' +
-                    'в корень репозитория как skinview3d.bundle.js');
+                console.error('[skinview3d] ВСЕ источники недоступны. Скачай skinview3d.bundle.js и положи в корень репозитория.');
                 return;
             }
             var src = cdns[i++];
@@ -49,12 +44,8 @@
             s.src = src;
             s.async = false;
             s.onload = function () {
-                if (typeof skinview3d !== 'undefined') {
-                    done(src);
-                } else {
-                    console.warn('[skinview3d] Загрузился, но объект не найден: ' + src);
-                    tryNext();
-                }
+                if (typeof skinview3d !== 'undefined') { done(src); }
+                else { console.warn('[skinview3d] Загрузился, но объект не найден: ' + src); tryNext(); }
             };
             s.onerror = function () {
                 console.warn('[skinview3d] Ошибка сети: ' + src);
@@ -89,6 +80,7 @@
     </header>
 
     <main class="container">
+        <!-- ========== ОБЗОР ========== -->
         <section class="tab-content active" id="tab-overview">
             <section class="stats-grid">
                 <div class="stat-card"><div class="stat-icon">🏛️</div><div class="stat-value" id="countries-count">—</div><div class="stat-label">Стран</div></div>
@@ -120,6 +112,7 @@
             </section>
         </section>
 
+        <!-- ========== КАРТА ========== -->
         <section class="tab-content" id="tab-map">
             <section class="panel">
                 <div class="panel-header">
@@ -137,4 +130,325 @@
                 <div class="map-viewport" id="map-viewport">
                     <canvas id="map-canvas"></canvas>
                     <div class="map-overlay" id="map-overlay"></div>
-                    <div class="map-place
+                    <div class="map-placeholder" id="map-placeholder">
+                        <div class="map-placeholder-icon">🗺️</div>
+                        <p>Карта ещё не сгенерирована.<br>Подождите первого обновления от сервера.</p>
+                    </div>
+                </div>
+                <div class="map-legend" id="map-legend"></div>
+            </section>
+        </section>
+
+        <!-- ========== ИГРОКИ ========== -->
+        <section class="tab-content" id="tab-players">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>👥 Игроки сервера</h2>
+                    <div class="players-controls">
+                        <input type="text" id="player-search" placeholder="🔍 Поиск по нику или стране..." class="cmd-search">
+                        <label class="player-filter">
+                            <input type="checkbox" id="player-online-only"> Только онлайн
+                        </label>
+                    </div>
+                </div>
+                <p class="cmd-hint">Клик по игроку — открыть 3D-профиль.</p>
+                <div class="players-grid" id="players-grid"></div>
+                <div class="empty-hint" id="players-empty" style="display:none;">
+                    Данные об игроках пока не передаются панелью.<br>
+                    <span style="font-size:12px;opacity:0.7;">Ожидаемое поле JSON: <code>players[]</code></span>
+                </div>
+            </section>
+        </section>
+
+        <!-- ========== ГАЙД ========== -->
+        <section class="tab-content" id="tab-guide">
+            <div class="guide-layout">
+                <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
+                <div class="guide-content">
+                    <article class="guide-section" id="guide-start">
+                        <h2 data-guide-title>🌱 С чего начать</h2>
+                        <ol class="guide-steps">
+                            <li>Зайди на сервер — выдадут стартовый баланс.</li>
+                            <li>Создай страну: <code data-copy="/c">/c</code> или <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code></li>
+                            <li>Захвати территорию: <code data-copy="/c claim">/c claim</code></li>
+                            <li>Поставь дом: <code data-copy="/sethome">/sethome</code>, телепорт — <code data-copy="/home">/home</code></li>
+                            <li>Выбери профессию: <code data-copy="/jobs browse">/jobs browse</code></li>
+                            <li>Начни торговать на рынке: <code data-copy="/shop">/shop</code></li>
+                        </ol>
+                    </article>
+
+                    <article class="guide-section" id="guide-country">
+                        <h2 data-guide-title>🏛️ Страны (Sovereignty)</h2>
+                        <p>Главное меню: <code data-copy="/c">/c</code> (алиасы <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>).</p>
+                        <h3>Меню /c</h3>
+                        <ul class="guide-list">
+                            <li><b>Территория</b> — захват, автозахват</li>
+                            <li><b>Дипломатия</b> — союзы, пакты, войны</li>
+                            <li><b>Улучшения</b> — энергия, регенерация, лимит, фермы</li>
+                            <li><b>Банк страны</b> — внести/снять</li>
+                            <li><b>Seechunk</b>, <b>Unstuck</b>, <b>Топ стран</b>, <b>Достижения</b></li>
+                            <li><b>Исследования</b>, <b>Суд</b>, <b>Шахтёрский бонус</b></li>
+                            <li><b>Улучшение чанка</b>, <b>Управление</b>, <b>Магазин</b></li>
+                        </ul>
+                        <h3>Основные команды</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code><span>Создать страну</span></div>
+                            <div class="cmd-row"><code data-copy="/c claim">/c claim</code><span>Захватить чанк (2 ⚡)</span></div>
+                            <div class="cmd-row"><code data-copy="/c unclaim">/c unclaim</code><span>Освободить чанк</span></div>
+                            <div class="cmd-row"><code data-copy="/c bank deposit 5000">/c bank deposit &lt;сумма&gt;</code><span>Внести в казну</span></div>
+                            <div class="cmd-row"><code data-copy="/c bank withdraw 5000">/c bank withdraw &lt;сумма&gt;</code><span>Снять из казны</span></div>
+                            <div class="cmd-row"><code data-copy="/c upgrade">/c upgrade</code><span>Меню прокачки</span></div>
+                            <div class="cmd-row"><code data-copy="/c buyenergy 10">/c buyenergy &lt;кол-во&gt;</code><span>Купить энергию</span></div>
+                            <div class="cmd-row"><code data-copy="/c boost">/c boost</code><span>Буст регенерации</span></div>
+                            <div class="cmd-row"><code data-copy="/c invite Steve">/c invite &lt;ник&gt;</code><span>Пригласить соправителя</span></div>
+                            <div class="cmd-row"><code data-copy="/c accept">/c accept</code><span>Принять приглашение</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-diplomacy">
+                        <h2 data-guide-title>🤝 Дипломатия и война</h2>
+                        <p>Все действия — через <code data-copy="/c">/c</code> → Дипломатия, либо командами:</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c ally Steve">/c ally &lt;ник&gt;</code><span>Союз</span></div>
+                            <div class="cmd-row"><code data-copy="/c enemy Steve">/c enemy &lt;ник&gt;</code><span>Война</span></div>
+                            <div class="cmd-row"><code data-copy="/c neutral Steve">/c neutral &lt;ник&gt;</code><span>Нейтралитет</span></div>
+                            <div class="cmd-row"><code data-copy="/c pact trade Steve">/c pact trade &lt;ник&gt;</code><span>Торговый пакт</span></div>
+                            <div class="cmd-row"><code data-copy="/c pact military Steve">/c pact military &lt;ник&gt;</code><span>Военный пакт</span></div>
+                            <div class="cmd-row"><code data-copy="/c pact defense Steve">/c pact defense &lt;ник&gt;</code><span>Оборонительный пакт</span></div>
+                            <div class="cmd-row"><code data-copy="/c pact nonaggression Steve">/c pact nonaggression &lt;ник&gt;</code><span>Пакт о ненападении</span></div>
+                            <div class="cmd-row"><code data-copy="/c surrender">/c surrender</code><span>Капитуляция (20% репараций)</span></div>
+                        </div>
+                        <p><b>Автопобеда:</b> если враг потерял 40% чанков — война автоматически завершается, победитель получает улучшенный чанк.</p>
+                    </article>
+
+                    <article class="guide-section" id="guide-court">
+                        <h2 data-guide-title>⚖️ Международный суд</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c court">/c court</code><span>Открыть суд</span></div>
+                            <div class="cmd-row"><code data-copy="/c court file Steve причина">/c court file &lt;ник&gt; &lt;причина&gt;</code><span>Подать жалобу</span></div>
+                        </div>
+                        <p>Голосование длится 5 минут. Требуется минимум 2 голоса и 60% поддержки. Санкции: <b>штраф</b> (5000), <b>эмбарго</b> (разрыв торговых пактов), <b>дипломатический бан</b> (2 часа).</p>
+                    </article>
+
+                    <article class="guide-section" id="guide-events">
+                        <h2 data-guide-title>🌍 Глобальные события</h2>
+                        <p>События запускаются автоматически каждый час (шанс 50/50 негативное/позитивное) на 45 минут.</p>
+                        <ul class="guide-list">
+                            <li><b>Негативные:</b> Засуха (-50% ферм), Наводнение (-40% ферм/торговли), Чума (-50% регена)</li>
+                            <li><b>Позитивные:</b> Урожайный сезон (+75%), Торговый бум (+50%), Горный бум (Спешка), Энерговсплеск (+3⚡), Мирное время (PvP off)</li>
+                        </ul>
+                    </article>
+
+                    <article class="guide-section" id="guide-tax">
+                        <h2 data-guide-title>💰 Налоги (TaxCollector)</h2>
+                        <p>Каждые 5 игровых дней списывается налог: <b>100 + 100×чанков + 200×(чанков/5)</b>. Берётся из казны, потом с личного счёта, потом в долг.</p>
+                        <p>3 просрочки = потеря одного чанка.</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/tax">/tax</code><span>Меню налогов</span></div>
+                            <div class="cmd-row"><code data-copy="/tax pay">/tax pay</code><span>Оплатить долг</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-market">
+                        <h2 data-guide-title>🛒 Рынок (MarketGUI)</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/shop">/shop</code><span>Открыть магазин</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add minecraft:diamond 1 money 100">/shop add &lt;мат&gt; &lt;кол&gt; [money &lt;сумма&gt;] [категория] [for &lt;ник&gt;]</code><span>Выставить товар</span></div>
+                            <div class="cmd-row"><code data-copy="/shop sell">/shop sell</code><span>Мои товары</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-auction">
+                        <h2 data-guide-title>🔨 Аукцион (AuctionHouse)</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/auc">/auc</code><span>Открыть аукцион</span></div>
+                            <div class="cmd-row"><code data-copy="/auc add 1000 60">/auc add &lt;цена&gt; [время]</code><span>Выставить предмет из руки</span></div>
+                            <div class="cmd-row"><code data-copy="/auc bid 1 1500">/auc bid &lt;id&gt; &lt;сумма&gt;</code><span>Сделать ставку</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-bounty">
+                        <h2 data-guide-title>💀 Наёмники (Bounty)</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/bounty Steve 5000">/bounty &lt;ник&gt; &lt;сумма&gt;</code><span>Назначить награду</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty list">/bounty list</code><span>Список целей</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty remove Steve">/bounty remove &lt;ник&gt;</code><span>Снять свою награду</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-casino">
+                        <h2 data-guide-title>🎰 Казино (RollGame)</h2>
+                        <p>Хаб: <code data-copy="/roll">/roll</code> (алиас <code data-copy="/casino">/casino</code>).</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/roll slots 1000">/roll slots &lt;ставка&gt;</code><span>Слоты</span></div>
+                            <div class="cmd-row"><code data-copy="/roll duel 1000">/roll duel &lt;ставка&gt;</code><span>Дуэль 50/50</span></div>
+                            <div class="cmd-row"><code data-copy="/roll mines 1000 3 5">/roll mines &lt;ставка&gt; &lt;мины&gt; &lt;размер&gt;</code><span>Мины</span></div>
+                            <div class="cmd-row"><code data-copy="/roll wheel 1000">/roll wheel &lt;ставка&gt;</code><span>Колесо Фортуны</span></div>
+                            <div class="cmd-row"><code data-copy="/roll stairs 1000">/roll stairs &lt;ставка&gt;</code><span>Лестница</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker">/roll poker</code><span>Покер</span></div>
+                            <div class="cmd-row"><code data-copy="/roll bet 1000">/roll bet &lt;сумма&gt;</code><span>Классическая рулетка</span></div>
+                            <div class="cmd-row"><code data-copy="/roll stats">/roll stats</code><span>Статистика</span></div>
+                            <div class="cmd-row"><code data-copy="/roll jackpot">/roll jackpot</code><span>Размер джекпота</span></div>
+                            <div class="cmd-row"><code data-copy="/roll top">/roll top</code><span>Топ игроков</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-economy">
+                        <h2 data-guide-title>💼 Экономика и работа</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/bal">/bal</code><span>Баланс</span></div>
+                            <div class="cmd-row"><code data-copy="/pay Steve 1000">/pay &lt;ник&gt; &lt;сумма&gt;</code><span>Перевод</span></div>
+                            <div class="cmd-row"><code data-copy="/baltop">/baltop</code><span>Топ богачей</span></div>
+                            <div class="cmd-row"><code data-copy="/jobs browse">/jobs browse</code><span>Профессии</span></div>
+                            <div class="cmd-row"><code data-copy="/sethome">/sethome</code><span>Дом</span></div>
+                            <div class="cmd-row"><code data-copy="/home">/home</code><span>Домой</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-skins">
+                        <h2 data-guide-title>🎨 Скины</h2>
+                        <p>Для пиратских аккаунтов: положи PNG 64×64 в <code>data/skins/&lt;ник&gt;.png</code> (регистр важен). Он подхватится и в 3D-модели, и в аватарках карточек, и на карте.</p>
+                        <p>Для лицензионных аккаунтов скин подтягивается автоматически через Crafatar по UUID.</p>
+                    </article>
+
+                    <article class="guide-section" id="guide-faq">
+                        <h2 data-guide-title>❓ FAQ</h2>
+                        <details class="faq-item">
+                            <summary>Не могу захватить чанк</summary>
+                            <p>Проверь: есть ли страна, хватает ли энергии (2 ⚡), не превышен ли лимит, не защищён ли чанк, владелец не оффлайн.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Скины на панели не грузятся</summary>
+                            <p>Для пиратки положи PNG в <code>data/skins/&lt;ник&gt;.png</code> — регистр важен. Для лицензии подожди загрузки с Crafatar.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>3D-модель не появилась</summary>
+                            <p>Открой F12 → Console. Если там «все источники недоступны» — скачай <code>skinview3d.bundle.js</code> с jsdelivr и положи в корень репозитория.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Как работает пакт о ненападении?</summary>
+                            <p>Запрещает объявлять войну, захватывать чанки и атаковать между странами. Автоматически снимается при объявлении войны.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Что такое защитный чанк?</summary>
+                            <p>Платный флаг (2500). Нельзя захватить врагу. После смерти владельца защита спадает на 1-2 минуты.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Что даёт торговый пакт?</summary>
+                            <p>+5% к пассивному доходу за каждый пакт. Бонус торговли ограничен x2 сверху.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Как получить достижения?</summary>
+                            <p>Захватывай чанки (25/100/200), копи деньги (50k/500k/1M), улучшай чанки (1/10/20/50), заключай пакты (5/10 союзов, 3 военных).</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Почему казна уходит в минус?</summary>
+                            <p>Налог списывается сначала из казны, потом с личного счёта владельца, потом в долг. 3 просрочки = потеря чанка.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Что такое джекпот в казино?</summary>
+                            <p>1% от каждой ставки идёт в общий банк. Шанс сорвать — 0.1% с каждой победы. Сумма видна в /roll jackpot.</p>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Можно ли вернуть деньги в казино?</summary>
+                            <p>Нет. Ставки не возвращаются. Если не хотите риск — не играйте.</p>
+                        </details>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== КОМАНДЫ ========== -->
+        <section class="tab-content" id="tab-commands">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>⌨️ Все команды сервера</h2>
+                    <input type="text" id="cmd-search" placeholder="🔍 Поиск..." class="cmd-search">
+                </div>
+                <p class="cmd-hint">Клик — копирует в буфер.</p>
+                <div class="commands-list" id="commands-list"></div>
+            </section>
+        </section>
+
+        <!-- ========== БОНУСЫ ========== -->
+        <section class="tab-content" id="tab-bonus">
+            <section class="panel" id="panel-jackpot" style="display:none;">
+                <h2>💎 Джекпот казино</h2>
+                <div class="jackpot-display">
+                    <div class="jackpot-value" id="jackpot-value">—</div>
+                    <div class="jackpot-hint">1% с каждой ставки • 0.1% шанс сорвать</div>
+                </div>
+            </section>
+            <section class="panel" id="panel-events" style="display:none;">
+                <h2>🌍 Активные события</h2>
+                <div class="events-list" id="events-list"></div>
+            </section>
+            <section class="panel" id="panel-wars" style="display:none;">
+                <h2>⚔️ Активные войны</h2>
+                <div class="wars-list" id="wars-list"></div>
+            </section>
+            <section class="panel" id="panel-poker" style="display:none;">
+                <h2>🃏 Топ покера за неделю</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Игрок</th><th>Профит</th><th>Раздач</th></tr></thead>
+                        <tbody id="poker-body"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="panel" id="panel-bounties" style="display:none;">
+                <h2>💀 Награды за головы</h2>
+                <div class="bounties-list" id="bounties-list"></div>
+            </section>
+            <section class="panel" id="panel-bonus-empty">
+                <h2>🎁 Бонусы</h2>
+                <p class="empty-hint">Секции появятся автоматически, когда плагины начнут экспортировать данные.</p>
+            </section>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Данные обновляются каждые 5 минут.</p>
+            <p class="small">Powered by <strong>Sovereignty</strong> plugin</p>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- ========== МОДАЛКА 3D-ПРОФИЛЯ ========== -->
+    <div class="modal" id="player-modal">
+        <div class="modal-overlay" data-modal-close></div>
+        <div class="modal-content player-modal-content">
+            <button class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+            <div class="player-modal-grid">
+                <div class="player-viewer-col">
+                    <div class="player-viewer-wrap" id="player-viewer-wrap">
+                        <canvas id="skin-canvas"></canvas>
+                        <div class="player-viewer-loading" id="skin-loading">
+                            <div class="spinner"></div>
+                            <div>Загрузка скина...</div>
+                        </div>
+                    </div>
+                    <div class="player-viewer-hint">🖱 Зажми и потяни — повернуть</div>
+                    <div class="player-viewer-controls">
+                        <button class="player-modal-btn" id="skin-toggle-rotate">⏸ Пауза</button>
+                        <button class="player-modal-btn" id="skin-reset-view">↻ Сброс</button>
+                        <button class="player-modal-btn" id="skin-toggle-name">🏷 Ник</button>
+                    </div>
+                </div>
+                <div class="player-modal-info">
+                    <div class="player-modal-header">
+                        <h2 id="player-modal-name">—</h2>
+                        <div class="player-modal-status" id="player-modal-status"></div>
+                    </div>
+                    <div id="player-modal-panels"></div>
+                    <div class="player-modal-actions" id="player-modal-actions"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

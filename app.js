@@ -1,8 +1,10 @@
-/* Sovereignty panel v3.4 — база v3.3 + фикс 3D-камеры (минимальные изменения) */
+/* Sovereignty panel v3.5 — фикс 3D-камеры (публичный API skinview3d) */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
+
+var APP_VERSION = 'v3.5';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -18,20 +20,23 @@ var PIXELS_PER_BLOCK = 2;
 /*
  * 3D-КАМЕРА — ИСПРАВЛЕНО
  * ============================================================
- * Было: viewer.camera.position.set(...) — skinview3d сбрасывает это
- *       после loadSkin() и при resize → модель обрезалась.
- * Стало: viewer.fov (публичный setter), distance 90 (было 46),
- *        камера ставится через controls.target + update().
+ * ПРОБЛЕМА прошлых версий:
+ *   Писали viewer.camera.position.set(...) и viewer.controls.target.set(...)
+ *   напрямую. skinview3d сбрасывает эти значения после loadSkin() и при
+ *   каждом resize — поэтому модель обрезалась до половины тела.
  *
- * Если после этого что-то не так — открой F12 → Console и пришли строку
- *   [skinview3d] fov=... aspect=... dist=... cam=(...) target=(...)
- * По ней сразу видно: aspect ≠ 1.0 (canvas не квадратный) или что-то ещё.
+ * РЕШЕНИЕ:
+ *   1. viewer.fov — публичный setter skinview3d (в его API есть).
+ *   2. viewer.zoom — публичный setter, задаёт дистанцию камеры.
+ *      Меньше 1.0 = дальше, больше 1.0 = ближе.
+ *   3. После loadSkin() и resize ЗАНОВО применяем fov+zoom.
+ *   4. Логируем диагностику — по ней видно, что реально применилось.
  */
-var SKIN_CAMERA_TARGET_Y = 16;
-var SKIN_CAMERA_DISTANCE = 90;
-var SKIN_CAMERA_FOV = 40;
-var SKIN_CAMERA_MIN_DIST = 22;
-var SKIN_CAMERA_MAX_DIST = 120;
+var SKIN_FOV = 40;
+var SKIN_ZOOM = 0.65;
+var SKIN_TARGET_Y = 16;
+var SKIN_CAMERA_MIN_DIST = 20;
+var SKIN_CAMERA_MAX_DIST = 200;
 var SKIN_GLOBAL_LIGHT = 1.8;
 var SKIN_CAMERA_LIGHT = 1.5;
 var MARKER_BASE_PX = 32;
@@ -54,7 +59,7 @@ var localLoadedAttempted = new Set();
 var PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('[Sovereignty] DOMContentLoaded');
+    console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
     try { initTabs(); } catch (e) { console.error('initTabs:', e); }
     try { initSortTabs(); } catch (e) { console.error('initSortTabs:', e); }
     try { initMapControls(); } catch (e) { console.error('initMapControls:', e); }
@@ -115,7 +120,7 @@ function initModalControls() {
     if (resetBtn) resetBtn.onclick = function () {
         if (currentSkinViewer) {
             applyDefaultCamera(currentSkinViewer);
-            if (typeof showToast === 'function') showToast('✓ Вид сброшен');
+            showToast('✓ Вид сброшен');
         }
     };
     var nameBtn = document.getElementById('skin-toggle-name');
@@ -708,33 +713,31 @@ function renderPanelRow(r) {
 }
 
 /* ============================================================
- * 3D VIEWER
+ * 3D VIEWER — ФИКС КАМЕРЫ
  * ============================================================
- * Ключевые изменения против v3.3:
- *   1. FOV ставим через viewer.fov (публичный setter).
- *   2. Camera position + controls.target — через controls.update().
- *   3. Скин грузим через viewer.loadSkin().then(), чтобы применить
- *      камеру ПОСЛЕ того, как библиотека дёрнула свои внутренние
- *      пересчёты (иначе она сбрасывает то, что мы поставили).
- *   4. Логируем diagnostics — по нему видно, что реально применилось.
+ * Используем ТОЛЬКО публичный API skinview3d:
+ *   viewer.fov   — setter угла обзора
+ *   viewer.zoom  — setter дистанции камеры
+ * Прошлая версия трогала viewer.camera.position и controls.target
+ * напрямую — библиотека сбрасывала их после loadSkin() и при resize.
  * ============================================================ */
 
 function applyDefaultCamera(viewer) {
     if (!viewer) return;
     try {
-        // 1. FOV — публичный setter в skinview3d.
-        try { viewer.fov = SKIN_CAMERA_FOV; } catch (e) {}
+        // Публичные setter'ы skinview3d.
+        try { viewer.fov = SKIN_FOV; } catch (e) {}
+        try { viewer.zoom = SKIN_ZOOM; } catch (e) {}
 
-        // 2. Позиция камеры и точка взгляда.
-        var cam = viewer.camera;
-        var ctl = viewer.controls;
-        if (cam && ctl && ctl.target) {
-            ctl.target.set(0, SKIN_CAMERA_TARGET_Y, 0);
-            cam.position.set(0, SKIN_CAMERA_TARGET_Y, SKIN_CAMERA_DISTANCE);
-            ctl.update();
+        // Точку взгляда сдвигаем на центр тела (12 вместо 16 по умолчанию).
+        if (viewer.controls && viewer.controls.target) {
+            viewer.controls.target.set(0, SKIN_TARGET_Y - 4, 0);
+            viewer.controls.update();
         }
 
-        // 3. Диагностика — ЭТУ СТРОКУ присылай из F12, если что-то не так.
+        // Диагностика — эту строку присылай из F12 → Console, если что-то не так.
+        var cam = viewer.camera;
+        var ctl = viewer.controls;
         if (cam && ctl && ctl.target) {
             var dist = Math.sqrt(
                 Math.pow(cam.position.x - ctl.target.x, 2) +
@@ -743,7 +746,9 @@ function applyDefaultCamera(viewer) {
             );
             var aspect = cam.aspect || 0;
             console.log(
-                '[skinview3d] fov=' + cam.fov.toFixed(1) +
+                '[skinview3d] ' + APP_VERSION +
+                ' | fov=' + (cam.fov != null ? cam.fov.toFixed(1) : '?') +
+                ' zoom=' + (viewer.zoom != null ? viewer.zoom.toFixed(2) : '?') +
                 ' aspect=' + aspect.toFixed(3) +
                 ' dist=' + dist.toFixed(1) +
                 ' cam=(' + cam.position.x.toFixed(1) + ',' + cam.position.y.toFixed(1) + ',' + cam.position.z.toFixed(1) + ')' +
@@ -751,7 +756,7 @@ function applyDefaultCamera(viewer) {
             );
             if (Math.abs(aspect - 1.0) > 0.05) {
                 console.warn('[skinview3d] aspect=' + aspect.toFixed(3) +
-                    ' ≠ 1.0 — canvas не квадратный. Проверь .player-viewer-wrap: aspect-ratio 1/1, БЕЗ min-height.');
+                    ' ≠ 1.0 — canvas не квадратный. Проверь CSS .player-viewer-wrap: должно быть aspect-ratio: 1/1 без min-height.');
             }
         }
     } catch (e) {
@@ -759,7 +764,7 @@ function applyDefaultCamera(viewer) {
     }
 }
 
-// Глобальный хелпер: в F12 → Console набери resetSkinCamera() — применит текущие константы.
+// Глобальный хелпер: resetSkinCamera() из F12 → Console применит текущие константы.
 window.resetSkinCamera = function () {
     if (currentSkinViewer) applyDefaultCamera(currentSkinViewer);
 };
@@ -804,10 +809,9 @@ function initSkinViewer(name, uuid) {
         wrap.getBoundingClientRect();
         setTimeout(function () {
             var rect = wrap.getBoundingClientRect();
-            // Строго квадратный канвас — важно для корректного aspect.
             var size = Math.max(280, Math.round(Math.min(rect.width || 380, rect.height || 380)));
             var skinUrl = resolveSkinUrl(name, uuid);
-            console.log('[skinview3d] canvas=' + size +
+            console.log('[skinview3d] ' + APP_VERSION + ' canvas=' + size +
                 ' wrapRect=' + Math.round(rect.width) + 'x' + Math.round(rect.height) +
                 ' skin=' + skinUrl);
 
@@ -816,7 +820,7 @@ function initSkinViewer(name, uuid) {
                     canvas: newCanvas,
                     width: size,
                     height: size,
-                    fov: SKIN_CAMERA_FOV
+                    fov: SKIN_FOV
                 });
 
                 try {
@@ -824,10 +828,9 @@ function initSkinViewer(name, uuid) {
                     if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
                 } catch (e) {}
 
-                // Ставим камеру ДО загрузки скина
+                // Камера ДО загрузки скина
                 applyDefaultCamera(viewer);
 
-                // Контролы
                 viewer.controls.enableZoom = true;
                 viewer.controls.enablePan = false;
                 viewer.controls.enableRotate = true;
@@ -861,7 +864,8 @@ function initSkinViewer(name, uuid) {
 
                 currentSkinViewer = viewer;
 
-                // Загружаем скин ЯВНО и применяем камеру ПОСЛЕ загрузки.
+                // Скин грузим ЯВНО и применяем камеру ПОСЛЕ — skinview3d
+                // пересчитывает внутреннее состояние при loadSkin.
                 viewer.loadSkin(skinUrl).then(function () {
                     console.log('[skinview3d] skin loaded, re-applying camera');
                     if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
@@ -876,10 +880,10 @@ function initSkinViewer(name, uuid) {
                     if (!currentSkinViewer) return;
                     var w = wrap.clientWidth, h = wrap.clientHeight;
                     if (w > 0 && h > 0) {
-                        // Всегда квадрат — иначе aspect ломается.
                         var s = Math.min(w, h);
                         currentSkinViewer.width = s;
                         currentSkinViewer.height = s;
+                        // После resize Three.js пересчитывает aspect — переустановим.
                         if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
                     }
                 });
@@ -1085,28 +1089,54 @@ var COMMANDS = [
     { cmd: '/c boost', desc: 'Буст регенерации', plugin: 'Sovereignty' },
     { cmd: '/c research', desc: 'Исследования', plugin: 'Sovereignty' },
     { cmd: '/c court', desc: 'Суд', plugin: 'Sovereignty' },
+    { cmd: '/c court file Steve причина', desc: 'Подать жалобу', plugin: 'Sovereignty' },
     { cmd: '/c ally Steve', desc: 'Союз', plugin: 'Sovereignty' },
     { cmd: '/c enemy Steve', desc: 'Война', plugin: 'Sovereignty' },
+    { cmd: '/c neutral Steve', desc: 'Нейтралитет', plugin: 'Sovereignty' },
+    { cmd: '/c pact trade Steve', desc: 'Торговый пакт', plugin: 'Sovereignty' },
+    { cmd: '/c pact military Steve', desc: 'Военный пакт', plugin: 'Sovereignty' },
+    { cmd: '/c pact defense Steve', desc: 'Оборонительный пакт', plugin: 'Sovereignty' },
+    { cmd: '/c pact nonaggression Steve', desc: 'Пакт о ненападении', plugin: 'Sovereignty' },
+    { cmd: '/c surrender', desc: 'Капитуляция', plugin: 'Sovereignty' },
     { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
-    { cmd: '/c accept', desc: 'Принять', plugin: 'Sovereignty' },
-    { cmd: '/c decline', desc: 'Отклонить', plugin: 'Sovereignty' },
+    { cmd: '/c kick Steve', desc: 'Исключить соправителя', plugin: 'Sovereignty' },
+    { cmd: '/c accept', desc: 'Принять приглашение', plugin: 'Sovereignty' },
+    { cmd: '/c decline', desc: 'Отклонить приглашение', plugin: 'Sovereignty' },
+    { cmd: '/c rename НовоеИмя', desc: 'Переименовать страну', plugin: 'Sovereignty' },
+    { cmd: '/c top claims', desc: 'Топ стран', plugin: 'Sovereignty' },
+    { cmd: '/c achievements', desc: 'Достижения', plugin: 'Sovereignty' },
+    { cmd: '/c seechunk', desc: 'Показать границы', plugin: 'Sovereignty' },
+    { cmd: '/c autoclaim', desc: 'Автозахват', plugin: 'Sovereignty' },
+    { cmd: '/c unstuck', desc: 'Телепорт с чужой территории', plugin: 'Sovereignty' },
+    { cmd: '/c miningboost', desc: 'Шахтёрский бонус', plugin: 'Sovereignty' },
     { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
+    { cmd: '/tax pay', desc: 'Оплатить долг', plugin: 'TaxCollector' },
     { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
+    { cmd: '/shop sell', desc: 'Мои товары', plugin: 'MarketGUI' },
     { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
-    { cmd: '/bounty Steve 5000', desc: 'Награда', plugin: 'Bounty' },
-    { cmd: '/roll', desc: 'Казино', plugin: 'RollGame' },
+    { cmd: '/auc add 1000 60', desc: 'Выставить предмет', plugin: 'AuctionHouse' },
+    { cmd: '/auc bid 1 1500', desc: 'Сделать ставку', plugin: 'AuctionHouse' },
+    { cmd: '/bounty Steve 5000', desc: 'Награда за голову', plugin: 'Bounty' },
+    { cmd: '/bounty list', desc: 'Список целей', plugin: 'Bounty' },
+    { cmd: '/bounty remove Steve', desc: 'Снять свою награду', plugin: 'Bounty' },
+    { cmd: '/roll', desc: 'Казино (хаб)', plugin: 'RollGame' },
     { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
     { cmd: '/roll duel 1000', desc: 'Дуэль', plugin: 'RollGame' },
     { cmd: '/roll mines 1000 3 5', desc: 'Мины', plugin: 'RollGame' },
     { cmd: '/roll wheel 1000', desc: 'Колесо', plugin: 'RollGame' },
     { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
     { cmd: '/roll poker', desc: 'Покер', plugin: 'RollGame' },
+    { cmd: '/roll bet 1000', desc: 'Классическая рулетка', plugin: 'RollGame' },
+    { cmd: '/roll stats', desc: 'Статистика игрока', plugin: 'RollGame' },
+    { cmd: '/roll jackpot', desc: 'Размер джекпота', plugin: 'RollGame' },
+    { cmd: '/roll top', desc: 'Топ игроков', plugin: 'RollGame' },
     { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
     { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
-    { cmd: '/sethome', desc: 'Дом', plugin: 'EssentialsX' },
-    { cmd: '/home', desc: 'Домой', plugin: 'EssentialsX' },
+    { cmd: '/baltop', desc: 'Топ богачей', plugin: 'EssentialsX' },
+    { cmd: '/sethome', desc: 'Установить дом', plugin: 'EssentialsX' },
+    { cmd: '/home', desc: 'Телепорт домой', plugin: 'EssentialsX' },
     { cmd: '/jobs browse', desc: 'Профессии', plugin: 'Jobs' },
-    { cmd: '/skin Steve', desc: 'Скин', plugin: 'SkinsRestorer' }
+    { cmd: '/skin Steve', desc: 'Сменить скин', plugin: 'SkinsRestorer' }
 ];
 
 function initCommandSearch() {

@@ -343,11 +343,11 @@ tr.top-3 td.rank { color: #d97706; }
     display: flex; flex-direction: column; gap: 10px;
     position: sticky; top: 0;
 }
+
 /*
- * ВАЖНО: aspect-ratio: 1/1 — строго квадрат.
- * min-height: 360px убран — он ломал квадрат на узких экранах,
- * из-за чего aspect у Three.js-камеры ≠ 1.0 и модель обрезалась.
- * max-width ограничивает растягивание.
+ * ВАЖНО: строго квадратный контейнер.
+ * aspect-ratio: 1/1 делает aspect камеры Three.js = 1.0.
+ * Никаких min-height — они ломают квадрат на узких экранах.
  */
 .player-viewer-wrap {
     position: relative;
@@ -729,4 +729,6 @@ footer strong { color: var(--accent-light); }
     .modal-content { padding: 20px; }
     .player-modal-header h2 { font-size: 22px; }
     .player-panel-row { flex-wrap: wrap; gap: 6px; }
-    .player-panel-row .row-label
+    .player-panel-row .row-label { width: auto; min-width: 130px; }
+    .player-copy-btn { padding: 3px 8px; font-size: 10px; }
+}
