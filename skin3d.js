@@ -1,4 +1,4 @@
-/* skin3d.js — CSS 3D Minecraft skin viewer (без зависимостей) */
+/* skin3d.js — CSS 3D Minecraft skin viewer (без зависимостей) v4.5 */
 (function () {
     'use strict';
 
@@ -69,15 +69,25 @@
         var U = computeU(wrap);
         var isModern = img.height >= 64;
 
-        // Пред-рендер текстуры в нативном разрешении — предотвращает билинейное размытие.
+        // Пред-рендер текстуры. ВАЖНО: img уже должен быть загружен с crossOrigin='anonymous',
+        // иначе canvas будет tainted и toDataURL() выбросит DOMException.
         var tc = document.createElement('canvas');
         tc.width = img.width * U;
         tc.height = img.height * U;
         var tctx = tc.getContext('2d');
         tctx.imageSmoothingEnabled = false;
         tctx.drawImage(img, 0, 0, tc.width, tc.height);
-        var texUrl = 'url("' + tc.toDataURL('image/png') + '")';
-        var texW = tc.width, texH = tc.height;
+        var texUrl;
+        try {
+            texUrl = 'url("' + tc.toDataURL('image/png') + '")';
+        } catch (e) {
+            // Fallback: если canvas всё-таки tainted — используем прямой URL изображения.
+            // В этом случае возможна интерполяция, но зато работает.
+            console.warn('[skin3d] toDataURL заблокирован (tainted canvas), fallback на прямой URL. ' +
+                'Скорее всего CDN скина не отдал CORS-заголовок. Ошибка: ' + e.message);
+            texUrl = 'url("' + img.src + '")';
+        }
+        var texW = img.width * U, texH = img.height * U;
 
         var scene = document.createElement('div');
         scene.className = 'skin-scene';
@@ -90,7 +100,6 @@
             'width:0;height:0;transform-style:preserve-3d';
         scene.appendChild(figure);
 
-        // Чередуем base / overlay — overlay после base для стабильного z-order
         for (var i = 0; i < PARTS.length; i++) {
             var p = PARTS[i];
             var uvB = isModern ? UV_BASE[p.name] : UV_BASE[p.name];
@@ -100,8 +109,6 @@
                 figure.appendChild(makeBox(texUrl, texW, texH, U, uvO, p.w, p.h, p.d, p.cx, p.cy, 1));
             }
         }
-
-        // Legacy 64×32: overlay-слой отсутствует
 
         var tag = document.createElement('div');
         tag.id = 'skin-nametag';

@@ -1,6 +1,6 @@
-/* Sovereignty panel v4.4 — app.js (3D рендер вынесен в skin3d.js) */
+/* Sovereignty panel v4.5 — app.js (фикс CORS для скинов, cache-busting) */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v4.4';
+var APP_VERSION = 'v4.5';
 var DATA_URL = 'data/server1.json', MAP_URL = 'data/map.png', LOCAL_SKIN_DIR = 'data/skins/';
 var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
 var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
@@ -139,7 +139,9 @@ function loadLocalSkin(name) {
     if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
     var url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     return new Promise(function (resolve, reject) {
-        var img = new Image(), fin = false;
+        var img = new Image();
+        // Для локальных скинов crossOrigin НЕ нужен — они same-origin.
+        var fin = false;
         var timer = setTimeout(function () {
             if (fin) return; fin = true; img.src = ''; reject(new Error('timeout'));
         }, LOCAL_SKIN_TIMEOUT_MS);
@@ -179,17 +181,20 @@ function refreshHeadImages() {
     });
 }
 
-/* DATA */
+/* DATA — с агрессивным cache-busting */
 function loadData() {
     console.log('[Sovereignty] loadData');
     var tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка...</td></tr>';
-    fetch(DATA_URL + '?t=' + Date.now())
+    // Cache-busting: &nocache + unique timestamp + random — чтобы ни браузер, ни GitHub Pages CDN не отдали старое.
+    var url = DATA_URL + '?t=' + Date.now() + '&r=' + Math.random() + '&v=' + APP_VERSION;
+    fetch(url, { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
         .then(function (text) {
             if (!text || !text.trim()) throw new Error('Пустой файл');
             currentData = JSON.parse(text);
-            console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length));
+            console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
+                ', updated_at: ' + new Date(currentData.updated_at || 0).toLocaleTimeString('ru-RU'));
             render();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
@@ -303,7 +308,7 @@ function showDetails(countryName) {
     if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
-/* MAP */
+/* MAP — тоже cache-bust */
 function loadMap() {
     var ph = document.getElementById('map-placeholder');
     var canvas = document.getElementById('map-canvas'); if (!canvas) return;
@@ -322,7 +327,7 @@ function loadMap() {
         mapReady = false; canvas.style.display = 'none';
         if (ph) { ph.style.display = 'block'; ph.innerHTML = '<div class="map-placeholder-icon">🗺️</div><p>Карта не сгенерирована.</p>'; }
     };
-    img.src = MAP_URL + '?t=' + Date.now();
+    img.src = MAP_URL + '?t=' + Date.now() + '&r=' + Math.random() + '&v=' + APP_VERSION;
 }
 
 function setupCanvas(w, h) {
@@ -574,10 +579,16 @@ function renderPanel(title, rows) {
 }
 
 /* 3D VIEWER (модуль в skin3d.js) */
+
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     if (uuid) return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
     return CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve';
+}
+
+function isLocalUrl(url) {
+    // Локальные скины (data/skins/...) — same-origin, crossOrigin НЕ ставим.
+    return url.indexOf(LOCAL_SKIN_DIR) === 0 || url.indexOf('data:') === 0;
 }
 
 function initSkinViewer(name, uuid) {
@@ -592,6 +603,12 @@ function initSkinViewer(name, uuid) {
     }
     var url = resolveSkinUrl(name, uuid);
     var img = new Image();
+    // КРИТИЧНО: без crossOrigin='anonymous' canvas становится tainted
+    // и tc.toDataURL() падает с DOMException: The operation is insecure.
+    // Для локальных скинов атрибут не нужен и может даже мешать.
+    if (!isLocalUrl(url)) {
+        img.crossOrigin = 'anonymous';
+    }
     img.onload = function () {
         try {
             var state = SkinViewer3D.build(img, name, wrap);
@@ -605,6 +622,7 @@ function initSkinViewer(name, uuid) {
         }
     };
     img.onerror = function () {
+        console.warn('[3d] skin load fail: ' + url);
         if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Скин не загрузился</div>';
     };
     img.src = url;
