@@ -5,57 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель сервера</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="shortcut icon" href="favicon.ico">
     <meta name="theme-color" content="#6366f1">
-
-    <script>
-    /*
-     * Загрузчик skinview3d.
-     * Порядок: jsdelivr → unpkg → cdnjs → локальный skinview3d.bundle.js
-     * После каждой попытки проверяем, что window.skinview3d реально существует.
-     */
-    (function () {
-        var cdns = [
-            'https://cdn.jsdelivr.net/npm/skinview3d@3/bundles/skinview3d.bundle.js',
-            'https://unpkg.com/skinview3d@3/bundles/skinview3d.bundle.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/skinview3d/3.4.2/skinview3d.bundle.min.js',
-            'skinview3d.bundle.js'
-        ];
-        window.__skinview3dStatus = 'loading';
-        window.__skinview3dSource = null;
-        var i = 0;
-
-        function done(src) {
-            window.__skinview3dStatus = 'loaded';
-            window.__skinview3dSource = src;
-            console.log('[skinview3d] Загружен: ' + src);
-        }
-
-        function tryNext() {
-            if (i >= cdns.length) {
-                window.__skinview3dStatus = 'failed';
-                console.error('[skinview3d] ВСЕ источники недоступны. Скачай skinview3d.bundle.js и положи в корень репозитория.');
-                return;
-            }
-            var src = cdns[i++];
-            console.log('[skinview3d] Пробую: ' + src);
-            var s = document.createElement('script');
-            s.src = src;
-            s.async = false;
-            s.onload = function () {
-                if (typeof skinview3d !== 'undefined') { done(src); }
-                else { console.warn('[skinview3d] Загрузился, но объект не найден: ' + src); tryNext(); }
-            };
-            s.onerror = function () {
-                console.warn('[skinview3d] Ошибка сети: ' + src);
-                tryNext();
-            };
-            document.head.appendChild(s);
-        }
-        tryNext();
-    })();
-    </script>
 </head>
 <body>
     <header>
@@ -80,7 +30,6 @@
     </header>
 
     <main class="container">
-        <!-- ========== ОБЗОР ========== -->
         <section class="tab-content active" id="tab-overview">
             <section class="stats-grid">
                 <div class="stat-card"><div class="stat-icon">🏛️</div><div class="stat-value" id="countries-count">—</div><div class="stat-label">Стран</div></div>
@@ -112,7 +61,6 @@
             </section>
         </section>
 
-        <!-- ========== КАРТА ========== -->
         <section class="tab-content" id="tab-map">
             <section class="panel">
                 <div class="panel-header">
@@ -139,7 +87,6 @@
             </section>
         </section>
 
-        <!-- ========== ИГРОКИ ========== -->
         <section class="tab-content" id="tab-players">
             <section class="panel">
                 <div class="panel-header">
@@ -155,12 +102,10 @@
                 <div class="players-grid" id="players-grid"></div>
                 <div class="empty-hint" id="players-empty" style="display:none;">
                     Данные об игроках пока не передаются панелью.<br>
-                    <span style="font-size:12px;opacity:0.7;">Ожидаемое поле JSON: <code>players[]</code></span>
                 </div>
             </section>
         </section>
 
-        <!-- ========== ГАЙД ========== -->
         <section class="tab-content" id="tab-guide">
             <div class="guide-layout">
                 <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
@@ -232,7 +177,7 @@
 
                     <article class="guide-section" id="guide-events">
                         <h2 data-guide-title>🌍 Глобальные события</h2>
-                        <p>События запускаются автоматически каждый час (шанс 50/50 негативное/позитивное) на 45 минут.</p>
+                        <p>События запускаются автоматически каждый час (шанс 50/50) на 45 минут.</p>
                         <ul class="guide-list">
                             <li><b>Негативные:</b> Засуха (-50% ферм), Наводнение (-40% ферм/торговли), Чума (-50% регена)</li>
                             <li><b>Позитивные:</b> Урожайный сезон (+75%), Торговый бум (+50%), Горный бум (Спешка), Энерговсплеск (+3⚡), Мирное время (PvP off)</li>
@@ -253,7 +198,6 @@
                         <h2 data-guide-title>🛒 Рынок (MarketGUI)</h2>
                         <div class="cmd-grid">
                             <div class="cmd-row"><code data-copy="/shop">/shop</code><span>Открыть магазин</span></div>
-                            <div class="cmd-row"><code data-copy="/shop add minecraft:diamond 1 money 100">/shop add &lt;мат&gt; &lt;кол&gt; [money &lt;сумма&gt;] [категория] [for &lt;ник&gt;]</code><span>Выставить товар</span></div>
                             <div class="cmd-row"><code data-copy="/shop sell">/shop sell</code><span>Мои товары</span></div>
                         </div>
                     </article>
@@ -262,7 +206,7 @@
                         <h2 data-guide-title>🔨 Аукцион (AuctionHouse)</h2>
                         <div class="cmd-grid">
                             <div class="cmd-row"><code data-copy="/auc">/auc</code><span>Открыть аукцион</span></div>
-                            <div class="cmd-row"><code data-copy="/auc add 1000 60">/auc add &lt;цена&gt; [время]</code><span>Выставить предмет из руки</span></div>
+                            <div class="cmd-row"><code data-copy="/auc add 1000 60">/auc add &lt;цена&gt; [время]</code><span>Выставить предмет</span></div>
                             <div class="cmd-row"><code data-copy="/auc bid 1 1500">/auc bid &lt;id&gt; &lt;сумма&gt;</code><span>Сделать ставку</span></div>
                         </div>
                     </article>
@@ -323,7 +267,7 @@
                         </details>
                         <details class="faq-item">
                             <summary>3D-модель не появилась</summary>
-                            <p>Открой F12 → Console. Если там «все источники недоступны» — скачай <code>skinview3d.bundle.js</code> с jsdelivr и положи в корень репозитория.</p>
+                            <p>Проверь F12 → Console. Если `skin3d.js не подключён` — убедись, что в index.html есть <code>&lt;script src="skin3d.js"&gt;&lt;/script&gt;</code> перед app.js.</p>
                         </details>
                         <details class="faq-item">
                             <summary>Как работает пакт о ненападении?</summary>
@@ -358,7 +302,6 @@
             </div>
         </section>
 
-        <!-- ========== КОМАНДЫ ========== -->
         <section class="tab-content" id="tab-commands">
             <section class="panel">
                 <div class="panel-header">
@@ -370,7 +313,6 @@
             </section>
         </section>
 
-        <!-- ========== БОНУСЫ ========== -->
         <section class="tab-content" id="tab-bonus">
             <section class="panel" id="panel-jackpot" style="display:none;">
                 <h2>💎 Джекпот казино</h2>
@@ -416,7 +358,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <!-- ========== МОДАЛКА 3D-ПРОФИЛЯ ========== -->
     <div class="modal" id="player-modal">
         <div class="modal-overlay" data-modal-close></div>
         <div class="modal-content player-modal-content">
@@ -424,7 +365,6 @@
             <div class="player-modal-grid">
                 <div class="player-viewer-col">
                     <div class="player-viewer-wrap" id="player-viewer-wrap">
-                        <canvas id="skin-canvas"></canvas>
                         <div class="player-viewer-loading" id="skin-loading">
                             <div class="spinner"></div>
                             <div>Загрузка скина...</div>
@@ -449,6 +389,7 @@
         </div>
     </div>
 
+    <script src="skin3d.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

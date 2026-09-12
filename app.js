@@ -1,57 +1,31 @@
-/* Sovereignty panel v4.3 — CSS 3D скин: ортографический + overlay */
-
-window.addEventListener('error', function (e) {
-    console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
-});
-
-var APP_VERSION = 'v4.3';
-
-var DATA_URL = 'data/server1.json';
-var MAP_URL = 'data/map.png';
-var LOCAL_SKIN_DIR = 'data/skins/';
-var SKIN_API = 'https://mc-heads.net';
-var CRAFATAR = 'https://crafatar.com';
+/* Sovereignty panel v4.4 — app.js (3D рендер вынесен в skin3d.js) */
+window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
+var APP_VERSION = 'v4.4';
+var DATA_URL = 'data/server1.json', MAP_URL = 'data/map.png', LOCAL_SKIN_DIR = 'data/skins/';
+var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
 var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
-var REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-var LOCAL_SKIN_TIMEOUT_MS = 3000;
-var BLOCKS_PER_CHUNK = 16;
-var PIXELS_PER_BLOCK = 2;
-var MARKER_BASE_PX = 32;
-var MARKER_MIN_PX = 18;
-var MARKER_MAX_PX = 72;
-var MARKER_GROWTH_POWER = 0.5;
+var REFRESH_INTERVAL_MS = 300000, LOCAL_SKIN_TIMEOUT_MS = 3000;
+var BLOCKS_PER_CHUNK = 16, PIXELS_PER_BLOCK = 2;
+var MARKER_BASE_PX = 32, MARKER_MIN_PX = 18, MARKER_MAX_PX = 72, MARKER_GROWTH_POWER = 0.5;
 
-var currentData = null;
-var currentSort = 'claims';
+var currentData = null, currentSort = 'claims';
 var mapZoom = 1, mapOffsetX = 0, mapOffsetY = 0;
 var isDragging = false, dragStartX = 0, dragStartY = 0, dragMoved = false;
-var highlightedCountry = null;
-var showPlayerMarkers = true;
+var highlightedCountry = null, showPlayerMarkers = true;
 var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
-
-var currentSkinViewer = null;
-var rotatePaused = true;
-
-var localSkinCache = new Map();
-var headCache = new Map();
-var localLoadedAttempted = new Set();
+var currentSkinViewer = null, rotatePaused = true;
+var localSkinCache = new Map(), headCache = new Map(), localLoadedAttempted = new Set();
 
 var PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
-    try { initTabs(); } catch (e) { console.error('initTabs:', e); }
-    try { initSortTabs(); } catch (e) { console.error('initSortTabs:', e); }
-    try { initMapControls(); } catch (e) { console.error('initMapControls:', e); }
-    try { initCommandCopy(); } catch (e) { console.error('initCommandCopy:', e); }
-    try { initGuideNav(); } catch (e) { console.error('initGuideNav:', e); }
-    try { initCommandSearch(); } catch (e) { console.error('initCommandSearch:', e); }
-    try { initPlayerControls(); } catch (e) { console.error('initPlayerControls:', e); }
-    try { initModalControls(); } catch (e) { console.error('initModalControls:', e); }
-    try {
-        var rb = document.getElementById('refresh-btn');
-        if (rb) rb.onclick = function () { loadData(); loadMap(); };
-    } catch (e) { console.error('refresh:', e); }
+    ['initTabs','initSortTabs','initMapControls','initCommandCopy','initGuideNav',
+     'initCommandSearch','initPlayerControls','initModalControls'].forEach(function (fn) {
+        try { window[fn](); } catch (e) { console.error(fn + ':', e); }
+    });
+    var rb = document.getElementById('refresh-btn');
+    if (rb) rb.onclick = function () { loadData(); loadMap(); };
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
     requestAnimationFrame(skinRotateLoop);
@@ -60,15 +34,9 @@ document.addEventListener('DOMContentLoaded', function () {
 function skinRotateLoop() {
     if (currentSkinViewer && currentSkinViewer.autoRotate) {
         currentSkinViewer.rotation += 0.8;
-        applyFigureRotation(currentSkinViewer);
+        currentSkinViewer.apply();
     }
     requestAnimationFrame(skinRotateLoop);
-}
-
-function applyFigureRotation(state) {
-    if (!state || !state.element) return;
-    state.element.style.transform =
-        'rotateX(' + state.rotationX + 'deg) rotateY(' + state.rotation + 'deg)';
 }
 
 function initTabs() {
@@ -101,7 +69,6 @@ function initModalControls() {
         el.addEventListener('click', function () { closePlayerModal(); });
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePlayerModal(); });
-
     var rotBtn = document.getElementById('skin-toggle-rotate');
     if (rotBtn) {
         updateRotateButton(rotBtn);
@@ -116,7 +83,7 @@ function initModalControls() {
         if (currentSkinViewer) {
             currentSkinViewer.rotation = 0;
             currentSkinViewer.rotationX = 0;
-            applyFigureRotation(currentSkinViewer);
+            currentSkinViewer.apply();
             showToast('✓ Вид сброшен');
         }
     };
@@ -129,13 +96,8 @@ function initModalControls() {
 
 function updateRotateButton(btn) {
     if (!btn) return;
-    if (rotatePaused) {
-        btn.textContent = '▶ Вращение';
-        btn.classList.add('active');
-    } else {
-        btn.textContent = '⏸ Пауза';
-        btn.classList.remove('active');
-    }
+    if (rotatePaused) { btn.textContent = '▶ Вращение'; btn.classList.add('active'); }
+    else { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
 function openPlayerModal() {
@@ -154,8 +116,7 @@ function closePlayerModal() {
     if (btn) updateRotateButton(btn);
 }
 
-/* ================= LOCAL SKINS ================= */
-
+/* LOCAL SKINS */
 function preloadLocalSkins() {
     var players = currentData && currentData.players ? currentData.players : [];
     if (players.length === 0) return;
@@ -167,7 +128,7 @@ function preloadLocalSkins() {
         loadLocalSkin(p.name).then(function () { loaded++; }).catch(function () {}).finally(function () {
             done++;
             if (done === toLoad.length) {
-                console.log('[Skins] Готово: ' + loaded + '/' + toLoad.length);
+                console.log('[Skins] ' + loaded + '/' + toLoad.length);
                 refreshHeadImages();
             }
         });
@@ -178,46 +139,32 @@ function loadLocalSkin(name) {
     if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
     var url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     return new Promise(function (resolve, reject) {
-        var img = new Image();
-        var finished = false;
+        var img = new Image(), fin = false;
         var timer = setTimeout(function () {
-            if (finished) return;
-            finished = true;
-            img.src = '';
-            reject(new Error('timeout'));
+            if (fin) return; fin = true; img.src = ''; reject(new Error('timeout'));
         }, LOCAL_SKIN_TIMEOUT_MS);
         img.onload = function () {
-            if (finished) return;
-            finished = true;
-            clearTimeout(timer);
-            if (img.width < 64 || (img.height !== 32 && img.height !== 64)) {
-                reject(new Error('bad format'));
-                return;
-            }
+            if (fin) return; fin = true; clearTimeout(timer);
+            if (img.width < 64 || (img.height !== 32 && img.height !== 64)) { reject(new Error('bad')); return; }
             localSkinCache.set(name, img);
             try { headCache.set(name, headFromSkin(img)); } catch (e) {}
             resolve(img);
         };
         img.onerror = function () {
-            if (finished) return;
-            finished = true;
-            clearTimeout(timer);
-            reject(new Error('404'));
+            if (fin) return; fin = true; clearTimeout(timer); reject(new Error('404'));
         };
         img.src = url;
     });
 }
 
 function headFromSkin(skinImg) {
-    var canvas = document.createElement('canvas');
-    canvas.width = 8; canvas.height = 8;
-    var ctx = canvas.getContext('2d');
+    var c = document.createElement('canvas');
+    c.width = 8; c.height = 8;
+    var ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(skinImg, 8, 8, 8, 8, 0, 0, 8, 8);
-    if (skinImg.width >= 64 && skinImg.height >= 64) {
-        ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 8, 8);
-    }
-    return canvas.toDataURL('image/png');
+    if (skinImg.width >= 64 && skinImg.height >= 64) ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 8, 8);
+    return c.toDataURL('image/png');
 }
 
 function getHeadUrl(name, size) {
@@ -226,58 +173,46 @@ function getHeadUrl(name, size) {
 }
 
 function refreshHeadImages() {
-    var updated = 0;
     document.querySelectorAll('img[data-pname]').forEach(function (img) {
-        var name = img.getAttribute('data-pname');
-        if (headCache.has(name)) { img.src = headCache.get(name); updated++; }
+        var n = img.getAttribute('data-pname');
+        if (headCache.has(n)) img.src = headCache.get(n);
     });
-    if (updated > 0) console.log('[Skins] Обновлено голов: ' + updated);
 }
 
-/* ================= DATA ================= */
-
+/* DATA */
 function loadData() {
-    console.log('[Sovereignty] loadData старт');
+    console.log('[Sovereignty] loadData');
     var tbody = document.getElementById('countries-body');
-    if (tbody && tbody.children.length <= 1) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr>';
-    }
+    if (tbody && tbody.children.length <= 1) tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка...</td></tr>';
     fetch(DATA_URL + '?t=' + Date.now())
-        .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.text();
-        })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
         .then(function (text) {
             if (!text || !text.trim()) throw new Error('Пустой файл');
             currentData = JSON.parse(text);
-            console.log('[Sovereignty] загружено, игроков: ' + ((currentData.players || []).length));
+            console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length));
             render();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
         })
         .catch(function (err) {
-            console.error('[Sovereignty] load error:', err);
-            var sn = document.getElementById('server-name');
-            if (sn) sn.textContent = '⚠ Ошибка';
+            console.error('[Sovereignty] err:', err);
+            var sn = document.getElementById('server-name'); if (sn) sn.textContent = '⚠ Ошибка';
             if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading" style="color:#ef4444;">❌ ' + escapeHtml(err.message) + '</td></tr>';
         });
 }
 
 function render() {
     if (!currentData) return;
-    var sn = document.getElementById('server-name');
-    if (sn) sn.textContent = currentData.server_name || 'Сервер';
+    var sn = document.getElementById('server-name'); if (sn) sn.textContent = currentData.server_name || 'Сервер';
     var ob = document.getElementById('online-badge');
     if (ob) ob.textContent = 'Онлайн: ' + (currentData.online_players || 0) + ' / ' + (currentData.max_players || 0);
     var upd = currentData.updated_at;
     if (upd) {
         var m = Math.floor((Date.now() - upd) / 60000);
         var ago = m < 1 ? 'только что' : m < 60 ? m + ' мин назад' : Math.floor(m / 60) + ' ч назад';
-        var ub = document.getElementById('updated-badge');
-        if (ub) ub.textContent = 'Обновлено: ' + ago;
+        var ub = document.getElementById('updated-badge'); if (ub) ub.textContent = 'Обновлено: ' + ago;
     }
-    var countries = currentData.countries || [];
-    var players = currentData.players || [];
+    var countries = currentData.countries || [], players = currentData.players || [];
     setText('countries-count', countries.length);
     setText('total-claims', countries.reduce(function (s, c) { return s + (c.claims || 0); }, 0).toLocaleString('ru-RU'));
     setText('total-bank', formatMoney(countries.reduce(function (s, c) { return s + (c.bank || 0); }, 0)));
@@ -289,14 +224,10 @@ function render() {
             tp.textContent = online > 0 ? online + ' / ' + players.length : String(players.length);
         } else tp.textContent = String(currentData.online_players || 0);
     }
-    renderCountries();
-    renderLegend();
-    renderPlayers();
-    renderBonus();
-    renderPlayerMarkers();
+    renderCountries(); renderLegend(); renderPlayers(); renderBonus(); renderPlayerMarkers();
 }
 
-function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
 
 function renderCountries() {
     if (!currentData) return;
@@ -325,8 +256,7 @@ function renderCountries() {
 }
 
 function renderLegend() {
-    var legend = document.getElementById('map-legend');
-    if (!legend) return;
+    var legend = document.getElementById('map-legend'); if (!legend) return;
     var countries = currentData && currentData.countries ? currentData.countries : [];
     if (countries.length === 0) { legend.innerHTML = ''; return; }
     legend.innerHTML = countries.map(function (c, i) {
@@ -346,26 +276,24 @@ function highlightCountry(name) {
 
 function showDetails(countryName) {
     var countries = currentData && currentData.countries ? currentData.countries : [];
-    var country = countries.filter(function (c) { return c.name === countryName; })[0];
-    if (!country) return;
-    var dt = document.getElementById('detail-title');
-    if (dt) dt.textContent = '🏛️ ' + country.name;
-    var content = document.getElementById('detail-content');
-    if (!content) return;
+    var c = countries.filter(function (x) { return x.name === countryName; })[0];
+    if (!c) return;
+    var dt = document.getElementById('detail-title'); if (dt) dt.textContent = '🏛️ ' + c.name;
+    var content = document.getElementById('detail-content'); if (!content) return;
     var items = [
-        { label: 'Лидер', value: country.owner || '?' },
-        { label: 'Территория', value: (country.claims || 0) + ' / ' + (country.max_claims || '?') + ' чанков' },
-        { label: 'Казна', value: formatMoney(country.bank || 0), cls: 'success' },
-        { label: 'Долг', value: formatMoney(country.debt || 0), cls: (country.debt || 0) > 0 ? 'danger' : '' },
-        { label: 'Энергия', value: (country.energy || 0).toFixed(1) + ' / ' + (country.max_energy || 0).toFixed(1), cls: 'warning' },
-        { label: 'Регенерация', value: (country.regen || 0).toFixed(1) + '/час', cls: 'warning' },
-        { label: 'Уровень ферм', value: country.farm_level || 0 },
-        { label: 'Союзы', value: country.allies || 0 },
-        { label: 'Пакты', value: country.pacts || 0 },
-        { label: '🌾 Ферм', value: country.chunks_farm || 0 },
-        { label: '⛏ Шахт', value: country.chunks_mining || 0 },
-        { label: '⚔ Военных', value: country.chunks_military || 0 },
-        { label: '💰 Торговых', value: country.chunks_trade || 0 }
+        { label: 'Лидер', value: c.owner || '?' },
+        { label: 'Территория', value: (c.claims || 0) + ' / ' + (c.max_claims || '?') + ' чанков' },
+        { label: 'Казна', value: formatMoney(c.bank || 0), cls: 'success' },
+        { label: 'Долг', value: formatMoney(c.debt || 0), cls: (c.debt || 0) > 0 ? 'danger' : '' },
+        { label: 'Энергия', value: (c.energy || 0).toFixed(1) + ' / ' + (c.max_energy || 0).toFixed(1), cls: 'warning' },
+        { label: 'Регенерация', value: (c.regen || 0).toFixed(1) + '/час', cls: 'warning' },
+        { label: 'Уровень ферм', value: c.farm_level || 0 },
+        { label: 'Союзы', value: c.allies || 0 },
+        { label: 'Пакты', value: c.pacts || 0 },
+        { label: '🌾 Ферм', value: c.chunks_farm || 0 },
+        { label: '⛏ Шахт', value: c.chunks_mining || 0 },
+        { label: '⚔ Военных', value: c.chunks_military || 0 },
+        { label: '💰 Торговых', value: c.chunks_trade || 0 }
     ];
     content.innerHTML = items.map(function (it) {
         return '<div class="detail-item"><div class="label">' + it.label + '</div>' +
@@ -375,14 +303,11 @@ function showDetails(countryName) {
     if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
-/* ================= MAP ================= */
-
+/* MAP */
 function loadMap() {
     var ph = document.getElementById('map-placeholder');
-    var canvas = document.getElementById('map-canvas');
-    if (!canvas) return;
-    var img = new Image();
-    img.crossOrigin = 'anonymous';
+    var canvas = document.getElementById('map-canvas'); if (!canvas) return;
+    var img = new Image(); img.crossOrigin = 'anonymous';
     img.onload = function () {
         var first = !mapReady;
         mapImage = img;
@@ -390,13 +315,11 @@ function loadMap() {
         mapReady = true;
         if (ph) ph.style.display = 'none';
         canvas.style.display = 'block';
-        if (first) setTimeout(resetMapView, 50);
-        else applyMapTransform();
+        if (first) setTimeout(resetMapView, 50); else applyMapTransform();
         renderPlayerMarkers();
     };
     img.onerror = function () {
-        mapReady = false;
-        canvas.style.display = 'none';
+        mapReady = false; canvas.style.display = 'none';
         if (ph) { ph.style.display = 'block'; ph.innerHTML = '<div class="map-placeholder-icon">🗺️</div><p>Карта не сгенерирована.</p>'; }
     };
     img.src = MAP_URL + '?t=' + Date.now();
@@ -412,13 +335,11 @@ function setupCanvas(w, h) {
 }
 
 function initMapControls() {
-    var vp = document.getElementById('map-viewport');
-    if (!vp) return;
+    var vp = document.getElementById('map-viewport'); if (!vp) return;
     vp.addEventListener('mousedown', function (e) {
         if (!mapReady || e.target.closest('.map-marker')) return;
         isDragging = true; dragMoved = false;
-        dragStartX = e.clientX - mapOffsetX;
-        dragStartY = e.clientY - mapOffsetY;
+        dragStartX = e.clientX - mapOffsetX; dragStartY = e.clientY - mapOffsetY;
     });
     window.addEventListener('mousemove', function (e) {
         if (!isDragging) return;
@@ -438,20 +359,16 @@ function initMapControls() {
         var rect = vp.getBoundingClientRect();
         var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
         var ix = (cx - mapOffsetX) / mapZoom, iy = (cy - mapOffsetY) / mapZoom;
-        var delta = e.deltaY > 0 ? 0.9 : 1.1;
-        mapZoom = Math.max(0.1, Math.min(12, mapZoom * delta));
-        mapOffsetX = cx - ix * mapZoom;
-        mapOffsetY = cy - iy * mapZoom;
+        mapZoom = Math.max(0.1, Math.min(12, mapZoom * (e.deltaY > 0 ? 0.9 : 1.1)));
+        mapOffsetX = cx - ix * mapZoom; mapOffsetY = cy - iy * mapZoom;
         applyMapTransform();
     }, { passive: false });
-    var rb = document.getElementById('map-reset');
-    if (rb) rb.addEventListener('click', resetMapView);
+    var rb = document.getElementById('map-reset'); if (rb) rb.addEventListener('click', resetMapView);
     var cb = document.getElementById('map-clear-highlight');
     if (cb) cb.addEventListener('click', function () {
         highlightedCountry = null;
         document.querySelectorAll('.legend-item').forEach(function (el) { el.classList.remove('highlight'); });
-        var cd = document.getElementById('country-details');
-        if (cd) cd.style.display = 'none';
+        var cd = document.getElementById('country-details'); if (cd) cd.style.display = 'none';
     });
     var sp = document.getElementById('map-show-players');
     if (sp) sp.addEventListener('change', function () { showPlayerMarkers = sp.checked; renderPlayerMarkers(); });
@@ -461,11 +378,9 @@ function handleMapClick(e) {
     var vp = document.getElementById('map-viewport');
     var rect = vp.getBoundingClientRect();
     var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    var ix = Math.round((cx - mapOffsetX) / mapZoom);
-    var iy = Math.round((cy - mapOffsetY) / mapZoom);
+    var ix = Math.round((cx - mapOffsetX) / mapZoom), iy = Math.round((cy - mapOffsetY) / mapZoom);
     if (ix < 0 || iy < 0 || ix >= mapCanvas.width || iy >= mapCanvas.height) return;
-    var px;
-    try { px = mapCtx.getImageData(ix, iy, 1, 1).data; } catch (err) { return; }
+    var px; try { px = mapCtx.getImageData(ix, iy, 1, 1).data; } catch (err) { return; }
     if (px[3] < 10) return;
     var countries = currentData && currentData.countries ? currentData.countries : [];
     var bestIdx = -1, bestDist = 120;
@@ -478,22 +393,16 @@ function handleMapClick(e) {
     var country = countries[bestIdx];
     highlightCountry(country.name);
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
-    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
-    if (ov) ov.classList.add('active');
+    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]'); if (ov) ov.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var ovTab = document.getElementById('tab-overview');
-    if (ovTab) ovTab.classList.add('active');
+    var ovTab = document.getElementById('tab-overview'); if (ovTab) ovTab.classList.add('active');
     showDetails(country.name);
 }
 
-function hexToRgb(hex) {
-    var h = hex.replace('#', '');
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
+function hexToRgb(hex) { var h = hex.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
 
 function applyMapTransform() {
-    var canvas = document.getElementById('map-canvas');
-    var overlay = document.getElementById('map-overlay');
+    var canvas = document.getElementById('map-canvas'), overlay = document.getElementById('map-overlay');
     if (!canvas) return;
     var t = 'translate(' + mapOffsetX + 'px,' + mapOffsetY + 'px) scale(' + mapZoom + ')';
     canvas.style.transform = t;
@@ -501,40 +410,31 @@ function applyMapTransform() {
 }
 
 function updateMarkerScale() {
-    var overlay = document.getElementById('map-overlay');
-    if (!overlay) return;
+    var overlay = document.getElementById('map-overlay'); if (!overlay) return;
     var z = Math.max(0.05, mapZoom);
     var desired = MARKER_BASE_PX * Math.pow(z, MARKER_GROWTH_POWER);
     var clamped = Math.max(MARKER_MIN_PX, Math.min(MARKER_MAX_PX, desired));
-    var counter = clamped / (MARKER_BASE_PX * z);
-    overlay.style.setProperty('--marker-counter', counter.toFixed(4));
+    overlay.style.setProperty('--marker-counter', (clamped / (MARKER_BASE_PX * z)).toFixed(4));
 }
 
 function resetMapView() {
-    var canvas = document.getElementById('map-canvas');
-    var vp = document.getElementById('map-viewport');
+    var canvas = document.getElementById('map-canvas'), vp = document.getElementById('map-viewport');
     if (!canvas || !vp || !mapReady) return;
-    var vw = vp.clientWidth, vh = vp.clientHeight;
-    var iw = mapCanvas.width, ih = mapCanvas.height;
+    var vw = vp.clientWidth, vh = vp.clientHeight, iw = mapCanvas.width, ih = mapCanvas.height;
     var scale = Math.min(vw / iw, vh / ih) * 0.98;
     mapZoom = scale;
-    mapOffsetX = (vw - iw * scale) / 2;
-    mapOffsetY = (vh - ih * scale) / 2;
+    mapOffsetX = (vw - iw * scale) / 2; mapOffsetY = (vh - ih * scale) / 2;
     applyMapTransform();
 }
 
 function worldToImagePx(x, z, meta) {
-    var minBX = meta.min_chunk_x * BLOCKS_PER_CHUNK;
-    var minBZ = meta.min_chunk_z * BLOCKS_PER_CHUNK;
-    return { px: (x - minBX) * PIXELS_PER_BLOCK, pz: (z - minBZ) * PIXELS_PER_BLOCK };
+    return { px: (x - meta.min_chunk_x * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK, pz: (z - meta.min_chunk_z * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK };
 }
 
 function renderPlayerMarkers() {
-    var overlay = document.getElementById('map-overlay');
-    if (!overlay) return;
+    var overlay = document.getElementById('map-overlay'); if (!overlay) return;
     if (!showPlayerMarkers || !mapReady || !currentData) { overlay.innerHTML = ''; return; }
-    var meta = currentData.map_meta;
-    var players = currentData.players || [];
+    var meta = currentData.map_meta, players = currentData.players || [];
     if (!meta || players.length === 0) { overlay.innerHTML = ''; return; }
     var markers = [];
     players.forEach(function (p) {
@@ -543,38 +443,29 @@ function renderPlayerMarkers() {
         if (pos.world && meta.world && pos.world !== meta.world) return;
         var pt = worldToImagePx(pos.x, pos.z, meta);
         if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) return;
-        var online = !!p.online;
         var name = p.name || '?';
         var headUrl = getHeadUrl(name, 32);
         var fallback = SKIN_API + '/avatar/Steve/32';
-        markers.push('<div class="map-marker ' + (online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + '">' +
+        markers.push('<div class="map-marker ' + (p.online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();">' +
             '<div class="map-marker-content">' +
-            '<img class="map-marker-head" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
+            '<img class="map-marker-head" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
             '<div class="map-marker-label">' + escapeHtml(name) + '</div></div></div>');
     });
     overlay.innerHTML = markers.join('');
     updateMarkerScale();
 }
 
-/* ================= PLAYERS ================= */
-
+/* PLAYERS */
 function initPlayerControls() {
-    var s = document.getElementById('player-search');
-    if (s) s.addEventListener('input', renderPlayers);
-    var o = document.getElementById('player-online-only');
-    if (o) o.addEventListener('change', renderPlayers);
+    var s = document.getElementById('player-search'); if (s) s.addEventListener('input', renderPlayers);
+    var o = document.getElementById('player-online-only'); if (o) o.addEventListener('change', renderPlayers);
 }
 
 function renderPlayers() {
-    var grid = document.getElementById('players-grid');
-    var empty = document.getElementById('players-empty');
+    var grid = document.getElementById('players-grid'), empty = document.getElementById('players-empty');
     if (!grid || !empty) return;
     var players = currentData && currentData.players ? currentData.players : null;
-    if (!players || players.length === 0) {
-        grid.innerHTML = '';
-        empty.style.display = 'block';
-        return;
-    }
+    if (!players || players.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
     var q = (document.getElementById('player-search').value || '').trim().toLowerCase();
     var onlineOnly = document.getElementById('player-online-only').checked || false;
@@ -587,10 +478,7 @@ function renderPlayers() {
         if (!!b.online !== !!a.online) return b.online ? 1 : -1;
         return (b.playtime_seconds || 0) - (a.playtime_seconds || 0);
     });
-    if (filtered.length === 0) {
-        grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">Ничего не найдено.</div>';
-        return;
-    }
+    if (filtered.length === 0) { grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">Ничего не найдено.</div>'; return; }
     grid.innerHTML = filtered.map(renderPlayerCard).join('');
 }
 
@@ -598,469 +486,171 @@ function renderPlayerCard(p) {
     var name = p.name || '?';
     var avatar = getHeadUrl(name, 64);
     var fallback = SKIN_API + '/avatar/Steve/64';
-    var online = !!p.online;
     var badge = '';
     if (p.country_role === 'leader') badge = '<div class="player-card-badge leader">Лидер</div>';
     else if (p.country_role === 'co_ruler') badge = '<div class="player-card-badge co-ruler">Co</div>';
     var pt = formatPlaytime(p.playtime_seconds);
     var money = p.balance != null ? formatMoney(p.balance) : null;
-    return '<div class="player-card" onclick="openPlayer(\'' + escapeAttr(name) + '\')">' +
-        badge +
+    return '<div class="player-card" onclick="openPlayer(\'' + escapeAttr(name) + '\')">' + badge +
         '<div class="player-card-avatar">' +
-        '<img src="' + avatar + '" data-pname="' + escapeAttr(name) + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
-        '<div class="status-dot ' + (online ? 'online' : 'offline') + '"></div></div>' +
+        '<img src="' + avatar + '" data-pname="' + escapeAttr(name) + '" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
+        '<div class="status-dot ' + (p.online ? 'online' : 'offline') + '"></div></div>' +
         '<div class="player-card-info">' +
         '<div class="player-card-name">' + escapeHtml(name) + '</div>' +
         '<div class="player-card-country">' + (p.country ? '<span class="country-tag">🏛️ ' + escapeHtml(p.country) + '</span>' : '<span class="no-country">Без страны</span>') + '</div>' +
         '<div class="player-card-meta">' +
         (money != null ? '<span class="money">💰 ' + money + '</span>' : '') +
-        (pt ? '<span>⏱ ' + pt + '</span>' : '') +
-        '</div></div></div>';
+        (pt ? '<span>⏱ ' + pt + '</span>' : '') + '</div></div></div>';
 }
 
 function openPlayer(name) {
     var players = currentData && currentData.players ? currentData.players : [];
-    var player = players.filter(function (p) { return p.name === name; })[0];
-    if (!player) return;
-    var online = !!player.online;
+    var p = players.filter(function (x) { return x.name === name; })[0];
+    if (!p) return;
     setText('player-modal-name', name);
     var st = document.getElementById('player-modal-status');
     if (st) {
-        st.textContent = online ? '● Онлайн' : '○ Оффлайн';
-        st.className = 'player-modal-status ' + (online ? 'online' : 'offline');
+        st.textContent = p.online ? '● Онлайн' : '○ Оффлайн';
+        st.className = 'player-modal-status ' + (p.online ? 'online' : 'offline');
     }
+    var acc = [];
+    if (p.uuid) acc.push({ label: 'UUID', value: shortenUuid(p.uuid), copy: p.uuid });
+    if (p.first_seen) acc.push({ label: 'Первый вход', value: timeAgo(p.first_seen) });
+    if (p.last_seen) acc.push({ label: 'Был в игре', value: timeAgo(p.last_seen) });
+    if (p.playtime_seconds != null) acc.push({ label: 'Время в игре', value: formatPlaytime(p.playtime_seconds) });
+    if (p.playtime_seconds > 0) acc.push({ label: 'Дней в игре', value: Math.floor(p.playtime_seconds / 86400) });
 
-    var accountRows = [];
-    if (player.uuid) accountRows.push({ label: 'UUID', value: shortenUuid(player.uuid), copy: player.uuid });
-    if (player.first_seen) accountRows.push({ label: 'Первый вход', value: timeAgo(player.first_seen) });
-    if (player.last_seen) accountRows.push({ label: 'Был в игре', value: timeAgo(player.last_seen) });
-    if (player.playtime_seconds != null) accountRows.push({ label: 'Время в игре', value: formatPlaytime(player.playtime_seconds) });
-    if (player.playtime_seconds > 0) accountRows.push({ label: 'Дней в игре', value: Math.floor(player.playtime_seconds / 86400) });
-
-    var ecoRows = [];
-    if (player.balance != null) ecoRows.push({ label: 'Баланс', value: formatMoney(player.balance), cls: 'success' });
-    if (player.job) ecoRows.push({ label: 'Профессия', value: player.job + (player.job_level ? ' (ур. ' + player.job_level + ')' : '') });
-    if (player.kills != null || player.deaths != null) {
-        var k = player.kills || 0, d = player.deaths || 0;
-        var kd = d > 0 ? (k / d).toFixed(2) : k;
-        ecoRows.push({ label: 'Убийств', value: k });
-        ecoRows.push({ label: 'Смертей', value: d });
-        ecoRows.push({ label: 'K/D', value: kd });
+    var eco = [];
+    if (p.balance != null) eco.push({ label: 'Баланс', value: formatMoney(p.balance), cls: 'success' });
+    if (p.job) eco.push({ label: 'Профессия', value: p.job + (p.job_level ? ' (ур. ' + p.job_level + ')' : '') });
+    if (p.kills != null || p.deaths != null) {
+        var k = p.kills || 0, d = p.deaths || 0;
+        eco.push({ label: 'Убийств', value: k });
+        eco.push({ label: 'Смертей', value: d });
+        eco.push({ label: 'K/D', value: d > 0 ? (k / d).toFixed(2) : k });
     }
-    if (player.bounty != null && player.bounty > 0) ecoRows.push({ label: '💀 Награда', value: formatMoney(player.bounty), cls: 'danger' });
+    if (p.bounty != null && p.bounty > 0) eco.push({ label: '💀 Награда', value: formatMoney(p.bounty), cls: 'danger' });
 
-    var countryRows = [];
-    if (player.country) {
-        countryRows.push({ label: 'Название', value: player.country, cls: 'accent', copy: player.country });
-        if (player.country_role) {
-            var rn = player.country_role === 'leader' ? 'Лидер'
-                : player.country_role === 'co_ruler' ? 'Соправитель' : player.country_role;
-            countryRows.push({ label: 'Роль', value: rn });
-        }
-        var cd = (currentData.countries || []).filter(function (c) { return c.name === player.country; })[0];
+    var cR = [];
+    if (p.country) {
+        cR.push({ label: 'Название', value: p.country, cls: 'accent', copy: p.country });
+        if (p.country_role) cR.push({ label: 'Роль', value: p.country_role === 'leader' ? 'Лидер' : p.country_role === 'co_ruler' ? 'Соправитель' : p.country_role });
+        var cd = (currentData.countries || []).filter(function (c) { return c.name === p.country; })[0];
         if (cd) {
-            if (cd.bank != null) countryRows.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
-            if (cd.claims != null) countryRows.push({ label: 'Территория', value: cd.claims + ' чанков' });
-            if (cd.allies != null) countryRows.push({ label: 'Союзы', value: cd.allies });
-            if (cd.pacts != null) countryRows.push({ label: 'Пакты', value: cd.pacts });
+            if (cd.bank != null) cR.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
+            if (cd.claims != null) cR.push({ label: 'Территория', value: cd.claims + ' чанков' });
+            if (cd.allies != null) cR.push({ label: 'Союзы', value: cd.allies });
+            if (cd.pacts != null) cR.push({ label: 'Пакты', value: cd.pacts });
         }
-    } else countryRows.push({ label: 'Страна', value: 'Нет' });
+    } else cR.push({ label: 'Страна', value: 'Нет' });
 
-    var actRows = [];
-    if (player.energy != null) actRows.push({
-        label: 'Энергия',
-        value: player.energy.toFixed(1) + (player.max_energy != null ? ' / ' + player.max_energy.toFixed(1) : ''),
-        cls: 'warning'
-    });
-    if (player.achievements_count != null) actRows.push({ label: 'Достижений', value: player.achievements_count });
-    if (player.position) {
-        var pos = player.position;
-        actRows.push({ label: 'Локация', value: Math.round(pos.x) + ', ' + Math.round(pos.y || 0) + ', ' + Math.round(pos.z) });
-    }
+    var aR = [];
+    if (p.energy != null) aR.push({ label: 'Энергия', value: p.energy.toFixed(1) + (p.max_energy != null ? ' / ' + p.max_energy.toFixed(1) : ''), cls: 'warning' });
+    if (p.achievements_count != null) aR.push({ label: 'Достижений', value: p.achievements_count });
+    if (p.position) aR.push({ label: 'Локация', value: Math.round(p.position.x) + ', ' + Math.round(p.position.y || 0) + ', ' + Math.round(p.position.z) });
 
-    var panelsEl = document.getElementById('player-modal-panels');
-    if (panelsEl) {
-        panelsEl.innerHTML =
-            renderPanel('Учётная запись', accountRows) +
-            renderPanel('Экономика', ecoRows) +
-            renderPanel('Страна', countryRows) +
-            renderPanel('Активность', actRows);
-    }
+    var panel = document.getElementById('player-modal-panels');
+    if (panel) panel.innerHTML = renderPanel('Учётная запись', acc) + renderPanel('Экономика', eco) + renderPanel('Страна', cR) + renderPanel('Активность', aR);
 
     var actions = [];
-    if (player.country) actions.push('<button class="player-modal-btn" onclick="gotoCountry(\'' + escapeAttr(player.country) + '\')">🏛️ Перейти к стране</button>');
-    if (player.position) actions.push('<button class="player-modal-btn" onclick="gotoPlayerOnMap(\'' + escapeAttr(name) + '\')">🗺️ На карте</button>');
+    if (p.country) actions.push('<button class="player-modal-btn" onclick="gotoCountry(\'' + escapeAttr(p.country) + '\')">🏛️ Перейти к стране</button>');
+    if (p.position) actions.push('<button class="player-modal-btn" onclick="gotoPlayerOnMap(\'' + escapeAttr(name) + '\')">🗺️ На карте</button>');
     actions.push('<button class="player-modal-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(name) + '\')">📋 Скопировать ник</button>');
-    var actBtnEl = document.getElementById('player-modal-actions');
-    if (actBtnEl) actBtnEl.innerHTML = actions.join('');
+    var ab = document.getElementById('player-modal-actions'); if (ab) ab.innerHTML = actions.join('');
 
     openPlayerModal();
-    setTimeout(function () { initSkinViewer(name, player.uuid); }, 60);
+    setTimeout(function () { initSkinViewer(name, p.uuid); }, 60);
 }
 
 function renderPanel(title, rows) {
     var valid = (rows || []).filter(function (r) { return r.value !== undefined && r.value !== null && r.value !== ''; });
     if (valid.length === 0) return '';
-    return '<div class="player-panel">' +
-        '<div class="player-panel-title">' + escapeHtml(title) + '</div>' +
-        valid.map(renderPanelRow).join('') +
-        '</div>';
+    return '<div class="player-panel"><div class="player-panel-title">' + escapeHtml(title) + '</div>' +
+        valid.map(function (r) {
+            var cp = r.copy ? '<button class="player-copy-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(r.copy) + '\')">📋 Копировать</button>' : '';
+            return '<div class="player-panel-row"><div class="row-label">' + escapeHtml(r.label) + '</div>' +
+                '<div class="row-value ' + (r.cls || '') + '">' + escapeHtml(String(r.value)) + '</div>' + cp + '</div>';
+        }).join('') + '</div>';
 }
 
-function renderPanelRow(r) {
-    var copyBtn = r.copy
-        ? '<button class="player-copy-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(r.copy) + '\')" title="Скопировать">📋 Копировать</button>'
-        : '';
-    return '<div class="player-panel-row">' +
-        '<div class="row-label">' + escapeHtml(r.label) + '</div>' +
-        '<div class="row-value ' + (r.cls || '') + '">' + escapeHtml(String(r.value)) + '</div>' +
-        copyBtn +
-        '</div>';
-}
-
-/* ============================================================
- * CSS 3D SKIN VIEWER v4.3
- * ============================================================
- * ГЛАВНЫЕ ФИКСЫ:
- *   1. ОРТОГРАФИЯ — убран perspective. Без него нет перспективного
- *      масштабирования на Z-смещении → передняя грань рендерится 1:1.
- *   2. ПРЕД-РЕНДЕР ТЕКСТУРЫ — скин рисуется на canvas в нативном
- *      разрешении (img.width * U), и используется как data URL. Браузер
- *      работает с готовым изображением без масштабирования.
- *   3. ЦЕЛЫЕ ПИКСЕЛИ — figure позиционируется через Math.floor,
- *      никаких 50% (они дают .5px на нечётной ширине).
- *   4. БЕЗ will-change — иначе Chrome рендерит в низком разрешении.
- *   5. OVERLAY INFLATE = 1 ЕДИНИЦА (целое) — явное z-разнесение
- *      от base, никаких z-fight, никаких subpixel-смещений.
- *   6. ЧЕРЕДОВАНИЕ DOM: base_head → overlay_head → base_body → …
- *      Даже если z-sort не сработает, overlay окажется в DOM после базы.
- * ============================================================ */
-
+/* 3D VIEWER (модуль в skin3d.js) */
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     if (uuid) return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
     return CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve';
 }
 
-function computeU(wrap) {
-    var w = wrap.clientWidth || 380;
-    var h = wrap.clientHeight || 380;
-    var minSide = Math.min(w, h);
-    var u = Math.floor((minSide * 0.72) / 32);
-    if (u < 6) u = 6;
-    if (u > 24) u = 24;
-    return u;
-}
-
 function initSkinViewer(name, uuid) {
-    var wrap = document.getElementById('player-viewer-wrap');
-    if (!wrap) return;
-
-    var oldCanvas = document.getElementById('skin-canvas');
-    if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
-    var oldScene = wrap.querySelector('.skin-scene');
-    if (oldScene && oldScene.parentNode) oldScene.parentNode.removeChild(oldScene);
-
-    var loading = document.getElementById('skin-loading');
+    var wrap = document.getElementById('player-viewer-wrap'); if (!wrap) return;
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
-    if (loading) {
-        loading.classList.remove('hidden');
-        loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>';
+    var loading = document.getElementById('skin-loading');
+    if (loading) { loading.classList.remove('hidden'); loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>'; }
+    if (typeof SkinViewer3D === 'undefined') {
+        console.error('[3d] SkinViewer3D не загружен. Добавь <script src="skin3d.js"></script> перед app.js в index.html');
+        if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">skin3d.js не подключён</div>';
+        return;
     }
-
-    var skinUrl = resolveSkinUrl(name, uuid);
-    console.log('[css3d] ' + APP_VERSION + ' loading: ' + skinUrl);
-
+    var url = resolveSkinUrl(name, uuid);
     var img = new Image();
     img.onload = function () {
         try {
-            var state = createSkinScene(img, name, wrap);
+            var state = SkinViewer3D.build(img, name, wrap);
+            state.autoRotate = !rotatePaused;
             currentSkinViewer = state;
-
-            var ro = new ResizeObserver(function () {
-                if (currentSkinViewer !== state) return;
-                rebuildSkinScene(state, img, name, wrap);
-            });
-            ro.observe(wrap);
-            state._resizeObserver = ro;
-
+            bindSkinControls(state);
             if (loading) loading.classList.add('hidden');
-            console.log('[css3d] ✓ viewer создан для ' + name);
         } catch (err) {
-            console.error('[css3d] ошибка сборки:', err);
-            if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-                '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-                '<div style="color:#ef4444;font-weight:600;">Ошибка CSS-3D</div>' +
-                '<div style="font-size:11px;color:#8b91a6;margin-top:6px;">' + escapeHtml(err.message || String(err)) + '</div>' +
-                '</div>';
+            console.error('[3d] build:', err);
+            if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;">Ошибка: ' + escapeHtml(err.message) + '</div>';
         }
     };
     img.onerror = function () {
-        console.warn('[css3d] skin load fail: ' + skinUrl);
-        if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
-            '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
-            '<div style="color:#ef4444;font-weight:600;">Скин не загрузился</div></div>';
+        if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Скин не загрузился</div>';
     };
-    img.src = skinUrl;
+    img.src = url;
 }
 
-function rebuildSkinScene(state, img, name, wrap) {
-    var rotation = state.rotation;
-    var rotationX = state.rotationX;
-    var autoRotate = state.autoRotate;
-    var prevRo = state._resizeObserver;
-    try { state.dispose(); } catch (e) {}
-    var newState = createSkinScene(img, name, wrap);
-    newState.rotation = rotation;
-    newState.rotationX = rotationX;
-    newState.autoRotate = autoRotate;
-    newState._resizeObserver = prevRo;
-    applyFigureRotation(newState);
-    currentSkinViewer = newState;
-}
-
-function createSkinScene(img, name, wrap) {
-    var U = computeU(wrap);
-    var isModern = img.height >= 64;
-
-    /* --- ПРЕД-РЕНДЕР ТЕКСТУРЫ --- */
-    var texCanvas = document.createElement('canvas');
-    texCanvas.width = img.width * U;
-    texCanvas.height = img.height * U;
-    var tctx = texCanvas.getContext('2d');
-    tctx.imageSmoothingEnabled = false;
-    tctx.drawImage(img, 0, 0, texCanvas.width, texCanvas.height);
-    var textureUrl = texCanvas.toDataURL('image/png');
-    var textureW = texCanvas.width;
-    var textureH = texCanvas.height;
-
-    /* --- СЦЕНА (без perspective = ортография) --- */
-    var scene = document.createElement('div');
-    scene.className = 'skin-scene';
-    scene.style.position = 'absolute';
-    scene.style.inset = '0';
-    scene.style.overflow = 'hidden';
-    scene.style.cursor = 'grab';
-    scene.style.userSelect = 'none';
-    /* ВАЖНО: не ставим perspective. Ортография = нет искажений на Z. */
-
-    var sceneW = wrap.clientWidth || 380;
-    var sceneH = wrap.clientHeight || 380;
-
-    /* --- ФИГУРА (целые пиксели, без will-change) --- */
-    var figure = document.createElement('div');
-    figure.className = 'skin-figure';
-    figure.style.position = 'absolute';
-    figure.style.left = Math.floor(sceneW / 2) + 'px';
-    figure.style.top = Math.floor(sceneH / 2) + 'px';
-    figure.style.width = '0';
-    figure.style.height = '0';
-    figure.style.transformStyle = 'preserve-3d';
-    /* НЕ ставим will-change: transform — Chrome рендерит в низком разрешении */
-    scene.appendChild(figure);
-
-    /* UV базового слоя (стандарт 64×64) */
-    var UV = {
-        head:     { top: [8,0],   bottom: [16,0],  right: [0,8],   front: [8,8],   left: [16,8],  back: [24,8] },
-        body:     { top: [20,16], bottom: [28,16], right: [16,20], front: [20,20], left: [28,20], back: [32,20] },
-        rightArm: { top: [44,16], bottom: [48,16], right: [40,20], front: [44,20], left: [48,20], back: [52,20] },
-        leftArm:  { top: [36,48], bottom: [40,48], right: [32,52], front: [36,52], left: [40,52], back: [44,52] },
-        rightLeg: { top: [4,16],  bottom: [8,16],  right: [0,20],  front: [4,20],  left: [8,20],  back: [12,20] },
-        leftLeg:  { top: [20,48], bottom: [24,48], right: [16,52], front: [20,52], left: [24,52], back: [28,52] }
-    };
-
-    /* UV overlay-слоя (шапка/куртка/рукава/штаны) — правая нижняя половина текстуры */
-    var UVO = {
-        head:     { top: [40,0],  bottom: [48,0],  right: [32,8],  front: [40,8],  left: [48,8],  back: [56,8] },
-        body:     { top: [20,32], bottom: [28,32], right: [16,36], front: [20,36], left: [28,36], back: [32,36] },
-        rightArm: { top: [44,32], bottom: [48,32], right: [40,36], front: [44,36], left: [48,36], back: [52,36] },
-        leftArm:  { top: [52,48], bottom: [56,48], right: [48,52], front: [52,52], left: [56,52], back: [60,52] },
-        rightLeg: { top: [4,32],  bottom: [8,32],  right: [0,36],  front: [4,36],  left: [8,36],  back: [12,36] },
-        leftLeg:  { top: [4,48],  bottom: [8,48],  right: [0,52],  front: [4,52],  left: [8,52],  back: [12,52] }
-    };
-
-    /* Legacy 64×32: overlay отсутствует, левая рука/нога = зеркало правой */
-    if (!isModern) {
-        UV.leftArm = UV.rightArm;
-        UV.leftLeg = UV.rightLeg;
-    }
-
-    function makeFace(texUV, fw, fh, transform) {
-        var d = document.createElement('div');
-        d.style.position = 'absolute';
-        d.style.left = '0';
-        d.style.top = '0';
-        d.style.width = (fw * U) + 'px';
-        d.style.height = (fh * U) + 'px';
-        d.style.backgroundImage = 'url("' + textureUrl + '")';
-        d.style.backgroundSize = textureW + 'px ' + textureH + 'px';
-        d.style.backgroundPosition = (-texUV[0] * U) + 'px ' + (-texUV[1] * U) + 'px';
-        d.style.backgroundRepeat = 'no-repeat';
-        d.style.imageRendering = 'pixelated';
-        d.style.transform = 'translate(-50%, -50%) ' + transform;
-        d.style.transformOrigin = 'center';
-        d.style.backfaceVisibility = 'hidden';
-        return d;
-    }
-
-    /* inflate в ЦЕЛЫХ юнитах. 0 = база, 1 = overlay. */
-    function makeBox(uv, w, h, d, centerX, centerY, inflate) {
-        inflate = inflate | 0;
-        var box = document.createElement('div');
-        box.style.position = 'absolute';
-        box.style.left = '0';
-        box.style.top = '0';
-        box.style.width = '0';
-        box.style.height = '0';
-        box.style.transformStyle = 'preserve-3d';
-        box.style.transform = 'translate3d(' + (centerX * U) + 'px,' + (-centerY * U) + 'px,0)';
-
-        var W = w * U, H = h * U, D = d * U;
-        var INF = inflate * U;
-
-        box.appendChild(makeFace(uv.front,  w, h, 'translateZ(' + (D/2 + INF) + 'px)'));
-        box.appendChild(makeFace(uv.back,   w, h, 'rotateY(180deg) translateZ(' + (D/2 + INF) + 'px)'));
-        box.appendChild(makeFace(uv.right,  d, h, 'rotateY(90deg) translateZ(' + (W/2 + INF) + 'px)'));
-        box.appendChild(makeFace(uv.left,   d, h, 'rotateY(-90deg) translateZ(' + (W/2 + INF) + 'px)'));
-        box.appendChild(makeFace(uv.top,    w, d, 'rotateX(90deg) translateZ(' + (H/2 + INF) + 'px)'));
-        box.appendChild(makeFace(uv.bottom, w, d, 'rotateX(-90deg) translateZ(' + (H/2 + INF) + 'px)'));
-
-        return box;
-    }
-
-    /*
-     * ЧЕРЕДОВАНИЕ DOM: base → overlay → base → overlay.
-     * Центры: head Y=+12, body/arms Y=+2, legs Y=-10.
-     * Общая высота: 32 юнита. INFLATE = 1 (целое).
-     */
-    var INFLATE = 1;
-
-    // === head ===
-    figure.appendChild(makeBox(UV.head,     8, 8,  8, 0,  12, 0));
-    if (isModern) figure.appendChild(makeBox(UVO.head,     8, 8,  8, 0,  12, INFLATE));
-
-    // === body ===
-    figure.appendChild(makeBox(UV.body,     8, 12, 4, 0,   2, 0));
-    if (isModern) figure.appendChild(makeBox(UVO.body,     8, 12, 4, 0,   2, INFLATE));
-
-    // === right arm ===
-    figure.appendChild(makeBox(UV.rightArm, 4, 12, 4, -6,  2, 0));
-    if (isModern) figure.appendChild(makeBox(UVO.rightArm, 4, 12, 4, -6,  2, INFLATE));
-
-    // === left arm ===
-    figure.appendChild(makeBox(UV.leftArm,  4, 12, 4,  6,  2, 0));
-    if (isModern) figure.appendChild(makeBox(UVO.leftArm,  4, 12, 4,  6,  2, INFLATE));
-
-    // === right leg ===
-    figure.appendChild(makeBox(UV.rightLeg, 4, 12, 4, -2, -10, 0));
-    if (isModern) figure.appendChild(makeBox(UVO.rightLeg, 4, 12, 4, -2, -10, INFLATE));
-
-    // === left leg ===
-    figure.appendChild(makeBox(UV.leftLeg,  4, 12, 4,  2, -10, 0));
-    if (isModern) figure.appendChild(makeBox(UVO.leftLeg,  4, 12, 4,  2, -10, INFLATE));
-
-    /* Ник */
-    var tag = document.createElement('div');
-    tag.id = 'skin-nametag';
-    tag.textContent = name;
-    tag.style.position = 'absolute';
-    tag.style.left = '0';
-    tag.style.top = (-18 * U) + 'px';
-    tag.style.transform = 'translate(-50%, -100%)';
-    tag.style.background = 'rgba(0,0,0,0.85)';
-    tag.style.color = '#fff';
-    tag.style.padding = '3px 10px';
-    tag.style.borderRadius = '4px';
-    tag.style.fontSize = '14px';
-    tag.style.fontWeight = '600';
-    tag.style.whiteSpace = 'nowrap';
-    tag.style.pointerEvents = 'none';
-    tag.style.display = 'none';
-    figure.appendChild(tag);
-
-    wrap.insertBefore(scene, wrap.firstChild);
-
-    var boxCount = figure.childElementCount - 1; // без nametag
-    console.log('[css3d] U=' + U + ' boxes=' + boxCount + ' (6 = no overlay, 12 = with overlay), isModern=' + isModern);
-
-    var state = {
-        element: figure,
-        scene: scene,
-        U: U,
-        rotation: 0,
-        rotationX: 0,
-        autoRotate: false,
-        refresh: function () { applyFigureRotation(this); },
-        dispose: function () {
-            if (this._resizeObserver) { try { this._resizeObserver.disconnect(); } catch (e) {} this._resizeObserver = null; }
-            if (this.scene && this.scene.parentNode) {
-                this.scene.parentNode.removeChild(this.scene);
-            }
-        }
-    };
-    applyFigureRotation(state);
-
-    /* DRAG */
-    var dragActive = false, lastX = 0, lastY = 0;
-    scene.addEventListener('mousedown', function (e) {
-        dragActive = true;
-        lastX = e.clientX; lastY = e.clientY;
-        scene.style.cursor = 'grabbing';
-        e.preventDefault();
+function bindSkinControls(state) {
+    var sc = state.scene, drag = false, lx = 0, ly = 0;
+    sc.addEventListener('mousedown', function (e) {
+        drag = true; lx = e.clientX; ly = e.clientY; sc.style.cursor = 'grabbing'; e.preventDefault();
     });
     window.addEventListener('mousemove', function (e) {
-        if (!dragActive || currentSkinViewer !== state) return;
-        var dx = e.clientX - lastX, dy = e.clientY - lastY;
-        lastX = e.clientX; lastY = e.clientY;
-        state.rotation += dx * 0.7;
-        state.rotationX += dy * 0.3;
+        if (!drag || currentSkinViewer !== state) return;
+        state.rotation += (e.clientX - lx) * 0.7;
+        state.rotationX += (e.clientY - ly) * 0.3;
         if (state.rotationX > 30) state.rotationX = 30;
         if (state.rotationX < -30) state.rotationX = -30;
-        applyFigureRotation(state);
+        lx = e.clientX; ly = e.clientY;
+        state.apply();
     });
-    window.addEventListener('mouseup', function () {
-        if (!dragActive) return;
-        dragActive = false;
-        if (scene.parentNode) scene.style.cursor = 'grab';
-    });
+    window.addEventListener('mouseup', function () { if (drag) { drag = false; sc.style.cursor = 'grab'; } });
 
-    /* TOUCH */
-    scene.addEventListener('touchstart', function (e) {
+    sc.addEventListener('touchstart', function (e) {
         if (!e.touches[0]) return;
-        dragActive = true;
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
+        drag = true; lx = e.touches[0].clientX; ly = e.touches[0].clientY;
     }, { passive: true });
-    scene.addEventListener('touchmove', function (e) {
-        if (!dragActive || !e.touches[0] || currentSkinViewer !== state) return;
-        var dx = e.touches[0].clientX - lastX;
-        var dy = e.touches[0].clientY - lastY;
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
-        state.rotation += dx * 1.0;
-        state.rotationX += dy * 0.4;
+    sc.addEventListener('touchmove', function (e) {
+        if (!drag || !e.touches[0] || currentSkinViewer !== state) return;
+        state.rotation += (e.touches[0].clientX - lx) * 1.0;
+        state.rotationX += (e.touches[0].clientY - ly) * 0.4;
         if (state.rotationX > 30) state.rotationX = 30;
         if (state.rotationX < -30) state.rotationX = -30;
-        applyFigureRotation(state);
+        lx = e.touches[0].clientX; ly = e.touches[0].clientY;
+        state.apply();
         e.preventDefault();
     }, { passive: false });
-    scene.addEventListener('touchend', function () { dragActive = false; });
-
-    return state;
+    sc.addEventListener('touchend', function () { drag = false; });
 }
 
-/* ================= NAV ================= */
-
+/* NAV */
 function gotoCountry(name) {
     closePlayerModal();
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
-    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]');
-    if (ov) ov.classList.add('active');
+    var ov = document.querySelector('.main-nav .nav-btn[data-tab="overview"]'); if (ov) ov.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var ovTab = document.getElementById('tab-overview');
-    if (ovTab) ovTab.classList.add('active');
-    highlightCountry(name);
-    showDetails(name);
+    var t = document.getElementById('tab-overview'); if (t) t.classList.add('active');
+    highlightCountry(name); showDetails(name);
 }
 
 function gotoPlayerOnMap(name) {
@@ -1069,29 +659,23 @@ function gotoPlayerOnMap(name) {
     if (!p || !p.position || !currentData.map_meta) return;
     closePlayerModal();
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
-    var mp = document.querySelector('.main-nav .nav-btn[data-tab="map"]');
-    if (mp) mp.classList.add('active');
+    var mp = document.querySelector('.main-nav .nav-btn[data-tab="map"]'); if (mp) mp.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var mpTab = document.getElementById('tab-map');
-    if (mpTab) mpTab.classList.add('active');
+    var t = document.getElementById('tab-map'); if (t) t.classList.add('active');
     setTimeout(function () {
         if (!mapReady) return;
         var pt = worldToImagePx(p.position.x, p.position.z, currentData.map_meta);
         var vp = document.getElementById('map-viewport');
-        var vw = vp.clientWidth, vh = vp.clientHeight;
         mapZoom = 1.5;
-        mapOffsetX = vw / 2 - pt.px * mapZoom;
-        mapOffsetY = vh / 2 - pt.pz * mapZoom;
+        mapOffsetX = vp.clientWidth / 2 - pt.px * mapZoom;
+        mapOffsetY = vp.clientHeight / 2 - pt.pz * mapZoom;
         applyMapTransform();
     }, 80);
 }
 
-function copyToClipboardSafe(text) {
-    copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
-}
+function copyToClipboardSafe(text) { copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); }); }
 
-/* ================= BONUS ================= */
-
+/* BONUS */
 function renderBonus() {
     if (!currentData) return;
     var jp = currentData.jackpot;
@@ -1100,120 +684,98 @@ function renderBonus() {
         if (jp != null && jp > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jp)); }
         else jpEl.style.display = 'none';
     }
-    var events = currentData.events || [];
+    var ev = currentData.events || [];
     var ep = document.getElementById('panel-events');
     if (ep) {
-        if (events.length > 0) {
+        if (ev.length > 0) {
             ep.style.display = 'block';
-            document.getElementById('events-list').innerHTML = events.map(function (e) {
+            document.getElementById('events-list').innerHTML = ev.map(function (e) {
                 return '<div class="event-item ' + (e.type === 'negative' ? 'negative' : 'positive') + '"><div><div class="name">' + escapeHtml(e.name || e.id || '?') + '</div><div class="desc">' + escapeHtml(e.description || '') + '</div></div></div>';
             }).join('');
         } else ep.style.display = 'none';
     }
-    var wars = currentData.wars || [];
+    var wr = currentData.wars || [];
     var wp = document.getElementById('panel-wars');
     if (wp) {
-        if (wars.length > 0) {
+        if (wr.length > 0) {
             wp.style.display = 'block';
-            document.getElementById('wars-list').innerHTML = wars.map(function (w) {
+            document.getElementById('wars-list').innerHTML = wr.map(function (w) {
                 return '<div class="war-item"><div><div class="name">' + escapeHtml(w.attacker) + ' ⚔ ' + escapeHtml(w.defender) + '</div><div class="desc">С ' + formatDate(w.started_at) + '</div></div></div>';
             }).join('');
         } else wp.style.display = 'none';
     }
-    var poker = currentData.top_poker || [];
+    var pk = currentData.top_poker || [];
     var pp = document.getElementById('panel-poker');
     if (pp) {
-        if (poker.length > 0) {
+        if (pk.length > 0) {
             pp.style.display = 'block';
-            document.getElementById('poker-body').innerHTML = poker.map(function (p, i) {
+            document.getElementById('poker-body').innerHTML = pk.map(function (p, i) {
                 return '<tr><td class="rank">#' + (i + 1) + '</td><td class="name">' + escapeHtml(p.name || '?') + '</td><td class="' + (p.profit >= 0 ? 'money' : '') + '">' + (p.profit >= 0 ? '+' : '') + formatMoney(p.profit || 0) + '</td><td>' + (p.hands || 0) + '</td></tr>';
             }).join('');
         } else pp.style.display = 'none';
     }
-    var bounties = currentData.bounties || [];
+    var bn = currentData.bounties || [];
     var bp = document.getElementById('panel-bounties');
     if (bp) {
-        if (bounties.length > 0) {
+        if (bn.length > 0) {
             bp.style.display = 'block';
-            document.getElementById('bounties-list').innerHTML = bounties.map(function (b) {
+            document.getElementById('bounties-list').innerHTML = bn.map(function (b) {
                 return '<div class="bounty-item"><div><div class="name">' + escapeHtml(b.target || '?') + '</div><div class="desc">Награда: ' + formatMoney(b.amount || 0) + '</div></div></div>';
             }).join('');
         } else bp.style.display = 'none';
     }
-    var anyBonus = (jp > 0) || events.length > 0 || wars.length > 0 || poker.length > 0 || bounties.length > 0;
-    var be = document.getElementById('panel-bonus-empty');
-    if (be) be.style.display = anyBonus ? 'none' : 'block';
+    var any = (jp > 0) || ev.length > 0 || wr.length > 0 || pk.length > 0 || bn.length > 0;
+    var be = document.getElementById('panel-bonus-empty'); if (be) be.style.display = any ? 'none' : 'block';
 }
 
-/* ================= COPY ================= */
-
+/* COPY / TOAST */
 function initCommandCopy() {
     document.body.addEventListener('click', function (e) {
-        var t = e.target.closest('code[data-copy]');
-        if (!t) return;
+        var t = e.target.closest('code[data-copy]'); if (!t) return;
         e.preventDefault();
-        var text = t.getAttribute('data-copy');
-        if (!text) return;
+        var text = t.getAttribute('data-copy'); if (!text) return;
         copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
     });
 }
-
 function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
         return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return fallbackCopy(text); });
     }
     return Promise.resolve(fallbackCopy(text));
 }
-
 function fallbackCopy(text) {
     var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) {}
-    document.body.removeChild(ta);
-    return ok;
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta); return ok;
 }
-
 var toastTimer = null;
 function showToast(msg) {
-    var t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
+    var t = document.getElementById('toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('show');
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
 }
 
-/* ================= GUIDE NAV ================= */
-
+/* GUIDE NAV */
 function initGuideNav() {
-    var nav = document.getElementById('guide-nav');
-    if (!nav) return;
+    var nav = document.getElementById('guide-nav'); if (!nav) return;
     var sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
     sections.forEach(function (h2) {
-        var section = h2.closest('.guide-section');
-        if (!section) return;
+        var s = h2.closest('.guide-section'); if (!s) return;
         var a = document.createElement('a');
-        a.href = '#' + section.id;
-        a.textContent = h2.textContent.trim();
-        a.dataset.target = section.id;
+        a.href = '#' + s.id; a.textContent = h2.textContent.trim(); a.dataset.target = s.id;
         nav.appendChild(a);
     });
-    var navLinks = nav.querySelectorAll('a');
-    var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-            if (entry.isIntersecting) navLinks.forEach(function (a) { a.classList.toggle('active', a.dataset.target === entry.target.id); });
+    var links = nav.querySelectorAll('a');
+    var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+            if (e.isIntersecting) links.forEach(function (a) { a.classList.toggle('active', a.dataset.target === e.target.id); });
         });
     }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
-    sections.forEach(function (h2) {
-        var s = h2.closest('.guide-section');
-        if (s) observer.observe(s);
-    });
-    navLinks.forEach(function (a) {
+    sections.forEach(function (h2) { var s = h2.closest('.guide-section'); if (s) obs.observe(s); });
+    links.forEach(function (a) {
         a.addEventListener('click', function (e) {
             e.preventDefault();
             var el = document.getElementById(a.dataset.target);
@@ -1222,8 +784,7 @@ function initGuideNav() {
     });
 }
 
-/* ================= COMMANDS ================= */
-
+/* COMMANDS */
 var COMMANDS = [
     { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
     { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
@@ -1281,4 +842,50 @@ var COMMANDS = [
     { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
     { cmd: '/baltop', desc: 'Топ богачей', plugin: 'EssentialsX' },
     { cmd: '/sethome', desc: 'Установить дом', plugin: 'EssentialsX' },
-    { cmd:
+    { cmd: '/home', desc: 'Телепорт домой', plugin: 'EssentialsX' },
+    { cmd: '/jobs browse', desc: 'Профессии', plugin: 'Jobs' },
+    { cmd: '/skin Steve', desc: 'Сменить скин', plugin: 'SkinsRestorer' }
+];
+
+function initCommandSearch() {
+    var list = document.getElementById('commands-list'); if (!list) return;
+    list.innerHTML = COMMANDS.map(function (c) {
+        return '<div class="command-item"><div class="cmd-name"><code data-copy="' + escapeAttr(c.cmd) + '">' + escapeHtml(c.cmd) + '</code></div><div class="cmd-desc">' + escapeHtml(c.desc) + '</div><div class="cmd-plugin">' + escapeHtml(c.plugin) + '</div></div>';
+    }).join('');
+    var inp = document.getElementById('cmd-search'); if (!inp) return;
+    inp.addEventListener('input', function () {
+        var q = inp.value.trim().toLowerCase();
+        document.querySelectorAll('.command-item').forEach(function (item) {
+            item.classList.toggle('hidden', q.length > 0 && item.textContent.toLowerCase().indexOf(q) === -1);
+        });
+    });
+}
+
+/* UTILS */
+function formatMoney(a) {
+    if (a == null) return '0';
+    if (Math.abs(a) >= 1000000) return (a / 1000000).toFixed(2) + 'M';
+    if (Math.abs(a) >= 1000) return (a / 1000).toFixed(1) + 'k';
+    return Math.round(a).toString();
+}
+function formatPlaytime(s) {
+    if (s == null || s <= 0) return '';
+    var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    if (d > 0) return h > 0 ? d + 'д ' + h + 'ч' : d + 'д';
+    if (h > 0) return m > 0 ? h + 'ч ' + m + 'м' : h + 'ч';
+    if (m > 0) return m + 'м';
+    return (s % 60) + 'с';
+}
+function timeAgo(ts) {
+    if (!ts) return '—';
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'только что';
+    var m = Math.floor(s / 60); if (m < 60) return m + ' мин назад';
+    var h = Math.floor(m / 60); if (h < 24) return h + ' ч назад';
+    var d = Math.floor(h / 24); if (d < 30) return d + ' дн назад';
+    return Math.floor(d / 30) + ' мес назад';
+}
+function formatDate(ts) { return ts ? new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'; }
+function shortenUuid(u) { return !u ? '—' : (u.length > 13 ? u.substring(0, 8) + '…' : u); }
+function escapeHtml(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+function escapeAttr(s) { return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
