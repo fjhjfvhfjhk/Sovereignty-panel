@@ -1,10 +1,10 @@
-/* Sovereignty panel v3.6 */
+/* Sovereignty panel v3.7 */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v3.6';
+var APP_VERSION = 'v3.7';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -17,13 +17,12 @@ var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
 
-// === Камера ===
-// fov=50, dist=40, target=(0,16,0) → видимая высота = 2*40*tan(25°) ≈ 37.3 unit
-// модель = 32 unit → занимает 32/37.3 ≈ 86% кадра
+// Камера: крупный план, но с запасом чтобы всё тело влезло
 var SKIN_FOV = 50;
 var SKIN_CAM_TARGET_Y = 16;
-var SKIN_CAM_Y = 18;
-var SKIN_CAM_Z = 40;
+var SKIN_CAM_X = 0;
+var SKIN_CAM_Y = 16;
+var SKIN_CAM_Z = 60;
 
 var SKIN_GLOBAL_LIGHT = 1.8;
 var SKIN_CAMERA_LIGHT = 1.5;
@@ -106,7 +105,7 @@ function initModalControls() {
     };
     var resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = function () {
-        if (currentSkinViewer) resetSkinCamera(currentSkinViewer);
+        if (currentSkinViewer) applySkinCamera(currentSkinViewer);
     };
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
@@ -132,8 +131,7 @@ function closePlayerModal() {
     if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
-/* ================= LOCAL SKINS ================= */
-
+/* LOCAL SKINS */
 function preloadLocalSkins() {
     var players = currentData && currentData.players ? currentData.players : [];
     if (players.length === 0) return;
@@ -212,8 +210,7 @@ function refreshHeadImages() {
     if (updated > 0) console.log('[Skins] Обновлено голов: ' + updated);
 }
 
-/* ================= DATA ================= */
-
+/* DATA */
 function loadData() {
     var tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) {
@@ -352,8 +349,7 @@ function showDetails(countryName) {
     if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
-/* ================= MAP ================= */
-
+/* MAP */
 function loadMap() {
     var ph = document.getElementById('map-placeholder');
     var canvas = document.getElementById('map-canvas');
@@ -533,8 +529,7 @@ function renderPlayerMarkers() {
     updateMarkerScale();
 }
 
-/* ================= PLAYERS ================= */
-
+/* PLAYERS */
 function initPlayerControls() {
     var s = document.getElementById('player-search');
     if (s) s.addEventListener('input', renderPlayers);
@@ -695,33 +690,35 @@ function renderPanelRow(r) {
         '</div>';
 }
 
-/* ================= 3D VIEWER ================= */
+/* 3D VIEWER */
 
-function resetSkinCamera(viewer) {
+function applySkinCamera(viewer) {
     try {
-        viewer.fov = SKIN_FOV;
+        // fov через raw API
+        if (viewer.camera) {
+            viewer.camera.fov = SKIN_FOV;
+            viewer.camera.updateProjectionMatrix();
+        }
 
-        var tx = 0, ty = SKIN_CAM_TARGET_Y, tz = 0;
-        var cx = 0, cy = SKIN_CAM_Y, cz = SKIN_CAM_Z;
-
-        viewer.controls.target.set(tx, ty, tz);
-        viewer.camera.position.set(cx, cy, cz);
-        viewer.camera.lookAt(tx, ty, tz);
-        viewer.camera.updateProjectionMatrix();
+        // target и позиция камеры
+        viewer.controls.target.set(SKIN_CAM_X, SKIN_CAM_TARGET_Y, 0);
+        viewer.camera.position.set(SKIN_CAM_X, SKIN_CAM_Y, SKIN_CAM_Z);
         viewer.controls.update();
 
+        // Диагностика — все критичные параметры
+        var p = viewer.camera.position;
+        var t = viewer.controls.target;
         var dist = Math.sqrt(
-            Math.pow(cx - tx, 2) +
-            Math.pow(cy - ty, 2) +
-            Math.pow(cz - tz, 2)
+            Math.pow(p.x - t.x, 2) + Math.pow(p.y - t.y, 2) + Math.pow(p.z - t.z, 2)
         );
-        console.log('[skinview3d] ' + APP_VERSION + ' cam=(' +
-            cx.toFixed(1) + ',' + cy.toFixed(1) + ',' + cz.toFixed(1) +
-            ') target=(' + tx.toFixed(1) + ',' + ty.toFixed(1) + ',' + tz.toFixed(1) +
-            ') dist=' + dist.toFixed(1) +
-            ' fov=' + SKIN_FOV);
+        console.log('[skinview3d] ' + APP_VERSION +
+            ' cam=(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ',' + p.z.toFixed(1) + ')' +
+            ' target=(' + t.x.toFixed(1) + ',' + t.y.toFixed(1) + ',' + t.z.toFixed(1) + ')' +
+            ' dist=' + dist.toFixed(1) +
+            ' fov=' + (viewer.camera ? viewer.camera.fov : '?') +
+            ' aspect=' + (viewer.camera ? viewer.camera.aspect.toFixed(2) : '?'));
     } catch (e) {
-        console.error('[skinview3d] resetSkinCamera error:', e);
+        console.error('[skinview3d] applySkinCamera error:', e);
     }
 }
 
@@ -767,21 +764,29 @@ function initSkinViewer(name, uuid) {
             var rect = wrap.getBoundingClientRect();
             var size = Math.max(280, Math.round(rect.width || 380));
             var skinUrl = resolveSkinUrl(name, uuid);
+
             console.log('[skinview3d] ' + APP_VERSION + ' canvas=' + size + ' skin=' + skinUrl);
 
             try {
                 var viewer = new skinview3d.SkinViewer({
                     canvas: newCanvas,
                     width: size,
-                    height: size,
-                    skin: skinUrl
+                    height: size
                 });
 
+                // fov сразу через raw API
+                if (viewer.camera) {
+                    viewer.camera.fov = SKIN_FOV;
+                    viewer.camera.updateProjectionMatrix();
+                }
+
+                // Свет
                 try {
                     if (viewer.globalLight) viewer.globalLight.intensity = SKIN_GLOBAL_LIGHT;
                     if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
                 } catch (e) {}
 
+                // Контролы
                 viewer.controls.enableZoom = true;
                 viewer.controls.enablePan = false;
                 viewer.controls.enableRotate = true;
@@ -790,15 +795,18 @@ function initSkinViewer(name, uuid) {
                 viewer.controls.minPolarAngle = 0.05;
                 viewer.controls.maxPolarAngle = Math.PI - 0.05;
                 viewer.controls.minDistance = 20;
-                viewer.controls.maxDistance = 90;
+                viewer.controls.maxDistance = 200;
 
+                // Ник
                 try {
                     viewer.nameTag = new skinview3d.NameTagObject(name);
                     viewer.nameTag.visible = true;
                 } catch (e) {}
 
+                // Автовращение
                 try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
 
+                // Pause при drag
                 var userInteracting = false;
                 newCanvas.addEventListener('pointerdown', function () {
                     userInteracting = true;
@@ -815,15 +823,23 @@ function initSkinViewer(name, uuid) {
 
                 currentSkinViewer = viewer;
 
-                // Ставим камеру сразу и ещё раз после загрузки скина
-                resetSkinCamera(viewer);
+                // Применяем камеру СРАЗУ
+                applySkinCamera(viewer);
 
-                if (loading) loading.classList.add('hidden');
-
-                // Пересбрасываем камеру ещё раз — на случай если loadSkin сбросил
-                setTimeout(function () {
-                    if (currentSkinViewer === viewer) resetSkinCamera(viewer);
-                }, 250);
+                // Потом загружаем скин и применяем камеру ЕЩЁ РАЗ после загрузки
+                viewer.loadSkin(skinUrl).then(function () {
+                    console.log('[skinview3d] skin loaded');
+                    if (currentSkinViewer === viewer) applySkinCamera(viewer);
+                    if (loading) loading.classList.add('hidden');
+                    // И ещё раз через паузу — вдруг skinview3d делает auto-reset
+                    setTimeout(function () {
+                        if (currentSkinViewer === viewer) applySkinCamera(viewer);
+                    }, 500);
+                }).catch(function (err) {
+                    console.warn('[skinview3d] skin load fail:', err);
+                    if (currentSkinViewer === viewer) applySkinCamera(viewer);
+                    if (loading) loading.classList.add('hidden');
+                });
 
                 var ro = new ResizeObserver(function () {
                     if (!currentSkinViewer) return;
@@ -836,7 +852,7 @@ function initSkinViewer(name, uuid) {
                 ro.observe(wrap);
 
             } catch (err) {
-                console.error('[skinview3d] Ошибка:', err);
+                console.error('[skinview3d] error:', err);
                 if (loading) loading.innerHTML = '<div style="text-align:center;padding:20px;">' +
                     '<div style="font-size:32px;margin-bottom:8px;">⚠</div>' +
                     '<div style="color:#ef4444;font-weight:600;">Ошибка 3D-модели</div>' +
@@ -847,8 +863,7 @@ function initSkinViewer(name, uuid) {
     }
 }
 
-/* ================= NAV ================= */
-
+/* NAV */
 function gotoCountry(name) {
     closePlayerModal();
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
@@ -888,8 +903,7 @@ function copyToClipboardSafe(text) {
     copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); });
 }
 
-/* ================= BONUS ================= */
-
+/* BONUS */
 function renderBonus() {
     if (!currentData) return;
     var jp = currentData.jackpot;
@@ -943,8 +957,7 @@ function renderBonus() {
     if (be) be.style.display = anyBonus ? 'none' : 'block';
 }
 
-/* ================= COPY ================= */
-
+/* COPY */
 function initCommandCopy() {
     document.body.addEventListener('click', function (e) {
         var t = e.target.closest('code[data-copy]');
@@ -986,8 +999,7 @@ function showToast(msg) {
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
 }
 
-/* ================= GUIDE NAV ================= */
-
+/* GUIDE NAV */
 function initGuideNav() {
     var nav = document.getElementById('guide-nav');
     if (!nav) return;
@@ -1020,8 +1032,7 @@ function initGuideNav() {
     });
 }
 
-/* ================= COMMANDS ================= */
-
+/* COMMANDS */
 var COMMANDS = [
     { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
     { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
@@ -1074,8 +1085,7 @@ function initCommandSearch() {
     });
 }
 
-/* ================= UTILS ================= */
-
+/* UTILS */
 function formatMoney(amount) {
     if (amount == null) return '0';
     if (Math.abs(amount) >= 1000000) return (amount / 1000000).toFixed(2) + 'M';
