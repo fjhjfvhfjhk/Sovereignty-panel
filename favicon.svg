@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#818cf8"/>
+      <stop offset="0.5" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+    <linearGradient id="crownGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fde047"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Щит -->
+  <path d="M32 2 L57 11 L57 31 Q57 53 32 62 Q7 53 7 31 L7 11 Z"
+        fill="url(#shieldGrad)" stroke="#312e81" stroke-width="1.2" stroke-linejoin="round"/>
+
+  <!-- Внутренний кант (двойная обводка щита) -->
+  <path d="M32 6 L53 13.5 L53 31 Q53 49 32 57 Q11 49 11 31 L11 13.5 Z"
+        fill="none" stroke="#a5b4fc" stroke-width="0.7" stroke-opacity="0.55"/>
+
+  <!-- Корона: три зубца (треугольники) -->
+  <path d="M 19 23 L 19 17 L 23 20 L 28 15 L 32 19 L 36 15 L 41 20 L 45 17 L 45 23 Z"
+        fill="url(#crownGrad)" stroke="#92400e" stroke-width="0.6"
+        stroke-linejoin="round"/>
+
+  <!-- Точки-самоцветы на короне -->
+  <circle cx="23" cy="21.2" r="0.75" fill="#fef3c7"/>
+  <circle cx="32" cy="20.8" r="0.9"  fill="#fef3c7"/>
+  <circle cx="41" cy="21.2" r="0.75" fill="#fef3c7"/>
+
+  <!-- Основание короны (тонкая полоса) -->
+  <rect x="19" y="23.2" width="26" height="1.4" rx="0.4"
+        fill="#f59e0b" stroke="#92400e" stroke-width="0.3"/>
+
+  <!-- Буква S -->
+  <text x="32" y="49" font-family="Georgia, 'Times New Roman', serif"
+        font-size="24" font-weight="900" text-anchor="middle"
+        fill="#ffffff" stroke="#312e81" stroke-width="0.7"
+        style="paint-order: stroke;">S</text>
+</svg>
