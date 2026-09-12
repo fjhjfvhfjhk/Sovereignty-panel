@@ -343,8 +343,14 @@ tr.top-3 td.rank { color: #d97706; }
     display: flex; flex-direction: column; gap: 10px;
     position: sticky; top: 0;
 }
+/*
+ * ВАЖНО: aspect-ratio: 1/1 делает контейнер строго квадратным.
+ * min-height НЕ используем — он ломает квадрат на узких экранах,
+ * из-за чего aspect у Three.js-камеры ≠ 1.0 и модель обрезается.
+ */
 .player-viewer-wrap {
-    position: relative; width: 100%; aspect-ratio: 1/1; min-height: 360px;
+    position: relative; width: 100%;
+    aspect-ratio: 1 / 1;
     background: radial-gradient(circle at 50% 35%, rgba(99,102,241,.18), transparent 65%),
                 linear-gradient(180deg, #1a2040 0%, #0a0c12 100%);
     border: 1px solid var(--border); border-radius: 12px;
@@ -415,7 +421,7 @@ tr.top-3 td.rank { color: #d97706; }
     border: 1px solid var(--border);
 }
 
-/* PLAYER INFO PANELS — в стиле сайта, но с заголовком-таблеткой как в NameMC */
+/* PLAYER INFO PANELS */
 .player-panel {
     position: relative;
     margin-top: 24px;
@@ -692,10 +698,11 @@ footer strong { color: var(--accent-light); }
 @media (max-width: 1024px) {
     .player-modal-grid { grid-template-columns: 1fr; }
     .player-viewer-col {
-        position: static; max-width: 400px;
-        margin: 0 auto; width: 100%;
+        position: static;
+        max-width: 420px;
+        margin: 0 auto;
+        width: 100%;
     }
-    .player-viewer-wrap { min-height: 320px; }
 }
 @media (max-width: 900px) {
     .guide-layout { grid-template-columns: 1fr; }

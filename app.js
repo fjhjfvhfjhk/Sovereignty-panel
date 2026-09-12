@@ -1,10 +1,10 @@
-/* Sovereignty panel v3.7 */
+/* Sovereignty panel v3.8 — FIX 3D-камеры через публичный API skinview3d */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v3.7';
+var APP_VERSION = 'v3.8';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -17,19 +17,24 @@ var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
 
-// Камера: крупный план, но с запасом чтобы всё тело влезло
+/*
+ * 3D-КАМЕРА
+ * ============================================================
+ * ВАЖНО: используем ТОЛЬКО публичный API skinview3d (setter'ы fov и zoom).
+ * Прямой доступ к viewer.camera.position и viewer.controls.target —
+ * это внутренности Three.js, и skinview3d перезаписывает их при resize
+ * и при loadSkin(). Именно поэтому прошлая версия обрезала модель.
+ *
+ *   fov    — угол обзора. У skinview3d по умолчанию 50.
+ *   zoom   — множитель расстояния. 1.0 = default (голова видна в кадре),
+ *            < 1 = камера дальше (модель целиком), > 1 = ближе.
+ *            0.6–0.7 обычно достаточно, чтобы влезли и ноги.
+ *   target — точка, на которую смотрит камера. У skinview3d по умолчанию
+ *            y=16 (уровень головы). Ставим y=12 — центр тела.
+ */
 var SKIN_FOV = 50;
-var SKIN_CAM_TARGET_Y = 16;
-var SKIN_CAM_X = 0;
-var SKIN_CAM_Y = 16;
-var SKIN_CAM_Z = 60;
-
-var SKIN_GLOBAL_LIGHT = 1.8;
-var SKIN_CAMERA_LIGHT = 1.5;
-var MARKER_BASE_PX = 32;
-var MARKER_MIN_PX = 18;
-var MARKER_MAX_PX = 72;
-var MARKER_GROWTH_POWER = 0.5;
+var SKIN_ZOOM = 0.65;
+var SKIN_TARGET_Y = 12;
 
 var currentData = null;
 var currentSort = 'claims';
@@ -105,12 +110,22 @@ function initModalControls() {
     };
     var resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = function () {
-        if (currentSkinViewer) applySkinCamera(currentSkinViewer);
+        if (currentSkinViewer) {
+            applySkinCamera(currentSkinViewer);
+            showToast('✓ Вид сброшен');
+        }
     };
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
         if (currentSkinViewer && currentSkinViewer.nameTag)
             currentSkinViewer.nameTag.visible = !currentSkinViewer.nameTag.visible;
+    };
+    var diagBtn = document.getElementById('skin-diagnostics');
+    if (diagBtn) diagBtn.onclick = function () {
+        if (currentSkinViewer) {
+            applySkinCamera(currentSkinViewer);
+            showToast('✓ Диагностика в F12 → Console');
+        }
     };
 }
 
@@ -690,37 +705,65 @@ function renderPanelRow(r) {
         '</div>';
 }
 
-/* 3D VIEWER */
+/* ============================================================
+ * 3D VIEWER — skinview3d
+ * ============================================================
+ * Применяем камеру ТОЛЬКО через публичные свойства viewer.fov / viewer.zoom.
+ * viewer.camera.position и viewer.controls.target — внутренности Three.js,
+ * которые библиотека перезаписывает после loadSkin() и при resize.
+ * Именно поэтому предыдущая версия обрезала модель до половины тела.
+ * ============================================================ */
 
 function applySkinCamera(viewer) {
+    if (!viewer) return;
     try {
-        // fov через raw API
-        if (viewer.camera) {
-            viewer.camera.fov = SKIN_FOV;
-            viewer.camera.updateProjectionMatrix();
+        // Публичное API skinview3d v3 — setter'ы, которые сами пересчитывают
+        // проекционную матрицу и переставляют камеру.
+        try { viewer.fov = SKIN_FOV; } catch (e) {}
+
+        try { viewer.zoom = SKIN_ZOOM; } catch (e) {}
+
+        // Сдвигаем точку взгляда с уровня головы (16) на центр тела (12).
+        if (viewer.controls && viewer.controls.target) {
+            viewer.controls.target.set(0, SKIN_TARGET_Y, 0);
+            viewer.controls.update();
         }
 
-        // target и позиция камеры
-        viewer.controls.target.set(SKIN_CAM_X, SKIN_CAM_TARGET_Y, 0);
-        viewer.camera.position.set(SKIN_CAM_X, SKIN_CAM_Y, SKIN_CAM_Z);
-        viewer.controls.update();
-
-        // Диагностика — все критичные параметры
-        var p = viewer.camera.position;
-        var t = viewer.controls.target;
-        var dist = Math.sqrt(
-            Math.pow(p.x - t.x, 2) + Math.pow(p.y - t.y, 2) + Math.pow(p.z - t.z, 2)
-        );
-        console.log('[skinview3d] ' + APP_VERSION +
-            ' cam=(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ',' + p.z.toFixed(1) + ')' +
-            ' target=(' + t.x.toFixed(1) + ',' + t.y.toFixed(1) + ',' + t.z.toFixed(1) + ')' +
-            ' dist=' + dist.toFixed(1) +
-            ' fov=' + (viewer.camera ? viewer.camera.fov : '?') +
-            ' aspect=' + (viewer.camera ? viewer.camera.aspect.toFixed(2) : '?'));
+        // Диагностика — эту строку просим пользователя прислать из F12.
+        if (viewer.camera) {
+            var cam = viewer.camera;
+            var tgt = viewer.controls ? viewer.controls.target : { x: 0, y: 0, z: 0 };
+            var dist = Math.sqrt(
+                Math.pow(cam.position.x - tgt.x, 2) +
+                Math.pow(cam.position.y - tgt.y, 2) +
+                Math.pow(cam.position.z - tgt.z, 2)
+            );
+            var aspect = cam.aspect || 0;
+            console.log(
+                '[skinview3d] ' + APP_VERSION +
+                ' | fov=' + cam.fov.toFixed(1) +
+                ' zoom=' + (viewer.zoom != null ? viewer.zoom.toFixed(2) : '?') +
+                ' aspect=' + aspect.toFixed(3) +
+                ' dist=' + dist.toFixed(1) +
+                ' | cam=(' + cam.position.x.toFixed(1) + ',' + cam.position.y.toFixed(1) + ',' + cam.position.z.toFixed(1) + ')' +
+                ' target=(' + tgt.x.toFixed(1) + ',' + tgt.y.toFixed(1) + ',' + tgt.z.toFixed(1) + ')'
+            );
+            if (Math.abs(aspect - 1.0) > 0.05) {
+                console.warn('[skinview3d] ВНИМАНИЕ: aspect=' + aspect.toFixed(3) +
+                    ' ≠ 1.0. Canvas не квадратный — модель может обрезаться. ' +
+                    'Проверь CSS .player-viewer-wrap (aspect-ratio и min-height).');
+            }
+        }
     } catch (e) {
         console.error('[skinview3d] applySkinCamera error:', e);
     }
 }
+
+// Глобальный хелпер — можно вызвать из F12 → Console для теста:
+// resetSkinCamera() применит текущие SKIN_FOV/SKIN_ZOOM.
+window.resetSkinCamera = function () {
+    if (currentSkinViewer) applySkinCamera(currentSkinViewer);
+};
 
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
@@ -762,23 +805,22 @@ function initSkinViewer(name, uuid) {
         wrap.getBoundingClientRect();
         setTimeout(function () {
             var rect = wrap.getBoundingClientRect();
-            var size = Math.max(280, Math.round(rect.width || 380));
+            // Квадрат — важно для корректного aspect у камеры.
+            var size = Math.max(280, Math.round(Math.min(rect.width, rect.height) || 380));
             var skinUrl = resolveSkinUrl(name, uuid);
 
-            console.log('[skinview3d] ' + APP_VERSION + ' canvas=' + size + ' skin=' + skinUrl);
+            console.log('[skinview3d] ' + APP_VERSION + ' canvas=' + size +
+                ' wrapRect=' + Math.round(rect.width) + 'x' + Math.round(rect.height) +
+                ' skin=' + skinUrl);
 
             try {
                 var viewer = new skinview3d.SkinViewer({
                     canvas: newCanvas,
                     width: size,
-                    height: size
+                    height: size,
+                    // fov можно передать сразу в конструкторе
+                    fov: SKIN_FOV
                 });
-
-                // fov сразу через raw API
-                if (viewer.camera) {
-                    viewer.camera.fov = SKIN_FOV;
-                    viewer.camera.updateProjectionMatrix();
-                }
 
                 // Свет
                 try {
@@ -823,18 +865,14 @@ function initSkinViewer(name, uuid) {
 
                 currentSkinViewer = viewer;
 
-                // Применяем камеру СРАЗУ
+                // Камера ДО загрузки скина
                 applySkinCamera(viewer);
 
-                // Потом загружаем скин и применяем камеру ЕЩЁ РАЗ после загрузки
+                // Камера ПОСЛЕ загрузки скина (skinview3d может сбросить состояние)
                 viewer.loadSkin(skinUrl).then(function () {
                     console.log('[skinview3d] skin loaded');
                     if (currentSkinViewer === viewer) applySkinCamera(viewer);
                     if (loading) loading.classList.add('hidden');
-                    // И ещё раз через паузу — вдруг skinview3d делает auto-reset
-                    setTimeout(function () {
-                        if (currentSkinViewer === viewer) applySkinCamera(viewer);
-                    }, 500);
                 }).catch(function (err) {
                     console.warn('[skinview3d] skin load fail:', err);
                     if (currentSkinViewer === viewer) applySkinCamera(viewer);
@@ -847,6 +885,8 @@ function initSkinViewer(name, uuid) {
                     if (w > 0 && h > 0) {
                         currentSkinViewer.width = w;
                         currentSkinViewer.height = h;
+                        // После resize Three.js пересчитывает aspect — переустановим.
+                        if (currentSkinViewer === viewer) applySkinCamera(viewer);
                     }
                 });
                 ro.observe(wrap);
