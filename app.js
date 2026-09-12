@@ -1,11 +1,16 @@
-/* Sovereignty panel v4.6 — hash-colors, sparkline, activity, day/night, grid */
+/* Sovereignty panel v4.7 — Xaero-style карта (4 px/block) */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v4.6';
+var APP_VERSION = 'v4.7';
 var DATA_URL = 'data/server1.json', MAP_URL = 'data/map.png', LOCAL_SKIN_DIR = 'data/skins/';
 var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
 var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
 var REFRESH_INTERVAL_MS = 300000, LOCAL_SKIN_TIMEOUT_MS = 3000;
-var BLOCKS_PER_CHUNK = 16, PIXELS_PER_BLOCK = 2;
+
+/* === СИНХРОНИЗИРОВАНО С СЕРВЕРОМ ===
+   TerrainRenderer.PIXELS_PER_BLOCK = 4 → маркеры и сетка сдвинуты корректно.
+   Если менять — менять и там, и в index.html (pattern chunkGridPattern). */
+var BLOCKS_PER_CHUNK = 16, PIXELS_PER_BLOCK = 4;
+
 var MARKER_BASE_PX = 32, MARKER_MIN_PX = 18, MARKER_MAX_PX = 72, MARKER_GROWTH_POWER = 0.5;
 var PALETTE_FALLBACK = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
 
@@ -202,7 +207,6 @@ function loadData() {
 function getCountryColor(country) {
     if (!country) return '#6366f1';
     if (country.color) return country.color;
-    // fallback: hash
     var h = 0;
     var name = country.name || '';
     for (var i = 0; i < name.length; i++) { h = ((h << 5) - h) + name.charCodeAt(i); h |= 0; }
@@ -257,7 +261,6 @@ function renderCountries() {
         var color = getCountryColor(c);
         var activity = c.activity || 0;
         var delta = c.claims_delta_7d || 0;
-        var deltaStr = delta > 0 ? '§a+' + delta : (delta < 0 ? '§c' + delta : '§70');
         var deltaHtml = delta > 0 ? '<span style="color:#10b981;">+' + delta + '</span>' :
                         delta < 0 ? '<span style="color:#ef4444;">' + delta + '</span>' :
                         '<span style="color:#8b91a6;">0</span>';
@@ -289,7 +292,6 @@ function drawSparkline(history) {
     var ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    // Фон
     ctx.fillStyle = '#0f1117';
     ctx.fillRect(0, 0, w, h);
 
@@ -302,7 +304,6 @@ function drawSparkline(history) {
         return;
     }
 
-    // Нормализация
     var maxCount = 1;
     var sum = 0;
     history.forEach(function (h) { if (h.count > maxCount) maxCount = h.count; sum += h.count; });
@@ -312,7 +313,6 @@ function drawSparkline(history) {
     setText('online-avg', String(avg));
     setText('online-peak', String(maxCount));
 
-    // Сетка горизонтальные
     ctx.strokeStyle = '#2a2f3e';
     ctx.lineWidth = 1;
     for (var i = 1; i <= 3; i++) {
@@ -320,24 +320,19 @@ function drawSparkline(history) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
 
-    // Градиент
     var grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, 'rgba(99,102,241,0.55)');
     grad.addColorStop(1, 'rgba(99,102,241,0.02)');
 
-    // Точки
     var pts = [];
     var n = history.length;
     var stepX = w / Math.max(1, n - 1);
     history.forEach(function (h, idx) {
         var x = idx * stepX;
-        var y = h - (h / maxCount) * (h - 20) / h * h - 10;
-        // Классика: y = h - (count/maxCount)*(h-20) - 10
-        y = h - (h.count / maxCount) * (h - 20) - 10;
+        var y = h - (h.count / maxCount) * (h - 20) - 10;
         pts.push({ x: x, y: y });
     });
 
-    // Площадь
     ctx.beginPath();
     ctx.moveTo(pts[0].x, h);
     pts.forEach(function (p) { ctx.lineTo(p.x, p.y); });
@@ -346,14 +341,12 @@ function drawSparkline(history) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Линия
     ctx.beginPath();
     pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
     ctx.strokeStyle = '#818cf8';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Пик — точка
     var peakIdx = history.reduce(function (best, h, i, arr) { return h.count > arr[best].count ? i : best; }, 0);
     var peakPt = pts[peakIdx];
     ctx.beginPath();
@@ -361,7 +354,6 @@ function drawSparkline(history) {
     ctx.fillStyle = '#fbbf24';
     ctx.fill();
 
-    // Подпись пика
     ctx.fillStyle = '#8b91a6';
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'right';
@@ -403,6 +395,7 @@ function setupCanvas(w, h) {
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     mapCanvas = canvas;
     mapCtx = canvas.getContext('2d', { willReadFrequently: true });
+    mapCtx.imageSmoothingEnabled = false;
     mapCtx.drawImage(mapImage, 0, 0);
 }
 
@@ -507,7 +500,10 @@ function resetMapView() {
 }
 
 function worldToImagePx(x, z, meta) {
-    return { px: (x - meta.min_chunk_x * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK, pz: (z - meta.min_chunk_z * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK };
+    return {
+        px: (x - meta.min_chunk_x * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK,
+        pz: (z - meta.min_chunk_z * BLOCKS_PER_CHUNK) * PIXELS_PER_BLOCK
+    };
 }
 
 function renderPlayerMarkers() {
@@ -703,7 +699,7 @@ function renderPanel(title, rows) {
         }).join('') + '</div>';
 }
 
-/* ============ 3D VIEWER (skin3d.js) ============ */
+/* ============ 3D VIEWER ============ */
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     if (uuid) return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
@@ -791,7 +787,8 @@ function renderBonus() {
     var jp = currentData.jackpot;
     var jpEl = document.getElementById('panel-jackpot');
     if (jpEl) {
-        if (jp != null && jp > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jp)); }
+        var jackpotVal = jp && jp.jackpot != null ? jp.jackpot : (typeof jp === 'number' ? jp : null);
+        if (jackpotVal != null && jackpotVal > 0) { jpEl.style.display = 'block'; setText('jackpot-value', formatMoney(jackpotVal)); }
         else jpEl.style.display = 'none';
     }
     var ev = currentData.events || [];
@@ -834,7 +831,7 @@ function renderBonus() {
             }).join('');
         } else bp.style.display = 'none';
     }
-    var any = (jp > 0) || ev.length > 0 || wr.length > 0 || pk.length > 0 || bn.length > 0;
+    var any = ((jp && jp.jackpot) || typeof jp === 'number') || ev.length > 0 || wr.length > 0 || pk.length > 0 || bn.length > 0;
     var be = document.getElementById('panel-bonus-empty'); if (be) be.style.display = any ? 'none' : 'block';
 }
 
