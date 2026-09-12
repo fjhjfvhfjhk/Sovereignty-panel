@@ -1,10 +1,10 @@
-/* Sovereignty panel v3.6 — камера в стиле NameMC (фронтальный центрированный вид) */
+/* Sovereignty panel v3.5 — фикс 3D-камеры (публичный API skinview3d) */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v3.6';
+var APP_VERSION = 'v3.5';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -17,34 +17,26 @@ var LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16;
 var PIXELS_PER_BLOCK = 2;
 
-/* ============================================================
- * 3D-КАМЕРА — NameMC-like фронтальный вид
+/*
+ * 3D-КАМЕРА — ИСПРАВЛЕНО
  * ============================================================
- * ПРОБЛЕМЫ прошлых версий:
- *   1. viewer.camera.position дёргали напрямую — skinview3d сбрасывал.
- *      РЕШЕНИЕ: ставим position ПОСЛЕ controls.target, вызываем update().
- *   2. Долгий дефолтный фрейм — модель была маленькая в центре с кучей
- *      пустого места. ПРОБЛЕМА РЕШЕНА: явные значения FOV/zoom/dist.
- *   3. Автовращение мешало воспринимать фронт. РЕШЕНО: по умолчанию пауза.
+ * ПРОБЛЕМА прошлых версий:
+ *   Писали viewer.camera.position.set(...) и viewer.controls.target.set(...)
+ *   напрямую. skinview3d сбрасывает эти значения после loadSkin() и при
+ *   каждом resize — поэтому модель обрезалась до половины тела.
  *
- * Формула кадра:
- *   effectiveFOV = FOV / ZOOM         (skinview3d zoom — это camera.zoom)
- *   visibleHeight = 2 * DIST * tan(effectiveFOV / 2)
- *   modelHeight ≈ 32 unit
- *   coverage = modelHeight / visibleHeight
- *
- * При FOV=45, ZOOM=1.15, DIST=60:
- *   effectiveFOV ≈ 39.1°
- *   visibleHeight ≈ 2*60*tan(19.55°) ≈ 42.6 unit
- *   coverage ≈ 32/42.6 ≈ 75%  → NameMC-подобный кадр с запасом сверху/снизу
+ * РЕШЕНИЕ:
+ *   1. viewer.fov — публичный setter skinview3d (в его API есть).
+ *   2. viewer.zoom — публичный setter, задаёт дистанцию камеры.
+ *      Меньше 1.0 = дальше, больше 1.0 = ближе.
+ *   3. После loadSkin() и resize ЗАНОВО применяем fov+zoom.
+ *   4. Логируем диагностику — по ней видно, что реально применилось.
  */
-var SKIN_FOV = 45;
-var SKIN_ZOOM = 1.15;
-var SKIN_CAMERA_Y = 15;
-var SKIN_CAMERA_DIST = 60;
-var SKIN_TARGET_Y = 15;
-var SKIN_CAMERA_MIN_DIST = 30;
-var SKIN_CAMERA_MAX_DIST = 120;
+var SKIN_FOV = 40;
+var SKIN_ZOOM = 0.65;
+var SKIN_TARGET_Y = 16;
+var SKIN_CAMERA_MIN_DIST = 20;
+var SKIN_CAMERA_MAX_DIST = 200;
 var SKIN_GLOBAL_LIGHT = 1.8;
 var SKIN_CAMERA_LIGHT = 1.5;
 var MARKER_BASE_PX = 32;
@@ -59,9 +51,7 @@ var isDragging = false, dragStartX = 0, dragStartY = 0, dragMoved = false;
 var highlightedCountry = null;
 var showPlayerMarkers = true;
 var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
-var currentSkinViewer = null, currentRotateAnim = null;
-// По умолчанию вращение ВЫКЛЮЧЕНО — сразу видим NameMC-статичный фронт.
-var rotatePaused = true;
+var currentSkinViewer = null, currentRotateAnim = null, rotatePaused = false;
 var localSkinCache = new Map();
 var headCache = new Map();
 var localLoadedAttempted = new Set();
@@ -84,6 +74,10 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (e) { console.error('refresh:', e); }
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
+    setInterval(function () {
+        if (!currentRotateAnim) return;
+        try { if (rotatePaused && !currentRotateAnim.paused) currentRotateAnim.paused = true; } catch (e) {}
+    }, 300);
 });
 
 function initTabs() {
@@ -116,20 +110,12 @@ function initModalControls() {
         el.addEventListener('click', function () { closePlayerModal(); });
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePlayerModal(); });
-
-    // Кнопка вращения: клик переключает паузу/запуск.
     var rotBtn = document.getElementById('skin-toggle-rotate');
-    if (rotBtn) {
-        updateRotateButton(rotBtn);
-        rotBtn.onclick = function () {
-            rotatePaused = !rotatePaused;
-            if (currentRotateAnim) {
-                try { currentRotateAnim.paused = rotatePaused; } catch (e) {}
-            }
-            updateRotateButton(rotBtn);
-        };
-    }
-
+    if (rotBtn) rotBtn.onclick = function () {
+        rotatePaused = !rotatePaused;
+        rotBtn.textContent = rotatePaused ? '▶ Пуск' : '⏸ Пауза';
+        rotBtn.classList.toggle('active', rotatePaused);
+    };
     var resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = function () {
         if (currentSkinViewer) {
@@ -137,23 +123,11 @@ function initModalControls() {
             showToast('✓ Вид сброшен');
         }
     };
-
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
         if (currentSkinViewer && currentSkinViewer.nameTag)
             currentSkinViewer.nameTag.visible = !currentSkinViewer.nameTag.visible;
     };
-}
-
-function updateRotateButton(btn) {
-    if (!btn) return;
-    if (rotatePaused) {
-        btn.textContent = '▶ Вращение';
-        btn.classList.add('active');
-    } else {
-        btn.textContent = '⏸ Пауза';
-        btn.classList.remove('active');
-    }
 }
 
 function openPlayerModal() {
@@ -168,9 +142,9 @@ function closePlayerModal() {
     document.body.style.overflow = '';
     if (currentSkinViewer) { try { currentSkinViewer.dispose(); } catch (e) {} currentSkinViewer = null; }
     currentRotateAnim = null;
-    rotatePaused = true;
+    rotatePaused = false;
     var btn = document.getElementById('skin-toggle-rotate');
-    if (btn) updateRotateButton(btn);
+    if (btn) { btn.textContent = '⏸ Пауза'; btn.classList.remove('active'); }
 }
 
 /* ================= LOCAL SKINS ================= */
@@ -739,28 +713,31 @@ function renderPanelRow(r) {
 }
 
 /* ============================================================
- * 3D VIEWER — NameMC-like камера
+ * 3D VIEWER — ФИКС КАМЕРЫ
+ * ============================================================
+ * Используем ТОЛЬКО публичный API skinview3d:
+ *   viewer.fov   — setter угла обзора
+ *   viewer.zoom  — setter дистанции камеры
+ * Прошлая версия трогала viewer.camera.position и controls.target
+ * напрямую — библиотека сбрасывала их после loadSkin() и при resize.
  * ============================================================ */
 
 function applyDefaultCamera(viewer) {
     if (!viewer) return;
     try {
-        // 1. Публичные setter'ы skinview3d.
+        // Публичные setter'ы skinview3d.
         try { viewer.fov = SKIN_FOV; } catch (e) {}
         try { viewer.zoom = SKIN_ZOOM; } catch (e) {}
 
-        // 2. Прямая фронтальная камера.
-        //    ВАЖНО: сначала target, потом position, потом update() — иначе
-        //    controls пересчитает положение камеры и сбросит наши значения.
-        var cam = viewer.camera;
-        var ctl = viewer.controls;
-        if (cam && ctl && ctl.target) {
-            ctl.target.set(0, SKIN_TARGET_Y, 0);
-            cam.position.set(0, SKIN_CAMERA_Y, SKIN_CAMERA_DIST);
-            ctl.update();
+        // Точку взгляда сдвигаем на центр тела (12 вместо 16 по умолчанию).
+        if (viewer.controls && viewer.controls.target) {
+            viewer.controls.target.set(0, SKIN_TARGET_Y - 4, 0);
+            viewer.controls.update();
         }
 
-        // 3. Диагностика — если что-то не так, эта строка подскажет.
+        // Диагностика — эту строку присылай из F12 → Console, если что-то не так.
+        var cam = viewer.camera;
+        var ctl = viewer.controls;
         if (cam && ctl && ctl.target) {
             var dist = Math.sqrt(
                 Math.pow(cam.position.x - ctl.target.x, 2) +
@@ -768,22 +745,26 @@ function applyDefaultCamera(viewer) {
                 Math.pow(cam.position.z - ctl.target.z, 2)
             );
             var aspect = cam.aspect || 0;
-            var effFov = SKIN_FOV / (SKIN_ZOOM || 1);
             console.log(
                 '[skinview3d] ' + APP_VERSION +
-                ' | fov=' + SKIN_FOV + ' zoom=' + SKIN_ZOOM +
-                ' effFOV=' + effFov.toFixed(1) + '°' +
+                ' | fov=' + (cam.fov != null ? cam.fov.toFixed(1) : '?') +
+                ' zoom=' + (viewer.zoom != null ? viewer.zoom.toFixed(2) : '?') +
                 ' aspect=' + aspect.toFixed(3) +
                 ' dist=' + dist.toFixed(1) +
                 ' cam=(' + cam.position.x.toFixed(1) + ',' + cam.position.y.toFixed(1) + ',' + cam.position.z.toFixed(1) + ')' +
                 ' target=(' + ctl.target.x.toFixed(1) + ',' + ctl.target.y.toFixed(1) + ',' + ctl.target.z.toFixed(1) + ')'
             );
+            if (Math.abs(aspect - 1.0) > 0.05) {
+                console.warn('[skinview3d] aspect=' + aspect.toFixed(3) +
+                    ' ≠ 1.0 — canvas не квадратный. Проверь CSS .player-viewer-wrap: должно быть aspect-ratio: 1/1 без min-height.');
+            }
         }
     } catch (e) {
         console.error('[skinview3d] applyDefaultCamera:', e);
     }
 }
 
+// Глобальный хелпер: resetSkinCamera() из F12 → Console применит текущие константы.
 window.resetSkinCamera = function () {
     if (currentSkinViewer) applyDefaultCamera(currentSkinViewer);
 };
@@ -847,7 +828,7 @@ function initSkinViewer(name, uuid) {
                     if (viewer.cameraLight) viewer.cameraLight.intensity = SKIN_CAMERA_LIGHT;
                 } catch (e) {}
 
-                // Камера ДО загрузки скина.
+                // Камера ДО загрузки скина
                 applyDefaultCamera(viewer);
 
                 viewer.controls.enableZoom = true;
@@ -865,12 +846,7 @@ function initSkinViewer(name, uuid) {
                     viewer.nameTag.visible = true;
                 } catch (e) {}
 
-                // Автовращение добавляем, но сразу ставим на паузу —
-                // чтобы по умолчанию был NameMC-статичный фронт.
-                try {
-                    currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation);
-                    currentRotateAnim.paused = true;
-                } catch (e) {}
+                try { currentRotateAnim = viewer.animations.add(skinview3d.RotatingAnimation); } catch (e) {}
 
                 var userInteracting = false;
                 newCanvas.addEventListener('pointerdown', function () {
@@ -879,7 +855,6 @@ function initSkinViewer(name, uuid) {
                 });
                 newCanvas.addEventListener('pointerup', function () {
                     userInteracting = false;
-                    if (rotatePaused) return;
                     setTimeout(function () {
                         if (userInteracting || rotatePaused) return;
                         if (currentRotateAnim) { try { currentRotateAnim.paused = false; } catch (e) {} }
@@ -889,8 +864,8 @@ function initSkinViewer(name, uuid) {
 
                 currentSkinViewer = viewer;
 
-                // Скин грузим явно и применяем камеру ПОСЛЕ — skinview3d
-                // пересчитывает своё состояние при loadSkin.
+                // Скин грузим ЯВНО и применяем камеру ПОСЛЕ — skinview3d
+                // пересчитывает внутреннее состояние при loadSkin.
                 viewer.loadSkin(skinUrl).then(function () {
                     console.log('[skinview3d] skin loaded, re-applying camera');
                     if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
@@ -908,6 +883,7 @@ function initSkinViewer(name, uuid) {
                         var s = Math.min(w, h);
                         currentSkinViewer.width = s;
                         currentSkinViewer.height = s;
+                        // После resize Three.js пересчитывает aspect — переустановим.
                         if (currentSkinViewer === viewer) applyDefaultCamera(viewer);
                     }
                 });
