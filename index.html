@@ -168,62 +168,500 @@
             <div class="guide-layout">
                 <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
                 <div class="guide-content">
+
+                    <!-- ========================================================= -->
+                    <!-- 1. СТАРТ -->
+                    <!-- ========================================================= -->
                     <article class="guide-section" id="guide-start">
                         <h2 data-guide-title>🌱 С чего начать</h2>
+                        <p>Ты только что зашёл на сервер — держи пошаговый план первых 30 минут.</p>
                         <ol class="guide-steps">
-                            <li>Зайди на сервер — выдадут стартовый баланс.</li>
-                            <li>Создай страну: <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code></li>
-                            <li>Захвати территорию: <code data-copy="/c claim">/c claim</code></li>
-                            <li>Поставь дом: <code data-copy="/sethome">/sethome</code></li>
-                            <li>Выбери профессию: <code data-copy="/jobs browse">/jobs browse</code></li>
-                            <li>Начни торговать: <code data-copy="/shop">/shop</code></li>
+                            <li>Получи стартовый баланс от администрации или из магазина.</li>
+                            <li>Создай свою страну: <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code></li>
+                            <li>Захвати первый чанк: встань в нужное место и введи <code data-copy="/c claim">/c claim</code></li>
+                            <li>Поставь точку дома: <code data-copy="/sethome">/sethome</code></li>
+                            <li>Выбери профессию: <code data-copy="/jobs browse">/jobs browse</code> — это пассивный заработок</li>
+                            <li>Начни торговать с другими: <code data-copy="/shop">/shop</code> — рынок между игроками</li>
+                            <li>Активируй автозахват, чтобы расширяться на бегу: <code data-copy="/c autoclaim">/c autoclaim</code></li>
                         </ol>
+                        <p class="guide-note">💡 <b>Совет:</b> не трать всю стартовую энергию на один большой захват. Энергия восстанавливается медленно — лучше захвати небольшой ровный участок и развивай его.</p>
                     </article>
 
+                    <!-- ========================================================= -->
+                    <!-- 2. ГОСУДАРСТВО -->
+                    <!-- ========================================================= -->
                     <article class="guide-section" id="guide-country">
-                        <h2 data-guide-title>🏛️ Страны (Sovereignty)</h2>
-                        <p>Главное меню: <code data-copy="/c">/c</code> (алиасы <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>).</p>
-                        <h3>Меню /c</h3>
+                        <h2 data-guide-title>🏛️ Государство (Sovereignty)</h2>
+                        <p>Главное меню: <code data-copy="/c">/c</code>. Алиасы: <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>, <code data-copy="/state">/state</code>. Всё управление — через единое меню с кнопками.</p>
+
+                        <h3>⚡ Энергия — валюта развития</h3>
+                        <p>Энергия нужна для захвата чанков (2 ⚡ за чанк) и активации бонусов. Она восстанавливается автоматически, скорость зависит от уровня регенерации.</p>
                         <ul class="guide-list">
-                            <li><b>Территория</b> — захват, автозахват</li>
-                            <li><b>Дипломатия</b> — союзы, пакты, войны</li>
-                            <li><b>Улучшения</b> — энергия, регенерация, лимит, фермы</li>
-                            <li><b>Банк страны</b> — внести/снять</li>
-                            <li><b>Исследования</b>, <b>Суд</b>, <b>Шахтёрский бонус</b></li>
-                            <li><b>Улучшение чанка</b>, <b>Управление</b>, <b>Магазин</b></li>
+                            <li><b>Стартовая энергия:</b> 10 ⚡</li>
+                            <li><b>Смерть:</b> −1 ⚡ при каждой гибели</li>
+                            <li><b>Купить энергию:</b> <code data-copy="/c buyenergy 10">/c buyenergy &lt;кол-во&gt;</code> — 1000 монет за единицу регена</li>
+                            <li><b>Буст регенерации:</b> <code data-copy="/c boost">/c boost</code> — 5000 монет, +2 ⚡/час на 1 час</li>
+                            <li><b>Максимум энергии:</b> 20 уровней (10 → 110 ⚡)</li>
+                            <li><b>Регенерация:</b> 20 уровней (2 → 21 ⚡/час)</li>
                         </ul>
-                        <h3>Основные команды</h3>
+
+                        <h3>🗺️ Захват территории</h3>
+                        <ul class="guide-list">
+                            <li><b>Ручной:</b> <code data-copy="/c claim">/c claim</code> — захватывает чанк под ногами</li>
+                            <li><b>Автозахват:</b> <code data-copy="/c autoclaim">/c autoclaim</code> — берёт все чанки, через которые пробегаешь</li>
+                            <li><b>Освободить:</b> <code data-copy="/c unclaim">/c unclaim</code></li>
+                            <li><b>Стартовый лимит:</b> 15 чанков, расширяется за деньги (+10 за уровень)</li>
+                        </ul>
+                        <p>Захват чужого чанка возможен только если:</p>
+                        <ol class="guide-steps">
+                            <li>Страна-владелец — твой враг (объявлена война).</li>
+                            <li>Чанк не защищён «щитом». Защищённые чанки не захватить пока владелец онлайн.</li>
+                            <li>Чанк не покрыт пактом о ненападении.</li>
+                        </ol>
+
+                        <h3>🏗️ Типы чанков</h3>
+                        <p>Меню: <code data-copy="/c chunkupgrade">/c chunkupgrade</code>. Каждый чанк можно улучшить до одного из 5 типов. Стоимость и эффект зависят от типа.</p>
+                        <ul class="guide-list">
+                            <li>🪨 <b>Обычный</b> — без эффекта, бесплатно</li>
+                            <li>🌾 <b>Ферма</b> — приносит пассивный доход в казну (+150/час, +100 за уровень прокачки)</li>
+                            <li>⛏ <b>Шахта</b> — усиливает Спешку при активации <code data-copy="/c miningboost">/c miningboost</code></li>
+                            <li>⚔ <b>Военный</b> — усиливает защиту и урон по врагам на территории</li>
+                            <li>💰 <b>Торговый</b> — даёт +10% к доходу соседних ферм, стакается до x2 при 10+ торговых</li>
+                            <li>🛡 <b>Защитный (defensive)</b> — включает щит на чанк. Стоит 2500 монет. После смерти владельца щит спадает на 1–2 минуты</li>
+                        </ul>
+
+                        <h3>💎 Прокачка (UpgradeGUI)</h3>
+                        <p>Меню: <code data-copy="/c upgrade">/c upgrade</code>. Четыре основные ветки, каждая с 10–20 уровнями.</p>
+                        <ul class="guide-list">
+                            <li><b>Максимум энергии</b> — увеличивает верхний предел</li>
+                            <li><b>Регенерация</b> — быстрее восстанавливается энергия</li>
+                            <li><b>Лимит чанков</b> — +10 чанков за уровень</li>
+                            <li><b>Доход ферм</b> — +100 монет/час за каждый уровень, для каждого фермерского чанка</li>
+                        </ul>
+
+                        <h3>🔬 Технологии</h3>
+                        <p>Меню: <code data-copy="/c research">/c research</code>. Очки науки генерируются автоматически (0.5 + уровень науки × 0.5 в час) плюс бонус от прокачанных чанков (0.1/чанк).</p>
+                        <p>8 технологий, открываются по цепочке:</p>
+                        <ul class="guide-list">
+                            <li>🌾 <b>Земледелие</b> (5 очков) — +10% к доходу ферм</li>
+                            <li>⛏ <b>Горное дело</b> (5) — +1 уровень Спешки</li>
+                            <li>🛡 <b>Фортификация</b> (10) — щит держится на 1 мин дольше</li>
+                            <li>💰 <b>Торговля</b> (10) — +5% к доходу торговых чанков</li>
+                            <li>⚔ <b>Военная наука</b> (20, нужна Фортификация) — +5% урон по врагам</li>
+                            <li>🚚 <b>Логистика</b> (20, нужна Торговля) — +5 к лимиту чанков</li>
+                            <li>⚛ <b>Атомная энергия</b> (30, нужно Горное дело) — +2 ⚡/час</li>
+                            <li>👑 <b>Имперская администрация</b> (50, нужна Логистика) — −10% к налогам</li>
+                        </ul>
+
+                        <h3>🏦 Банк страны</h3>
+                        <p>Общая казна, куда могут вносить все соправители. Используется для налогов, репараций и крупных апгрейдов.</p>
                         <div class="cmd-grid">
-                            <div class="cmd-row"><code data-copy="/c claim">/c claim</code><span>Захватить чанк (2 ⚡)</span></div>
                             <div class="cmd-row"><code data-copy="/c bank deposit 5000">/c bank deposit &lt;сумма&gt;</code><span>Внести в казну</span></div>
-                            <div class="cmd-row"><code data-copy="/c upgrade">/c upgrade</code><span>Меню прокачки</span></div>
-                            <div class="cmd-row"><code data-copy="/c invite Steve">/c invite &lt;ник&gt;</code><span>Пригласить соправителя</span></div>
+                            <div class="cmd-row"><code data-copy="/c bank withdraw 5000">/c bank withdraw &lt;сумма&gt;</code><span>Снять из казны</span></div>
+                            <div class="cmd-row"><code data-copy="/c bank withdraw all">/c bank withdraw all</code><span>Забрать всё (только лидер)</span></div>
                         </div>
+                        <p class="guide-note">⚠️ Если налоговый плагин не может списать налог из казны — он идёт в личный счёт владельца, а затем в долг страны. Три просрочки = потеря чанка.</p>
+
+                        <h3>👥 Соправители</h3>
+                        <p>Лидер может приглашать других игроков в качестве соправителей — они получают доступ к банку, апгрейдам и дипломатии.</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c invite Steve">/c invite &lt;ник&gt;</code><span>Пригласить</span></div>
+                            <div class="cmd-row"><code data-copy="/c accept">/c accept</code><span>Принять приглашение</span></div>
+                            <div class="cmd-row"><code data-copy="/c decline">/c decline</code><span>Отклонить</span></div>
+                            <div class="cmd-row"><code data-copy="/c kick Steve">/c kick &lt;ник&gt;</code><span>Исключить соправителя</span></div>
+                        </div>
+
+                        <h3>🗺️ Просмотр границ</h3>
+                        <ul class="guide-list">
+                            <li><code data-copy="/c seechunk">/c seechunk</code> — показать границы частицами. 3 режима: все чанки, только внешние, цветные по типам</li>
+                            <li><code data-copy="/c map">/c map</code> — карта территории в чате (ASCII, радиус 7×7)</li>
+                            <li><code data-copy="/c unstuck">/c unstuck</code> — телепорт, если застрял на чужой территории</li>
+                        </ul>
                     </article>
 
+                    <!-- ========================================================= -->
+                    <!-- 3. ДИПЛОМАТИЯ -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-diplomacy">
+                        <h2 data-guide-title>🤝 Дипломатия и войны</h2>
+                        <p>Меню: <code data-copy="/c">/c</code> → кнопка <b>Дипломатия</b>. Или напрямую через <code data-copy="/c ally Steve">/c ally &lt;ник&gt;</code> / <code data-copy="/c enemy Steve">/c enemy &lt;ник&gt;</code>.</p>
+
+                        <h3>Отношения</h3>
+                        <ul class="guide-list">
+                            <li>🟢 <b>Союз</b> — нельзя атаковать (по умолчанию), общие дороги на карте, разрешено строить</li>
+                            <li>⚪ <b>Нейтралитет</b> — обычные правила PvP</li>
+                            <li>🔴 <b>Враг</b> — можно атаковать, захватывать чанки, получать военные бонусы</li>
+                        </ul>
+
+                        <h3>Пакты (4 типа)</h3>
+                        <ul class="guide-list">
+                            <li>💰 <b>Торговый</b> — +5% к пассивному доходу каждой страны за пакт</li>
+                            <li>⚔ <b>Военный</b> — совместные войны, координация атак</li>
+                            <li>🛡 <b>Оборонительный</b> — взаимная защита, нельзя захватывать друг друга</li>
+                            <li>🕊 <b>О ненападении</b> — блокирует PvP и захват чанков между странами. Нельзя объявить войну пока пакт активен</li>
+                        </ul>
+                        <p>Отправить запрос: <code data-copy="/c pact nonaggression Steve">/c pact &lt;trade|military|defense|nonaggression&gt; &lt;ник&gt;</code>. Принять через меню дипломатии.</p>
+
+                        <h3>Война и капитуляция</h3>
+                        <ol class="guide-steps">
+                            <li>Объявить войну: <code data-copy="/c enemy Steve">/c enemy &lt;ник&gt;</code></li>
+                            <li>Захватывать вражеские чанки: <code data-copy="/c claim">/c claim</code> на территории врага</li>
+                            <li>При потере 40% чанков — авто-победа нападающего: он получает 1 случайный улучшенный чанк</li>
+                            <li>Капитуляция: <code data-copy="/c surrender">/c surrender</code> — отдать 20% казны в репарациях</li>
+                        </ol>
+                        <p class="guide-note">💡 Пока страна-жертва оффлайн, её чанки нельзя захватывать. Планируй атаки когда враг в сети.</p>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 4. СУД -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-court">
+                        <h2 data-guide-title>⚖️ Международный суд</h2>
+                        <p>Меню: <code data-copy="/c court">/c court</code>. Разрешает конфликты между странами через голосование.</p>
+
+                        <h3>Как подать жалобу</h3>
+                        <p><code data-copy="/c court file Steve Причина">/c court file &lt;ник&gt; &lt;причина&gt;</code></p>
+
+                        <h3>Как голосовать</h3>
+                        <p>Открой <code data-copy="/c court">/c court</code>, ЛКМ по делу — выбрать санкции и проголосовать «за», ПКМ — против.</p>
+
+                        <h3>3 типа санкций</h3>
+                        <ul class="guide-list">
+                            <li>💸 <b>Штраф</b> — 5000 монет списывается из казны → личный счёт владельца → в долг</li>
+                            <li>🚫 <b>Торговое эмбарго</b> — все торговые пакты страны-ответчика расторгаются</li>
+                            <li>🕊 <b>Дипломатический бан</b> — все альянсы рвутся, дипломатия блокируется на 2 часа</li>
+                        </ul>
+
+                        <h3>Правила</h3>
+                        <ul class="guide-list">
+                            <li>Голосование длится 5 минут (300 секунд)</li>
+                            <li>Минимум 2 голоса для принятия</li>
+                            <li>Санкция проходит при поддержке 60% голосов</li>
+                            <li>Ответчик не может голосовать в своём деле</li>
+                        </ul>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 5. КАЗИНО -->
+                    <!-- ========================================================= -->
                     <article class="guide-section" id="guide-casino">
                         <h2 data-guide-title>🎰 Казино (RollGame)</h2>
-                        <p>Хаб: <code data-copy="/roll">/roll</code> (алиас <code data-copy="/casino">/casino</code>).</p>
+                        <p>Хаб: <code data-copy="/roll">/roll</code> (алиас <code data-copy="/casino">/casino</code>). Меню с выбором игры, статистикой и джекпотом.</p>
+
+                        <h3>9 игр</h3>
                         <div class="cmd-grid">
-                            <div class="cmd-row"><code data-copy="/roll slots 1000">/roll slots &lt;ставка&gt;</code><span>Слоты</span></div>
-                            <div class="cmd-row"><code data-copy="/roll crash 1000">/roll crash &lt;ставка&gt;</code><span>Crash</span></div>
-                            <div class="cmd-row"><code data-copy="/roll upgrade">/roll upgrade</code><span>Апгрейдер</span></div>
-                            <div class="cmd-row"><code data-copy="/roll stairs 1000">/roll stairs &lt;ставка&gt;</code><span>Лестница (макс x42)</span></div>
-                            <div class="cmd-row"><code data-copy="/roll poker">/roll poker</code><span>Покер</span></div>
+                            <div class="cmd-row"><code data-copy="/roll slots 1000">/roll slots &lt;ставка&gt;</code><span>Слоты — 3 барабана, множители до x200</span></div>
+                            <div class="cmd-row"><code data-copy="/roll crash 1000">/roll crash &lt;ставка&gt;</code><span>Crash — множитель растёт, успей забрать</span></div>
+                            <div class="cmd-row"><code data-copy="/roll upgrade">/roll upgrade</code><span>Апгрейдер — крути шанс или улучшай предметы</span></div>
+                            <div class="cmd-row"><code data-copy="/roll stairs 1000">/roll stairs &lt;ставка&gt;</code><span>Лестница — 12 ступеней, максимум x42</span></div>
+                            <div class="cmd-row"><code data-copy="/roll duel 1000">/roll duel &lt;ставка&gt;</code><span>Дуэль — 47.5% шанс на x2</span></div>
+                            <div class="cmd-row"><code data-copy="/roll mines 1000 3 5">/roll mines &lt;ставка&gt; &lt;мины&gt; &lt;размер&gt;</code><span>Мины — сетки 3×3, 4×4, 5×5</span></div>
+                            <div class="cmd-row"><code data-copy="/roll wheel 1000">/roll wheel &lt;ставка&gt;</code><span>Колесо — 12 секторов от 0x до 5x</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker">/roll poker</code><span>Покер — Texas Hold'em на 2–6 игроков</span></div>
+                            <div class="cmd-row"><code data-copy="/roll bet 1000">/roll bet &lt;ставка&gt;</code><span>Классическая рулетка — банк игроков</span></div>
+                        </div>
+
+                        <h3>🔮 Апгрейдер v3.5</h3>
+                        <p>Меню: <code data-copy="/roll upgrade">/roll upgrade</code>. Два режима:</p>
+                        <ul class="guide-list">
+                            <li><b>🎯 Режим Шанс</b> — выбираешь шанс 5%..90%, множитель = 0.95 / шанс. ПКМ по кнопке — авто-ролл ×10</li>
+                            <li><b>💎 Режим Предмет</b> — положи предмет в центр, выбери множитель ×1/×2/×3 и крути. При победе получишь предмет выше тиром или деньги. Энчанты переносятся</li>
+                        </ul>
+                        <p>Кастомные рецепты (например, <b>Золотое яблоко → Зачарованное</b> с шансом 15%) настраиваются в конфиге плагина.</p>
+
+                        <h3>💰 Джекпот</h3>
+                        <p>1% с каждой ставки уходит в общий джекпот-банк. С каждой победы есть 0.1% шанс сорвать всё. Индикатор — во вкладке 🎁 Бонусы.</p>
+
+                        <h3>📊 Статистика и топ</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/roll stats">/roll stats</code><span>Личная статистика по всем играм</span></div>
+                            <div class="cmd-row"><code data-copy="/roll top">/roll top</code><span>Топ игроков рулетки</span></div>
+                            <div class="cmd-row"><code data-copy="/roll jackpot">/roll jackpot</code><span>Текущий размер джекпота</span></div>
+                        </div>
+
+                        <h3>🎲 Покер (Texas Hold'em)</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/roll poker tables">/roll poker tables</code><span>Список столов</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker create 5000">/roll poker create &lt;бай-ин&gt;</code><span>Создать стол</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker join 1">/roll poker join &lt;id&gt;</code><span>Присоединиться</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker start">/roll poker start</code><span>Начать игру (создатель)</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker top">/roll poker top</code><span>Топ игроков за неделю</span></div>
                         </div>
                     </article>
 
+                    <!-- ========================================================= -->
+                    <!-- 6. НАЛОГИ -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-tax">
+                        <h2 data-guide-title>💸 Налоги</h2>
+                        <p>Налог списывается каждые 5 игровых дней. Меню: <code data-copy="/tax">/tax</code>.</p>
+
+                        <h3>Как считается</h3>
+                        <p>Формула: <code>100 (база) + 100 × чанков + 200 × (чанков / 5)</code></p>
+                        <p>Пример: страна с 20 чанками платит <b>100 + 2000 + 800 = 2900 монет</b>.</p>
+
+                        <h3>Порядок списания</h3>
+                        <ol class="guide-steps">
+                            <li>Сначала из казны страны.</li>
+                            <li>Если не хватает — из личного счёта владельца.</li>
+                            <li>Если владельца тоже не хватает — идёт в долг страны.</li>
+                        </ol>
+                        <p class="guide-note">⚠️ Три просроченных налога подряд = потеря случайного чанка. Следи за казной.</p>
+
+                        <h3>Как оплатить долг</h3>
+                        <p>Открой <code data-copy="/tax">/tax</code> → нажми <b>Оплатить долг</b>. Спишется с личного баланса.</p>
+
+                        <h3>Просмотр всех долгов</h3>
+                        <p><code data-copy="/tax debts">/tax debts</code> — список всех должников сервера.</p>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 7. РЫНОК -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-market">
+                        <h2 data-guide-title>🏪 Рынок между игроками</h2>
+                        <p>Меню: <code data-copy="/shop">/shop</code>. Продавай и покупай у других игроков за деньги, предметы или комбинацию.</p>
+
+                        <h3>Как продать</h3>
+                        <p>Возьми предмет в руку и введи команду:</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/shop add money 500">/shop add money &lt;сумма&gt;</code><span>За деньги</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add DIAMOND 5">/shop add &lt;материал&gt; &lt;кол-во&gt;</code><span>За предметы</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add DIAMOND 5 money 500">/shop add &lt;материал&gt; &lt;кол-во&gt; money &lt;сумма&gt;</code><span>Смешанная цена</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add money 500 for Steve">/shop add money &lt;сумма&gt; for &lt;ник&gt;</code><span>Личная продажа одному игроку</span></div>
+                        </div>
+
+                        <h3>Как купить</h3>
+                        <p>Открой <code data-copy="/shop">/shop</code>, выбери категорию → кликни по товару. Оплата спишется автоматически.</p>
+
+                        <h3>Категории</h3>
+                        <p>Оружие, Броня, Блоки, Еда, Инструменты, Редкости. Категория выбирается автоматически по типу предмета или указывается вручную.</p>
+
+                        <h3>Свои товары</h3>
+                        <p><code data-copy="/shop sell">/shop sell</code> — меню твоих выставленных лотов. Клик по товару — снять с продажи (предмет вернётся в инвентарь).</p>
+
+                        <p class="guide-note">💡 Если покупатель оплатил предметами, а продавец оффлайн — оплата сохранится и выдастся автоматически при следующем входе продавца.</p>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 8. АУКЦИОН -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-auction">
+                        <h2 data-guide-title>🔨 Аукцион</h2>
+                        <p>Аукцион на время: лот уходит к тому, кто предложит больше до конца таймера. Меню: <code data-copy="/auc">/auc</code>.</p>
+
+                        <h3>Выставить лот</h3>
+                        <p>Возьми предмет в руку:</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/auc add 5000">/auc add &lt;стартовая-цена&gt;</code><span>На 60 минут</span></div>
+                            <div class="cmd-row"><code data-copy="/auc add 5000 120">/auc add &lt;цена&gt; &lt;минут&gt;</code><span>До 180 минут</span></div>
+                        </div>
+
+                        <h3>Ставки</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/auc bid 1 6000">/auc bid &lt;id&gt; &lt;сумма&gt;</code><span>Сделать ставку</span></div>
+                            <div class="cmd-row"><code data-copy="/auc info 1">/auc info &lt;id&gt;</code><span>Информация о лоте</span></div>
+                            <div class="cmd-row"><code data-copy="/auc cancel 1">/auc cancel &lt;id&gt;</code><span>Отменить (только продавец, если ставок нет)</span></div>
+                        </div>
+
+                        <h3>Что нужно знать</h3>
+                        <ul class="guide-list">
+                            <li>Предыдущая ставка возвращается предыдущему лидеру автоматически</li>
+                            <li>Если победитель оффлайн на момент завершения — предмет сохранится и выдастся при входе</li>
+                            <li>Продавец получает деньги после завершения минус возможная комиссия</li>
+                            <li>Продавец не может делать ставки на свой лот</li>
+                        </ul>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 9. НАЁМНИКИ -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-bounty">
+                        <h2 data-guide-title>💀 Наёмники</h2>
+                        <p>Назначь награду за голову другого игрока. Кто убьёт его первым — забирает всё.</p>
+
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/bounty Steve 10000">/bounty &lt;ник&gt; &lt;сумма&gt;</code><span>Назначить награду</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty list">/bounty list</code><span>Список активных наград</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty menu">/bounty menu</code><span>GUI с целями</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty remove Steve">/bounty remove &lt;ник&gt;</code><span>Снять свою награду (возврат денег)</span></div>
+                        </div>
+
+                        <h3>Правила</h3>
+                        <ul class="guide-list">
+                            <li>Нельзя назначить награду за самого себя</li>
+                            <li>Только назначивший может снять свою награду</li>
+                            <li>При убийстве цели награда выдаётся убийце, а сервер анонсирует это в чат</li>
+                            <li>Повторное назначение на того же игрока <b>заменяет</b> предыдущую награду</li>
+                        </ul>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 10. PVP -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-pvp">
+                        <h2 data-guide-title>⚔️ PvP и защита</h2>
+
+                        <h3>Правила PvP по умолчанию</h3>
+                        <ul class="guide-list">
+                            <li>🔴 <b>Нейтралы:</b> PvP <b>разрешён</b> (но отключается на своей территории под защитой)</li>
+                            <li>🟢 <b>Союзники:</b> PvP <b>запрещён</b></li>
+                            <li>🔴 <b>Враги:</b> PvP <b>разрешён</b> везде</li>
+                            <li>🕊 <b>Пакт о ненападении:</b> блокирует PvP независимо от отношений</li>
+                        </ul>
+
+                        <h3>Защита чанков</h3>
+                        <ul class="guide-list">
+                            <li>На своей территории — полная защита от ломания/строительства</li>
+                            <li>На территории союзника — можно строить (настраивается админами)</li>
+                            <li>На чужой территории — враг может ломать только если объявлена война</li>
+                            <li><b>Защитный чанк:</b> пока владелец онлайн — чанк неуязвим. После смерти щит спадает на 1–2 минуты</li>
+                            <li><b>Offline-защита:</b> пока владелец страны оффлайн, его чанки нельзя захватывать</li>
+                        </ul>
+
+                        <h3>Глобальные события</h3>
+                        <p>Раз в час сервер запускает одно случайное событие на 45 минут:</p>
+                        <ul class="guide-list">
+                            <li>🌵 <b>Засуха</b> — доход ферм −50%</li>
+                            <li>🌊 <b>Наводнение</b> — доход ферм и торговли −40%</li>
+                            <li>☠ <b>Чума</b> — регенерация энергии −50%</li>
+                            <li>🌾 <b>Урожайный сезон</b> — доход ферм +75%</li>
+                            <li>💰 <b>Торговый бум</b> — доход торговых чанков +50%</li>
+                            <li>⛏ <b>Горный бум</b> — все получают Спешку II на час</li>
+                            <li>⚡ <b>Энергетический всплеск</b> — мгновенно +3 энергии всем</li>
+                            <li>🕊 <b>Мирное время</b> — PvP отключён, доход чанков +20%</li>
+                        </ul>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 11. ЭКОНОМИКА -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-economy">
+                        <h2 data-guide-title>💰 Экономика и профессии</h2>
+
+                        <h3>Базовая экономика (EssentialsX)</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/bal">/bal</code><span>Свой баланс</span></div>
+                            <div class="cmd-row"><code data-copy="/pay Steve 1000">/pay &lt;ник&gt; &lt;сумма&gt;</code><span>Перевод другому игроку</span></div>
+                            <div class="cmd-row"><code data-copy="/baltop">/baltop</code><span>Топ по балансу</span></div>
+                        </div>
+
+                        <h3>Профессии (Jobs)</h3>
+                        <p>Выбирай любую из доступных профессий и получай деньги за типичные действия (копание, рубка, охота и т.д.).</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/jobs browse">/jobs browse</code><span>Список профессий</span></div>
+                            <div class="cmd-row"><code data-copy="/jobs join Miner">/jobs join &lt;профессия&gt;</code><span>Вступить</span></div>
+                            <div class="cmd-row"><code data-copy="/jobs stats">/jobs stats</code><span>Мои уровни</span></div>
+                            <div class="cmd-row"><code data-copy="/jobs leave Miner">/jobs leave &lt;профессия&gt;</code><span>Покинуть</span></div>
+                        </div>
+
+                        <h3>Точки дома (EssentialsX)</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/sethome">/sethome</code><span>Поставить дом</span></div>
+                            <div class="cmd-row"><code data-copy="/home">/home</code><span>Телепорт домой</span></div>
+                            <div class="cmd-row"><code data-copy="/delhome">/delhome</code><span>Удалить дом</span></div>
+                            <div class="cmd-row"><code data-copy="/tpa Steve">/tpa &lt;ник&gt;</code><span>Запрос телепорта к игроку</span></div>
+                            <div class="cmd-row"><code data-copy="/spawn">/spawn</code><span>Телепорт на спавн</span></div>
+                        </div>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 12. СКИНЫ -->
+                    <!-- ========================================================= -->
+                    <article class="guide-section" id="guide-skins">
+                        <h2 data-guide-title>🎨 Скины</h2>
+                        <p>Сервер работает в offline-mode, поэтому скины грузятся через SkinsRestorer.</p>
+
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/skin Steve">/skin &lt;ник&gt;</code><span>Установить скин</span></div>
+                            <div class="cmd-row"><code data-copy="/skin clear">/skin clear</code><span>Убрать скин (Steve по умолчанию)</span></div>
+                            <div class="cmd-row"><code data-copy="/skins">/skins</code><span>Меню скинов</span></div>
+                        </div>
+
+                        <p class="guide-note">💡 На панели есть свой 3D-просмотрщик скинов — клик по игроку в разделе <b>Игроки</b>.</p>
+                    </article>
+
+                    <!-- ========================================================= -->
+                    <!-- 13. FAQ -->
+                    <!-- ========================================================= -->
                     <article class="guide-section" id="guide-faq">
                         <h2 data-guide-title>❓ FAQ</h2>
+
                         <details class="faq-item">
-                            <summary>Не могу захватить чанк</summary>
-                            <p>Проверь: есть ли страна, хватает ли энергии (2 ⚡), не превышен ли лимит, не защищён ли чанк, владелец не оффлайн.</p>
+                            <summary>Не могу захватить чанк — почему?</summary>
+                            <p>Проверь по порядку:</p>
+                            <ul>
+                                <li>Есть ли у тебя вообще страна (<code>/c info</code>)?</li>
+                                <li>Хватает ли энергии? Стоимость 2 ⚡ (<code>/c buyenergy</code>)</li>
+                                <li>Не превышен ли лимит чанков? (<code>/c upgrade</code> → увеличить лимит)</li>
+                                <li>Не защищён ли чанк щитом? Владелец должен быть онлайн, а щит — снят</li>
+                                <li>Если чанк чужой — объявлена ли война этому игроку (<code>/c enemy &lt;ник&gt;</code>)?</li>
+                                <li>Не действует ли пакт о ненападении?</li>
+                            </ul>
                         </details>
+
                         <details class="faq-item">
-                            <summary>Карта обновляется с задержкой</summary>
-                            <p>Карта пушится на GitHub раз в час. Данные (страны, игроки, казна) — раз в 5 минут.</p>
+                            <summary>Как поднять доход страны?</summary>
+                            <p>Три пути:</p>
+                            <ul>
+                                <li>Строй <b>фермерские чанки</b> (<code>/c chunkupgrade</code> → ферма)</li>
+                                <li>Прокачивай <b>Доход ферм</b> (<code>/c upgrade</code>) — +100 монет/час за уровень</li>
+                                <li>Заключай <b>торговые пакты</b> — +5% за каждый</li>
+                            </ul>
+                            <p>Также следи за событиями: <b>Урожайный сезон</b> даёт +75% на 45 минут.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Почему меня атакуют на моей территории?</summary>
+                            <p>Если владелец твоей страны оффлайн — чанки всё равно защищены. Но если ты сам онлайн и щит не активен, враг может ломать блоки. Активируй <b>защитный чанк</b> (<code>/c chunkupgrade</code> → 🛡).</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Куда ушли деньги при смерти?</summary>
+                            <p>При смерти списывается только энергия (−1 ⚡), деньги не теряются. Деньги могут списаться только налоговой системой (<code>/tax</code>) или при проигрыше на аукционе.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как получать больше энергии?</summary>
+                            <p>Три пути: купить (<code>/c buyenergy</code>), прокачать регенерацию (<code>/c upgrade</code>), купить буст (<code>/c boost</code>). Плюс изучи технологию «Атомная энергия» (+2 ⚡/час).</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что делать, если застрял на чужой территории?</summary>
+                            <p>Команда <code>/c unstuck</code> телепортирует тебя на 50–100 блоков от чужой территории.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Карта и данные обновляются с задержкой?</summary>
+                            <p>Карта пушится на GitHub раз в час. Данные (страны, игроки, казна) — раз в 5 минут. Если у тебя не обновляется — сделай <b>Ctrl+Shift+R</b> (hard refresh).</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Не грузится скин в 3D-профиле</summary>
+                            <p>Скины для пираток лежат вручную в репозитории панели: <code>data/skins/{ник}.png</code>. Если твоего скина там нет — идёт fallback на Steve. Попроси администратора добавить твой скин.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как переименовать страну?</summary>
+                            <p><code>/c rename НовоеНазвание</code>. Только лидер может переименовать. Название — до 16 символов, буквы/цифры/пробел/подчёркивание/дефис.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как выйти из страны / удалить её?</summary>
+                            <p>Соправитель может просто перестать быть соправителем — попроси лидера использовать <code>/c kick &lt;ник&gt;</code>. Удаление страны целиком — только лидер через <code>/c</code> → <b>Управление</b> → <b>Удалить страну</b>. Действие необратимо.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Не работает /roll или другая команда</summary>
+                            <p>Проверь права: у казино команда <code>/roll</code>, у налогов — <code>/tax</code>, у магазина — <code>/shop</code>. У некоторых команд есть отдельные пермишены. Если точно не работает — напиши в поддержку сервера.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как установить панель как приложение?</summary>
+                            <p>Chrome/Edge: открой сайт → три точки справа вверху → «Установить Sovereignty Panel». Появится иконка на рабочем столе с нашим гербом.</p>
                         </details>
                     </article>
+
                 </div>
             </div>
         </section>
