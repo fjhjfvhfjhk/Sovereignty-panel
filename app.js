@@ -1,10 +1,10 @@
-/* Sovereignty panel v4.0 — CSS 3D скин (без skinview3d) */
+/* Sovereignty panel v4.1 — CSS 3D скин, пиксель-перфект (без scale()) */
 
 window.addEventListener('error', function (e) {
     console.error('[APP ERROR] ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
 });
 
-var APP_VERSION = 'v4.0';
+var APP_VERSION = 'v4.1';
 
 var DATA_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
@@ -60,9 +60,15 @@ document.addEventListener('DOMContentLoaded', function () {
 function skinRotateLoop() {
     if (currentSkinViewer && currentSkinViewer.autoRotate) {
         currentSkinViewer.rotation += 0.8;
-        currentSkinViewer.refresh();
+        applyFigureRotation(currentSkinViewer);
     }
     requestAnimationFrame(skinRotateLoop);
+}
+
+function applyFigureRotation(state) {
+    if (!state || !state.element) return;
+    state.element.style.transform =
+        'rotateX(' + state.rotationX + 'deg) rotateY(' + state.rotation + 'deg)';
 }
 
 function initTabs() {
@@ -110,7 +116,7 @@ function initModalControls() {
         if (currentSkinViewer) {
             currentSkinViewer.rotation = 0;
             currentSkinViewer.rotationX = 0;
-            currentSkinViewer.refresh();
+            applyFigureRotation(currentSkinViewer);
             showToast('✓ Вид сброшен');
         }
     };
@@ -713,12 +719,22 @@ function renderPanelRow(r) {
 }
 
 /* ============================================================
- * CSS 3D SKIN VIEWER — БЕЗ БИБЛИОТЕК
+ * CSS 3D SKIN VIEWER — pixel-perfect (v4.1)
  * ============================================================
- * Рендерит Minecraft-скин через CSS transform-style: preserve-3d.
- * Каждая часть тела — куб из 6 граней, размеры как в текстуре.
- * Вращение — CSS rotateY, зум не нужен (масштаб подгоняется под контейнер).
- * Камеры нет — модель всегда в кадре. Проблема исчезла по определению.
+ * КЛЮЧЕВОЕ ИЗМЕНЕНИЕ vs v4.0:
+ *   Было: U=1 (текстура рендерится 1:1 с CSS пикселями), потом scale()
+ *         на фигуре — браузер интерполировал → мыло.
+ *   Стало: U = целое число (10–18), все размеры сразу в U-пикселях,
+ *          БЕЗ transform: scale(). image-rendering: pixelated работает.
+ *
+ * Размеры модели (юниты, 1 юнит = 1 текстура-пиксель):
+ *   head      8×8×8   центр (0, -12, 0)
+ *   body      8×12×4  центр (0,  -2, 0)
+ *   rightArm  4×12×4  центр (-6, -2, 0)
+ *   leftArm   4×12×4  центр ( 6, -2, 0)
+ *   rightLeg  4×12×4  центр (-2, 10, 0)
+ *   leftLeg   4×12×4  центр ( 2, 10, 0)
+ * Итого высота: 32 юнита, центр в (0,0,0).
  * ============================================================ */
 
 function resolveSkinUrl(name, uuid) {
@@ -727,11 +743,21 @@ function resolveSkinUrl(name, uuid) {
     return CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve';
 }
 
+function computeU(wrap) {
+    var w = wrap.clientWidth || 380;
+    var h = wrap.clientHeight || 380;
+    var minSide = Math.min(w, h);
+    // Хотим чтобы модель 32 юнита занимала ~72% меньшей стороны
+    var u = Math.floor((minSide * 0.72) / 32);
+    if (u < 6) u = 6;
+    if (u > 24) u = 24;
+    return u;
+}
+
 function initSkinViewer(name, uuid) {
     var wrap = document.getElementById('player-viewer-wrap');
     if (!wrap) return;
 
-    // Удаляем старый canvas и старый скин-элемент
     var oldCanvas = document.getElementById('skin-canvas');
     if (oldCanvas && oldCanvas.parentNode) oldCanvas.parentNode.removeChild(oldCanvas);
     var oldScene = wrap.querySelector('.skin-scene');
@@ -745,106 +771,20 @@ function initSkinViewer(name, uuid) {
     }
 
     var skinUrl = resolveSkinUrl(name, uuid);
-    console.log('[css3d] loading skin: ' + skinUrl);
+    console.log('[css3d] ' + APP_VERSION + ' loading: ' + skinUrl);
 
     var img = new Image();
-    // НЕ ставим crossOrigin: не нужно, мы не читаем canvas, только используем как CSS background.
     img.onload = function () {
         try {
-            var scene = buildSkinScene(img, name);
-            wrap.insertBefore(scene, wrap.firstChild);
-
-            var figure = scene.querySelector('.skin-figure');
-            if (!figure) throw new Error('figure not built');
-
-            var state = {
-                element: figure,
-                scene: scene,
-                rotation: 0,
-                rotationX: 0,
-                autoRotate: false,
-                scale: 1,
-                refresh: function () {
-                    this.element.style.transform =
-                        'scale(' + this.scale + ') ' +
-                        'rotateX(' + this.rotationX + 'deg) ' +
-                        'rotateY(' + this.rotation + 'deg)';
-                },
-                resetRotation: function () {
-                    this.rotation = 0;
-                    this.rotationX = 0;
-                    this.refresh();
-                },
-                dispose: function () {
-                    if (this.scene && this.scene.parentNode) {
-                        this.scene.parentNode.removeChild(this.scene);
-                    }
-                }
-            };
+            var state = createSkinScene(img, name, wrap);
             currentSkinViewer = state;
 
-            // Масштаб под размер контейнера
-            updateSkinScale(state, wrap);
-            state.refresh();
-
-            // ==== DRAG ====
-            var dragActive = false, lastX = 0, lastY = 0;
-            scene.addEventListener('mousedown', function (e) {
-                dragActive = true;
-                lastX = e.clientX;
-                lastY = e.clientY;
-                scene.style.cursor = 'grabbing';
-                e.preventDefault();
-            });
-            window.addEventListener('mousemove', function (e) {
-                if (!dragActive || currentSkinViewer !== state) return;
-                var dx = e.clientX - lastX;
-                var dy = e.clientY - lastY;
-                lastX = e.clientX;
-                lastY = e.clientY;
-                state.rotation += dx * 0.7;
-                state.rotationX += dy * 0.3;
-                if (state.rotationX > 30) state.rotationX = 30;
-                if (state.rotationX < -30) state.rotationX = -30;
-                state.refresh();
-            });
-            window.addEventListener('mouseup', function () {
-                if (!dragActive) return;
-                dragActive = false;
-                if (scene.parentNode) scene.style.cursor = 'grab';
-            });
-
-            // ==== TOUCH ====
-            scene.addEventListener('touchstart', function (e) {
-                if (!e.touches[0]) return;
-                dragActive = true;
-                lastX = e.touches[0].clientX;
-                lastY = e.touches[0].clientY;
-            }, { passive: true });
-            scene.addEventListener('touchmove', function (e) {
-                if (!dragActive || !e.touches[0] || currentSkinViewer !== state) return;
-                var dx = e.touches[0].clientX - lastX;
-                var dy = e.touches[0].clientY - lastY;
-                lastX = e.touches[0].clientX;
-                lastY = e.touches[0].clientY;
-                state.rotation += dx * 1.0;
-                state.rotationX += dy * 0.4;
-                if (state.rotationX > 30) state.rotationX = 30;
-                if (state.rotationX < -30) state.rotationX = -30;
-                state.refresh();
-                e.preventDefault();
-            }, { passive: false });
-            scene.addEventListener('touchend', function () {
-                dragActive = false;
-            });
-
-            // ==== RESIZE ====
             var ro = new ResizeObserver(function () {
                 if (currentSkinViewer !== state) return;
-                updateSkinScale(state, wrap);
-                state.refresh();
+                rebuildSkinScene(state, img, name, wrap);
             });
             ro.observe(wrap);
+            state._resizeObserver = ro;
 
             if (loading) loading.classList.add('hidden');
             console.log('[css3d] ✓ viewer создан для ' + name);
@@ -866,21 +806,22 @@ function initSkinViewer(name, uuid) {
     img.src = skinUrl;
 }
 
-function updateSkinScale(state, wrap) {
-    var w = wrap.clientWidth || 380;
-    // Модель в юнитах: 32 юнита в высоту (8 head + 12 body + 12 leg).
-    // Хотим заполнить ~75% высоты кадра → scale = w * 0.75 / 32
-    // Учитывая, что при вращении фигура по ширине может быть 16 юнитов,
-    // тоже нормируем по ширине.
-    var heightScale = (w * 0.78) / 32;
-    var widthScale = (w * 0.85) / 16;
-    state.scale = Math.min(heightScale, widthScale);
+function rebuildSkinScene(state, img, name, wrap) {
+    var rotation = state.rotation;
+    var rotationX = state.rotationX;
+    var autoRotate = state.autoRotate;
+    try { state.dispose(); } catch (e) {}
+    var newState = createSkinScene(img, name, wrap);
+    newState.rotation = rotation;
+    newState.rotationX = rotationX;
+    newState.autoRotate = autoRotate;
+    newState._resizeObserver = state._resizeObserver;
+    applyFigureRotation(newState);
+    currentSkinViewer = newState;
 }
 
-function buildSkinScene(img, name) {
-    // U = 1: 1 текстурный пиксель = 1 CSS px до применения scale.
-    // Масштаб навешивается через transform: scale(...) на фигуру.
-    var U = 1;
+function createSkinScene(img, name, wrap) {
+    var U = computeU(wrap);
 
     var scene = document.createElement('div');
     scene.className = 'skin-scene';
@@ -896,72 +837,45 @@ function buildSkinScene(img, name) {
 
     var figure = document.createElement('div');
     figure.className = 'skin-figure';
-    figure.style.position = 'absolute';
-    figure.style.left = '50%';
-    figure.style.top = '50%';
+    figure.style.position = 'relative';
     figure.style.width = '0';
     figure.style.height = '0';
     figure.style.transformStyle = 'preserve-3d';
     figure.style.willChange = 'transform';
     scene.appendChild(figure);
 
-    // UV координаты (стандартный скин 64×64)
     var UV = {
         head: {
-            top:    [8, 0],
-            bottom: [16, 0],
-            right:  [0, 8],
-            front:  [8, 8],
-            left:   [16, 8],
-            back:   [24, 8]
+            top:    [8, 0], bottom: [16, 0],
+            right:  [0, 8], front:  [8, 8], left: [16, 8], back: [24, 8]
         },
         body: {
-            top:    [20, 16],
-            bottom: [28, 16],
-            right:  [16, 20],
-            front:  [20, 20],
-            left:   [28, 20],
-            back:   [32, 20]
+            top:    [20, 16], bottom: [28, 16],
+            right:  [16, 20], front:  [20, 20], left: [28, 20], back: [32, 20]
         },
         rightArm: {
-            top:    [44, 16],
-            bottom: [48, 16],
-            right:  [40, 20],
-            front:  [44, 20],
-            left:   [48, 20],
-            back:   [52, 20]
+            top:    [44, 16], bottom: [48, 16],
+            right:  [40, 20], front:  [44, 20], left: [48, 20], back: [52, 20]
         },
         leftArm: {
-            top:    [36, 48],
-            bottom: [40, 48],
-            right:  [32, 52],
-            front:  [36, 52],
-            left:   [40, 52],
-            back:   [44, 52]
+            top:    [36, 48], bottom: [40, 48],
+            right:  [32, 52], front:  [36, 52], left: [40, 52], back: [44, 52]
         },
         rightLeg: {
-            top:    [4, 16],
-            bottom: [8, 16],
-            right:  [0, 20],
-            front:  [4, 20],
-            left:   [8, 20],
-            back:   [12, 20]
+            top:    [4, 16], bottom: [8, 16],
+            right:  [0, 20], front:  [4, 20], left: [8, 20], back: [12, 20]
         },
         leftLeg: {
-            top:    [20, 48],
-            bottom: [24, 48],
-            right:  [16, 52],
-            front:  [20, 52],
-            left:   [24, 52],
-            back:   [28, 52]
+            top:    [20, 48], bottom: [24, 48],
+            right:  [16, 52], front:  [20, 52], left: [24, 52], back: [28, 52]
         }
     };
 
     function makeFace(texUV, fw, fh, transform) {
         var d = document.createElement('div');
         d.style.position = 'absolute';
-        d.style.left = '0';
-        d.style.top = '0';
+        d.style.left = '50%';
+        d.style.top = '50%';
         d.style.width = (fw * U) + 'px';
         d.style.height = (fh * U) + 'px';
         d.style.backgroundImage = 'url("' + img.src + '")';
@@ -969,20 +883,26 @@ function buildSkinScene(img, name) {
         d.style.backgroundPosition = (-texUV[0] * U) + 'px ' + (-texUV[1] * U) + 'px';
         d.style.backgroundRepeat = 'no-repeat';
         d.style.imageRendering = 'pixelated';
+        d.style.imageRendering = 'crisp-edges';
+        d.style.imageRendering = 'pixelated';
         d.style.transform = 'translate(-50%, -50%) ' + transform;
         d.style.transformOrigin = 'center';
+        d.style.backfaceVisibility = 'hidden';
         return d;
     }
 
-    function makeBox(uv, w, h, d, posX, posY, posZ) {
+    function makeBox(uv, w, h, d, centerX, centerY) {
         var box = document.createElement('div');
         box.style.position = 'absolute';
-        box.style.left = '0';
-        box.style.top = '0';
+        box.style.left = '50%';
+        box.style.top = '50%';
         box.style.width = '0';
         box.style.height = '0';
         box.style.transformStyle = 'preserve-3d';
-        box.style.transform = 'translate3d(' + (posX * U) + 'px,' + (posY * U) + 'px,' + (posZ * U) + 'px)';
+        // Центр куба смещён относительно центра фигуры.
+        // CSS Y растёт вниз, поэтому центр куба с centerY (где Y растёт вверх)
+        // = -centerY * U в CSS.
+        box.style.transform = 'translate3d(' + (centerX * U) + 'px,' + (-centerY * U) + 'px,0)';
 
         var W = w * U, H = h * U, D = d * U;
 
@@ -990,11 +910,11 @@ function buildSkinScene(img, name) {
         box.appendChild(makeFace(uv.front, w, h, 'translateZ(' + (D/2) + 'px)'));
         // back (-Z)
         box.appendChild(makeFace(uv.back, w, h, 'rotateY(180deg) translateZ(' + (D/2) + 'px)'));
-        // right (+X) — смотрим справа
+        // right (+X)
         box.appendChild(makeFace(uv.right, d, h, 'rotateY(90deg) translateZ(' + (W/2) + 'px)'));
         // left (-X)
         box.appendChild(makeFace(uv.left, d, h, 'rotateY(-90deg) translateZ(' + (W/2) + 'px)'));
-        // top (+Y в CSS = низ; rotateX(90deg) = верх в 3D)
+        // top (+Y) — в CSS положительный rotateX(90deg) смотрит вверх
         box.appendChild(makeFace(uv.top, w, d, 'rotateX(90deg) translateZ(' + (H/2) + 'px)'));
         // bottom (-Y)
         box.appendChild(makeFace(uv.bottom, w, d, 'rotateX(-90deg) translateZ(' + (H/2) + 'px)'));
@@ -1002,21 +922,24 @@ function buildSkinScene(img, name) {
         return box;
     }
 
-    // Размеры в юнитах (1 unit = 1 texture px)
-    // Координаты подобраны так, чтобы центр фигуры был в (0,0,0).
-    // Body: 8w × 12h × 4d, центр (0, -2, 0), занимает y [-8, +4]
-    // Head: 8×8×8, над body, центр (0, -14, 0), занимает y [-18, -10]  — стоп, это перебор.
-    // Пересчитаем: body занимает [-8, +4] если центр на -2.
-    //   Тогда head должен быть [-16, -8], центр = -12.
-    //   Ноги под body: body bottom = +4. Ноги занимают [+4, +16], центр = +10.
-    //   Общая высота: [-16, +16] = 32. Центр = 0. ОК.
+    // centerY: положительное вверх от центра фигуры.
+    // head центр Y = +16 (верх фигуры), голова 8 высотой → от +12 до +20
+    // body центр Y = 0, высота 12 → от -6 до +6
+    // ноги центр Y = -10, высота 12 → от -16 до -4  (СТОП: пересекаются с body)
 
-    var head     = makeBox(UV.head,     8, 8,  8, 0,  -12, 0);
-    var body     = makeBox(UV.body,     8, 12, 4, 0,  -2,  0);
-    var rightArm = makeBox(UV.rightArm, 4, 12, 4, -6, -2,  0);
-    var leftArm  = makeBox(UV.leftArm,  4, 12, 4,  6, -2,  0);
-    var rightLeg = makeBox(UV.rightLeg, 4, 12, 4, -2, 10,  0);
-    var leftLeg  = makeBox(UV.leftLeg,  4, 12, 4,  2, 10,  0);
+    // Пересчитаем аккуратно, Y растёт вверх, фигура от -16 до +16:
+    //   head:   +16 центр, занимает [+12, +20] — не влезает. Сдвигаем вниз на 4: центр +12, [+8,+16]
+    //   body:   +2 центр, занимает [-4, +8]
+    //   legs:   -10 центр, занимает [-16, -4]
+    //   руки:   +2 центр (как body), занимают [-4, +8]
+    // Итого фигура: [-16, +16]. 32 юнита. Центр = 0. ОК.
+
+    var head     = makeBox(UV.head,     8, 8,  8, 0,   12);
+    var body     = makeBox(UV.body,     8, 12, 4, 0,    2);
+    var rightArm = makeBox(UV.rightArm, 4, 12, 4, -6,   2);
+    var leftArm  = makeBox(UV.leftArm,  4, 12, 4,  6,   2);
+    var rightLeg = makeBox(UV.rightLeg, 4, 12, 4, -2, -10);
+    var leftLeg  = makeBox(UV.leftLeg,  4, 12, 4,  2, -10);
 
     figure.appendChild(head);
     figure.appendChild(body);
@@ -1025,13 +948,12 @@ function buildSkinScene(img, name) {
     figure.appendChild(rightLeg);
     figure.appendChild(leftLeg);
 
-    // Ник-плашка над головой
     var tag = document.createElement('div');
     tag.id = 'skin-nametag';
     tag.textContent = name;
     tag.style.position = 'absolute';
     tag.style.left = '50%';
-    tag.style.top = '-6px';
+    tag.style.top = (-18 * U) + 'px';
     tag.style.transform = 'translate(-50%, -100%)';
     tag.style.background = 'rgba(0,0,0,0.85)';
     tag.style.color = '#fff';
@@ -1041,10 +963,75 @@ function buildSkinScene(img, name) {
     tag.style.fontWeight = '600';
     tag.style.whiteSpace = 'nowrap';
     tag.style.pointerEvents = 'none';
-    tag.style.display = 'none'; // по умолчанию скрыт, включается кнопкой
+    tag.style.display = 'none';
     figure.appendChild(tag);
 
-    return scene;
+    wrap.insertBefore(scene, wrap.firstChild);
+
+    var state = {
+        element: figure,
+        scene: scene,
+        U: U,
+        rotation: 0,
+        rotationX: 0,
+        autoRotate: false,
+        refresh: function () { applyFigureRotation(this); },
+        dispose: function () {
+            if (this._resizeObserver) { try { this._resizeObserver.disconnect(); } catch (e) {} this._resizeObserver = null; }
+            if (this.scene && this.scene.parentNode) {
+                this.scene.parentNode.removeChild(this.scene);
+            }
+        }
+    };
+    applyFigureRotation(state);
+
+    // DRAG
+    var dragActive = false, lastX = 0, lastY = 0;
+    scene.addEventListener('mousedown', function (e) {
+        dragActive = true;
+        lastX = e.clientX; lastY = e.clientY;
+        scene.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', function (e) {
+        if (!dragActive || currentSkinViewer !== state) return;
+        var dx = e.clientX - lastX, dy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        state.rotation += dx * 0.7;
+        state.rotationX += dy * 0.3;
+        if (state.rotationX > 30) state.rotationX = 30;
+        if (state.rotationX < -30) state.rotationX = -30;
+        applyFigureRotation(state);
+    });
+    window.addEventListener('mouseup', function () {
+        if (!dragActive) return;
+        dragActive = false;
+        if (scene.parentNode) scene.style.cursor = 'grab';
+    });
+
+    // TOUCH
+    scene.addEventListener('touchstart', function (e) {
+        if (!e.touches[0]) return;
+        dragActive = true;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+    }, { passive: true });
+    scene.addEventListener('touchmove', function (e) {
+        if (!dragActive || !e.touches[0] || currentSkinViewer !== state) return;
+        var dx = e.touches[0].clientX - lastX;
+        var dy = e.touches[0].clientY - lastY;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        state.rotation += dx * 1.0;
+        state.rotationX += dy * 0.4;
+        if (state.rotationX > 30) state.rotationX = 30;
+        if (state.rotationX < -30) state.rotationX = -30;
+        applyFigureRotation(state);
+        e.preventDefault();
+    }, { passive: false });
+    scene.addEventListener('touchend', function () { dragActive = false; });
+
+    return state;
 }
 
 /* ================= NAV ================= */
