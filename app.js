@@ -1,12 +1,13 @@
-/* Sovereignty panel v4.5 — app.js (фикс CORS для скинов, cache-busting) */
+/* Sovereignty panel v4.6 — hash-colors, sparkline, activity, day/night, grid */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v4.5';
+var APP_VERSION = 'v4.6';
 var DATA_URL = 'data/server1.json', MAP_URL = 'data/map.png', LOCAL_SKIN_DIR = 'data/skins/';
 var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
 var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
 var REFRESH_INTERVAL_MS = 300000, LOCAL_SKIN_TIMEOUT_MS = 3000;
 var BLOCKS_PER_CHUNK = 16, PIXELS_PER_BLOCK = 2;
 var MARKER_BASE_PX = 32, MARKER_MIN_PX = 18, MARKER_MAX_PX = 72, MARKER_GROWTH_POWER = 0.5;
+var PALETTE_FALLBACK = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
 
 var currentData = null, currentSort = 'claims';
 var mapZoom = 1, mapOffsetX = 0, mapOffsetY = 0;
@@ -15,8 +16,6 @@ var highlightedCountry = null, showPlayerMarkers = true;
 var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 var currentSkinViewer = null, rotatePaused = true;
 var localSkinCache = new Map(), headCache = new Map(), localLoadedAttempted = new Set();
-
-var PALETTE = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a855f7','#f43f5e','#22d3ee','#a3e635','#facc15','#fb923c','#e879f9','#4ade80','#60a5fa','#fca5a5'];
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
@@ -29,7 +28,19 @@ document.addEventListener('DOMContentLoaded', function () {
     loadData();
     setInterval(loadData, REFRESH_INTERVAL_MS);
     requestAnimationFrame(skinRotateLoop);
+    window.addEventListener('resize', debounce(function () {
+        if (currentData && currentData.online_history) drawSparkline(currentData.online_history);
+    }, 200));
 });
+
+function debounce(fn, ms) {
+    var t = null;
+    return function () {
+        var args = arguments, ctx = this;
+        if (t) clearTimeout(t);
+        t = setTimeout(function () { fn.apply(ctx, args); }, ms);
+    };
+}
 
 function skinRotateLoop() {
     if (currentSkinViewer && currentSkinViewer.autoRotate) {
@@ -39,6 +50,7 @@ function skinRotateLoop() {
     requestAnimationFrame(skinRotateLoop);
 }
 
+/* ============ TABS ============ */
 function initTabs() {
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -49,6 +61,7 @@ function initTabs() {
             var t = document.getElementById('tab-' + tab);
             if (t) t.classList.add('active');
             if (tab === 'map' && mapReady) setTimeout(resetMapView, 50);
+            if (tab === 'overview' && currentData && currentData.online_history) setTimeout(function () { drawSparkline(currentData.online_history); }, 60);
         });
     });
 }
@@ -64,6 +77,7 @@ function initSortTabs() {
     });
 }
 
+/* ============ MODAL ============ */
 function initModalControls() {
     document.querySelectorAll('[data-modal-close]').forEach(function (el) {
         el.addEventListener('click', function () { closePlayerModal(); });
@@ -80,12 +94,7 @@ function initModalControls() {
     }
     var resetBtn = document.getElementById('skin-reset-view');
     if (resetBtn) resetBtn.onclick = function () {
-        if (currentSkinViewer) {
-            currentSkinViewer.rotation = 0;
-            currentSkinViewer.rotationX = 0;
-            currentSkinViewer.apply();
-            showToast('✓ Вид сброшен');
-        }
+        if (currentSkinViewer) { currentSkinViewer.rotation = 0; currentSkinViewer.rotationX = 0; currentSkinViewer.apply(); showToast('✓ Вид сброшен'); }
     };
     var nameBtn = document.getElementById('skin-toggle-name');
     if (nameBtn) nameBtn.onclick = function () {
@@ -105,7 +114,6 @@ function openPlayerModal() {
     if (m) m.classList.add('show');
     document.body.style.overflow = 'hidden';
 }
-
 function closePlayerModal() {
     var m = document.getElementById('player-modal');
     if (m) m.classList.remove('show');
@@ -116,7 +124,7 @@ function closePlayerModal() {
     if (btn) updateRotateButton(btn);
 }
 
-/* LOCAL SKINS */
+/* ============ LOCAL SKINS ============ */
 function preloadLocalSkins() {
     var players = currentData && currentData.players ? currentData.players : [];
     if (players.length === 0) return;
@@ -127,24 +135,16 @@ function preloadLocalSkins() {
         localLoadedAttempted.add(p.name);
         loadLocalSkin(p.name).then(function () { loaded++; }).catch(function () {}).finally(function () {
             done++;
-            if (done === toLoad.length) {
-                console.log('[Skins] ' + loaded + '/' + toLoad.length);
-                refreshHeadImages();
-            }
+            if (done === toLoad.length) { console.log('[Skins] ' + loaded + '/' + toLoad.length); refreshHeadImages(); }
         });
     });
 }
-
 function loadLocalSkin(name) {
     if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
     var url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     return new Promise(function (resolve, reject) {
-        var img = new Image();
-        // Для локальных скинов crossOrigin НЕ нужен — они same-origin.
-        var fin = false;
-        var timer = setTimeout(function () {
-            if (fin) return; fin = true; img.src = ''; reject(new Error('timeout'));
-        }, LOCAL_SKIN_TIMEOUT_MS);
+        var img = new Image(), fin = false;
+        var timer = setTimeout(function () { if (fin) return; fin = true; img.src = ''; reject(new Error('timeout')); }, LOCAL_SKIN_TIMEOUT_MS);
         img.onload = function () {
             if (fin) return; fin = true; clearTimeout(timer);
             if (img.width < 64 || (img.height !== 32 && img.height !== 64)) { reject(new Error('bad')); return; }
@@ -152,13 +152,10 @@ function loadLocalSkin(name) {
             try { headCache.set(name, headFromSkin(img)); } catch (e) {}
             resolve(img);
         };
-        img.onerror = function () {
-            if (fin) return; fin = true; clearTimeout(timer); reject(new Error('404'));
-        };
+        img.onerror = function () { if (fin) return; fin = true; clearTimeout(timer); reject(new Error('404')); };
         img.src = url;
     });
 }
-
 function headFromSkin(skinImg) {
     var c = document.createElement('canvas');
     c.width = 8; c.height = 8;
@@ -168,12 +165,10 @@ function headFromSkin(skinImg) {
     if (skinImg.width >= 64 && skinImg.height >= 64) ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 8, 8);
     return c.toDataURL('image/png');
 }
-
 function getHeadUrl(name, size) {
     if (headCache.has(name)) return headCache.get(name);
     return SKIN_API + '/avatar/' + encodeURIComponent(name) + '/' + (size || 64);
 }
-
 function refreshHeadImages() {
     document.querySelectorAll('img[data-pname]').forEach(function (img) {
         var n = img.getAttribute('data-pname');
@@ -181,20 +176,18 @@ function refreshHeadImages() {
     });
 }
 
-/* DATA — с агрессивным cache-busting */
+/* ============ DATA ============ */
 function loadData() {
     console.log('[Sovereignty] loadData');
     var tbody = document.getElementById('countries-body');
     if (tbody && tbody.children.length <= 1) tbody.innerHTML = '<tr><td colspan="8" class="loading">⏳ Загрузка...</td></tr>';
-    // Cache-busting: &nocache + unique timestamp + random — чтобы ни браузер, ни GitHub Pages CDN не отдали старое.
-    var url = DATA_URL + '?t=' + Date.now() + '&r=' + Math.random() + '&v=' + APP_VERSION;
-    fetch(url, { cache: 'no-store' })
+    fetch(DATA_URL + '?t=' + Date.now() + '&v=' + APP_VERSION, { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
         .then(function (text) {
             if (!text || !text.trim()) throw new Error('Пустой файл');
             currentData = JSON.parse(text);
             console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
-                ', updated_at: ' + new Date(currentData.updated_at || 0).toLocaleTimeString('ru-RU'));
+                ', online_history: ' + ((currentData.online_history || []).length));
             render();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
@@ -204,6 +197,16 @@ function loadData() {
             var sn = document.getElementById('server-name'); if (sn) sn.textContent = '⚠ Ошибка';
             if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading" style="color:#ef4444;">❌ ' + escapeHtml(err.message) + '</td></tr>';
         });
+}
+
+function getCountryColor(country) {
+    if (!country) return '#6366f1';
+    if (country.color) return country.color;
+    // fallback: hash
+    var h = 0;
+    var name = country.name || '';
+    for (var i = 0; i < name.length; i++) { h = ((h << 5) - h) + name.charCodeAt(i); h |= 0; }
+    return PALETTE_FALLBACK[Math.abs(h) % PALETTE_FALLBACK.length];
 }
 
 function render() {
@@ -230,10 +233,12 @@ function render() {
         } else tp.textContent = String(currentData.online_players || 0);
     }
     renderCountries(); renderLegend(); renderPlayers(); renderBonus(); renderPlayerMarkers();
+    drawSparkline(currentData.online_history || []);
 }
 
 function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
 
+/* ============ COUNTRIES TABLE ============ */
 function renderCountries() {
     if (!currentData) return;
     var countries = (currentData.countries || []).slice();
@@ -241,6 +246,7 @@ function renderCountries() {
         if (currentSort === 'bank') return (b.bank || 0) - (a.bank || 0);
         if (currentSort === 'energy') return (b.energy || 0) - (a.energy || 0);
         if (currentSort === 'allies') return (b.allies || 0) - (a.allies || 0);
+        if (currentSort === 'activity') return (b.activity || 0) - (a.activity || 0);
         return (b.claims || 0) - (a.claims || 0);
     });
     var tbody = document.getElementById('countries-body');
@@ -248,67 +254,125 @@ function renderCountries() {
     if (countries.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="loading">Пока нет стран.</td></tr>'; return; }
     tbody.innerHTML = countries.map(function (c, i) {
         var rc = i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : '';
+        var color = getCountryColor(c);
+        var activity = c.activity || 0;
+        var delta = c.claims_delta_7d || 0;
+        var deltaStr = delta > 0 ? '§a+' + delta : (delta < 0 ? '§c' + delta : '§70');
+        var deltaHtml = delta > 0 ? '<span style="color:#10b981;">+' + delta + '</span>' :
+                        delta < 0 ? '<span style="color:#ef4444;">' + delta + '</span>' :
+                        '<span style="color:#8b91a6;">0</span>';
         return '<tr class="' + rc + '" onclick="showDetails(\'' + escapeAttr(c.name) + '\')">' +
             '<td class="rank">#' + (i + 1) + '</td>' +
-            '<td class="name">' + escapeHtml(c.name || '?') + '</td>' +
+            '<td class="name"><span class="country-dot" style="background:' + color + ';"></span> ' + escapeHtml(c.name || '?') + '</td>' +
             '<td>' + escapeHtml(c.owner || '?') + '</td>' +
-            '<td>' + (c.claims || 0) + ' / ' + (c.max_claims || '?') + '</td>' +
+            '<td>' + (c.claims || 0) + ' / ' + (c.max_claims || '?') + ' <span class="delta">(' + deltaHtml + ')</span></td>' +
             '<td class="money">' + formatMoney(c.bank || 0) + '</td>' +
             '<td class="energy">' + (c.energy || 0).toFixed(1) + '</td>' +
-            '<td>' + (c.allies || 0) + '</td>' +
+            '<td>' + activity + '</td>' +
             '<td>' + (c.pacts || 0) + '</td></tr>';
     }).join('');
 }
 
-function renderLegend() {
-    var legend = document.getElementById('map-legend'); if (!legend) return;
-    var countries = currentData && currentData.countries ? currentData.countries : [];
-    if (countries.length === 0) { legend.innerHTML = ''; return; }
-    legend.innerHTML = countries.map(function (c, i) {
-        return '<div class="legend-item" data-country="' + escapeAttr(c.name) + '" onclick="highlightCountry(\'' + escapeAttr(c.name) + '\')">' +
-            '<div class="legend-color" style="background:' + PALETTE[i % PALETTE.length] + '"></div>' +
-            '<span>' + escapeHtml(c.name) + '</span></div>';
-    }).join('');
-}
+/* ============ SPARKLINE ============ */
+function drawSparkline(history) {
+    var canvas = document.getElementById('sparkline-canvas');
+    if (!canvas) return;
+    var wrap = canvas.parentElement;
+    if (!wrap) return;
+    var dpr = window.devicePixelRatio || 1;
+    var w = wrap.clientWidth || 800;
+    var h = 160;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
 
-function highlightCountry(name) {
-    highlightedCountry = highlightedCountry === name ? null : name;
-    document.querySelectorAll('.legend-item').forEach(function (el) {
-        el.classList.toggle('highlight', el.dataset.country === highlightedCountry);
+    // Фон
+    ctx.fillStyle = '#0f1117';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!history || history.length < 2) {
+        ctx.fillStyle = '#8b91a6';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Нет данных за 24 часа', w / 2, h / 2);
+        setText('online-now', '0'); setText('online-avg', '0'); setText('online-peak', '0');
+        return;
+    }
+
+    // Нормализация
+    var maxCount = 1;
+    var sum = 0;
+    history.forEach(function (h) { if (h.count > maxCount) maxCount = h.count; sum += h.count; });
+    var avg = Math.round(sum / history.length);
+    var now = history[history.length - 1].count;
+    setText('online-now', String(now));
+    setText('online-avg', String(avg));
+    setText('online-peak', String(maxCount));
+
+    // Сетка горизонтальные
+    ctx.strokeStyle = '#2a2f3e';
+    ctx.lineWidth = 1;
+    for (var i = 1; i <= 3; i++) {
+        var y = h - (h / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Градиент
+    var grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(99,102,241,0.55)');
+    grad.addColorStop(1, 'rgba(99,102,241,0.02)');
+
+    // Точки
+    var pts = [];
+    var n = history.length;
+    var stepX = w / Math.max(1, n - 1);
+    history.forEach(function (h, idx) {
+        var x = idx * stepX;
+        var y = h - (h / maxCount) * (h - 20) / h * h - 10;
+        // Классика: y = h - (count/maxCount)*(h-20) - 10
+        y = h - (h.count / maxCount) * (h - 20) - 10;
+        pts.push({ x: x, y: y });
     });
-    if (highlightedCountry) showDetails(highlightedCountry);
+
+    // Площадь
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, h);
+    pts.forEach(function (p) { ctx.lineTo(p.x, p.y); });
+    ctx.lineTo(pts[pts.length - 1].x, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Линия
+    ctx.beginPath();
+    pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+    ctx.strokeStyle = '#818cf8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Пик — точка
+    var peakIdx = history.reduce(function (best, h, i, arr) { return h.count > arr[best].count ? i : best; }, 0);
+    var peakPt = pts[peakIdx];
+    ctx.beginPath();
+    ctx.arc(peakPt.x, peakPt.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fill();
+
+    // Подпись пика
+    ctx.fillStyle = '#8b91a6';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Пик ' + maxCount, w - 8, 18);
+    ctx.textAlign = 'left';
+    ctx.fillText('24ч назад', 8, h - 6);
+    ctx.textAlign = 'right';
+    ctx.fillText('сейчас', w - 8, h - 6);
 }
 
-function showDetails(countryName) {
-    var countries = currentData && currentData.countries ? currentData.countries : [];
-    var c = countries.filter(function (x) { return x.name === countryName; })[0];
-    if (!c) return;
-    var dt = document.getElementById('detail-title'); if (dt) dt.textContent = '🏛️ ' + c.name;
-    var content = document.getElementById('detail-content'); if (!content) return;
-    var items = [
-        { label: 'Лидер', value: c.owner || '?' },
-        { label: 'Территория', value: (c.claims || 0) + ' / ' + (c.max_claims || '?') + ' чанков' },
-        { label: 'Казна', value: formatMoney(c.bank || 0), cls: 'success' },
-        { label: 'Долг', value: formatMoney(c.debt || 0), cls: (c.debt || 0) > 0 ? 'danger' : '' },
-        { label: 'Энергия', value: (c.energy || 0).toFixed(1) + ' / ' + (c.max_energy || 0).toFixed(1), cls: 'warning' },
-        { label: 'Регенерация', value: (c.regen || 0).toFixed(1) + '/час', cls: 'warning' },
-        { label: 'Уровень ферм', value: c.farm_level || 0 },
-        { label: 'Союзы', value: c.allies || 0 },
-        { label: 'Пакты', value: c.pacts || 0 },
-        { label: '🌾 Ферм', value: c.chunks_farm || 0 },
-        { label: '⛏ Шахт', value: c.chunks_mining || 0 },
-        { label: '⚔ Военных', value: c.chunks_military || 0 },
-        { label: '💰 Торговых', value: c.chunks_trade || 0 }
-    ];
-    content.innerHTML = items.map(function (it) {
-        return '<div class="detail-item"><div class="label">' + it.label + '</div>' +
-            '<div class="value ' + (it.cls || '') + '">' + escapeHtml(String(it.value)) + '</div></div>';
-    }).join('');
-    var cd = document.getElementById('country-details');
-    if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-}
-
-/* MAP — тоже cache-bust */
+/* ============ MAP ============ */
 function loadMap() {
     var ph = document.getElementById('map-placeholder');
     var canvas = document.getElementById('map-canvas'); if (!canvas) return;
@@ -320,6 +384,9 @@ function loadMap() {
         mapReady = true;
         if (ph) ph.style.display = 'none';
         canvas.style.display = 'block';
+        if (window.MapLayers && currentData && currentData.map_meta) {
+            window.MapLayers.onMapReady(img.naturalWidth, img.naturalHeight, currentData.map_meta);
+        }
         if (first) setTimeout(resetMapView, 50); else applyMapTransform();
         renderPlayerMarkers();
     };
@@ -327,7 +394,7 @@ function loadMap() {
         mapReady = false; canvas.style.display = 'none';
         if (ph) { ph.style.display = 'block'; ph.innerHTML = '<div class="map-placeholder-icon">🗺️</div><p>Карта не сгенерирована.</p>'; }
     };
-    img.src = MAP_URL + '?t=' + Date.now() + '&r=' + Math.random() + '&v=' + APP_VERSION;
+    img.src = MAP_URL + '?t=' + Date.now() + '&v=' + APP_VERSION;
 }
 
 function setupCanvas(w, h) {
@@ -342,7 +409,7 @@ function setupCanvas(w, h) {
 function initMapControls() {
     var vp = document.getElementById('map-viewport'); if (!vp) return;
     vp.addEventListener('mousedown', function (e) {
-        if (!mapReady || e.target.closest('.map-marker')) return;
+        if (!mapReady || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel')) return;
         isDragging = true; dragMoved = false;
         dragStartX = e.clientX - mapOffsetX; dragStartY = e.clientY - mapOffsetY;
     });
@@ -355,11 +422,12 @@ function initMapControls() {
     });
     window.addEventListener('mouseup', function () { isDragging = false; });
     vp.addEventListener('click', function (e) {
-        if (!mapReady || dragMoved || e.target.closest('.map-marker')) return;
+        if (!mapReady || dragMoved || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel')) return;
         handleMapClick(e);
     });
     vp.addEventListener('wheel', function (e) {
         if (!mapReady) return;
+        if (e.target.closest('.map-layers-panel')) return;
         e.preventDefault();
         var rect = vp.getBoundingClientRect();
         var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
@@ -376,7 +444,11 @@ function initMapControls() {
         var cd = document.getElementById('country-details'); if (cd) cd.style.display = 'none';
     });
     var sp = document.getElementById('map-show-players');
-    if (sp) sp.addEventListener('change', function () { showPlayerMarkers = sp.checked; renderPlayerMarkers(); });
+    if (sp) sp.addEventListener('change', function () {
+        showPlayerMarkers = sp.checked;
+        if (window.MapLayers) window.MapLayers.getState().players = showPlayerMarkers;
+        renderPlayerMarkers();
+    });
 }
 
 function handleMapClick(e) {
@@ -390,7 +462,8 @@ function handleMapClick(e) {
     var countries = currentData && currentData.countries ? currentData.countries : [];
     var bestIdx = -1, bestDist = 120;
     countries.forEach(function (c, i) {
-        var rgb = hexToRgb(PALETTE[i % PALETTE.length]);
+        var hex = getCountryColor(c).replace('#', '');
+        var rgb = [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
         var d = Math.sqrt(Math.pow(px[0] - rgb[0], 2) + Math.pow(px[1] - rgb[1], 2) + Math.pow(px[2] - rgb[2], 2));
         if (d < bestDist) { bestDist = d; bestIdx = i; }
     });
@@ -404,14 +477,15 @@ function handleMapClick(e) {
     showDetails(country.name);
 }
 
-function hexToRgb(hex) { var h = hex.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
-
 function applyMapTransform() {
     var canvas = document.getElementById('map-canvas'), overlay = document.getElementById('map-overlay');
     if (!canvas) return;
     var t = 'translate(' + mapOffsetX + 'px,' + mapOffsetY + 'px) scale(' + mapZoom + ')';
     canvas.style.transform = t;
     if (overlay) { overlay.style.transform = t; updateMarkerScale(); }
+    if (window.MapLayers) window.MapLayers.applyTransform(t);
+    var dn = document.getElementById('map-daynight');
+    if (dn) dn.style.transform = t;
 }
 
 function updateMarkerScale() {
@@ -451,16 +525,69 @@ function renderPlayerMarkers() {
         var name = p.name || '?';
         var headUrl = getHeadUrl(name, 32);
         var fallback = SKIN_API + '/avatar/Steve/32';
-        markers.push('<div class="map-marker ' + (p.online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();">' +
+        var borderColor = p.country_color || '#ffffff';
+        markers.push('<div class="map-marker ' + (p.online ? 'online' : '') + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + '">' +
             '<div class="map-marker-content">' +
-            '<img class="map-marker-head" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
+            '<img class="map-marker-head" style="border-color:' + borderColor + ';" src="' + headUrl + '" data-pname="' + escapeAttr(name) + '" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
             '<div class="map-marker-label">' + escapeHtml(name) + '</div></div></div>');
     });
     overlay.innerHTML = markers.join('');
     updateMarkerScale();
 }
 
-/* PLAYERS */
+/* ============ LEGEND ============ */
+function renderLegend() {
+    var legend = document.getElementById('map-legend'); if (!legend) return;
+    var countries = currentData && currentData.countries ? currentData.countries : [];
+    if (countries.length === 0) { legend.innerHTML = ''; return; }
+    legend.innerHTML = countries.map(function (c) {
+        return '<div class="legend-item" data-country="' + escapeAttr(c.name) + '" onclick="highlightCountry(\'' + escapeAttr(c.name) + '\')">' +
+            '<div class="legend-color" style="background:' + getCountryColor(c) + '"></div>' +
+            '<span>' + escapeHtml(c.name) + '</span></div>';
+    }).join('');
+}
+
+function highlightCountry(name) {
+    highlightedCountry = highlightedCountry === name ? null : name;
+    document.querySelectorAll('.legend-item').forEach(function (el) {
+        el.classList.toggle('highlight', el.dataset.country === highlightedCountry);
+    });
+    if (highlightedCountry) showDetails(highlightedCountry);
+}
+
+function showDetails(countryName) {
+    var countries = currentData && currentData.countries ? currentData.countries : [];
+    var c = countries.filter(function (x) { return x.name === countryName; })[0];
+    if (!c) return;
+    var dt = document.getElementById('detail-title'); if (dt) dt.textContent = '🏛️ ' + c.name;
+    var content = document.getElementById('detail-content'); if (!content) return;
+    var items = [
+        { label: 'Лидер', value: c.owner || '?' },
+        { label: 'Территория', value: (c.claims || 0) + ' / ' + (c.max_claims || '?') + ' чанков' },
+        { label: 'Рост 7д', value: (c.claims_delta_7d > 0 ? '+' : '') + (c.claims_delta_7d || 0), cls: c.claims_delta_7d > 0 ? 'success' : (c.claims_delta_7d < 0 ? 'danger' : '') },
+        { label: 'Активность', value: c.activity || 0 },
+        { label: 'Активных войн', value: c.active_wars || 0, cls: (c.active_wars || 0) > 0 ? 'danger' : '' },
+        { label: 'Казна', value: formatMoney(c.bank || 0), cls: 'success' },
+        { label: 'Долг', value: formatMoney(c.debt || 0), cls: (c.debt || 0) > 0 ? 'danger' : '' },
+        { label: 'Энергия', value: (c.energy || 0).toFixed(1) + ' / ' + (c.max_energy || 0).toFixed(1), cls: 'warning' },
+        { label: 'Регенерация', value: (c.regen || 0).toFixed(1) + '/час', cls: 'warning' },
+        { label: 'Уровень ферм', value: c.farm_level || 0 },
+        { label: 'Союзы', value: c.allies || 0 },
+        { label: 'Пакты', value: c.pacts || 0 },
+        { label: '🌾 Ферм', value: c.chunks_farm || 0 },
+        { label: '⛏ Шахт', value: c.chunks_mining || 0 },
+        { label: '⚔ Военных', value: c.chunks_military || 0 },
+        { label: '💰 Торговых', value: c.chunks_trade || 0 }
+    ];
+    content.innerHTML = items.map(function (it) {
+        return '<div class="detail-item"><div class="label">' + it.label + '</div>' +
+            '<div class="value ' + (it.cls || '') + '">' + escapeHtml(String(it.value)) + '</div></div>';
+    }).join('');
+    var cd = document.getElementById('country-details');
+    if (cd) { cd.style.display = 'block'; cd.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
+/* ============ PLAYERS ============ */
 function initPlayerControls() {
     var s = document.getElementById('player-search'); if (s) s.addEventListener('input', renderPlayers);
     var o = document.getElementById('player-online-only'); if (o) o.addEventListener('change', renderPlayers);
@@ -496,13 +623,14 @@ function renderPlayerCard(p) {
     else if (p.country_role === 'co_ruler') badge = '<div class="player-card-badge co-ruler">Co</div>';
     var pt = formatPlaytime(p.playtime_seconds);
     var money = p.balance != null ? formatMoney(p.balance) : null;
+    var countryColor = p.country_color || '#8b91a6';
     return '<div class="player-card" onclick="openPlayer(\'' + escapeAttr(name) + '\')">' + badge +
         '<div class="player-card-avatar">' +
         '<img src="' + avatar + '" data-pname="' + escapeAttr(name) + '" onerror="this.onerror=null;this.src=\'' + fallback + '\'">' +
         '<div class="status-dot ' + (p.online ? 'online' : 'offline') + '"></div></div>' +
         '<div class="player-card-info">' +
         '<div class="player-card-name">' + escapeHtml(name) + '</div>' +
-        '<div class="player-card-country">' + (p.country ? '<span class="country-tag">🏛️ ' + escapeHtml(p.country) + '</span>' : '<span class="no-country">Без страны</span>') + '</div>' +
+        '<div class="player-card-country">' + (p.country ? '<span class="country-tag" style="color:' + countryColor + ';">🏛️ ' + escapeHtml(p.country) + '</span>' : '<span class="no-country">Без страны</span>') + '</div>' +
         '<div class="player-card-meta">' +
         (money != null ? '<span class="money">💰 ' + money + '</span>' : '') +
         (pt ? '<span>⏱ ' + pt + '</span>' : '') + '</div></div></div>';
@@ -523,7 +651,6 @@ function openPlayer(name) {
     if (p.first_seen) acc.push({ label: 'Первый вход', value: timeAgo(p.first_seen) });
     if (p.last_seen) acc.push({ label: 'Был в игре', value: timeAgo(p.last_seen) });
     if (p.playtime_seconds != null) acc.push({ label: 'Время в игре', value: formatPlaytime(p.playtime_seconds) });
-    if (p.playtime_seconds > 0) acc.push({ label: 'Дней в игре', value: Math.floor(p.playtime_seconds / 86400) });
 
     var eco = [];
     if (p.balance != null) eco.push({ label: 'Баланс', value: formatMoney(p.balance), cls: 'success' });
@@ -534,7 +661,6 @@ function openPlayer(name) {
         eco.push({ label: 'Смертей', value: d });
         eco.push({ label: 'K/D', value: d > 0 ? (k / d).toFixed(2) : k });
     }
-    if (p.bounty != null && p.bounty > 0) eco.push({ label: '💀 Награда', value: formatMoney(p.bounty), cls: 'danger' });
 
     var cR = [];
     if (p.country) {
@@ -544,8 +670,7 @@ function openPlayer(name) {
         if (cd) {
             if (cd.bank != null) cR.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
             if (cd.claims != null) cR.push({ label: 'Территория', value: cd.claims + ' чанков' });
-            if (cd.allies != null) cR.push({ label: 'Союзы', value: cd.allies });
-            if (cd.pacts != null) cR.push({ label: 'Пакты', value: cd.pacts });
+            if (cd.activity != null) cR.push({ label: 'Активность', value: cd.activity });
         }
     } else cR.push({ label: 'Страна', value: 'Нет' });
 
@@ -572,24 +697,19 @@ function renderPanel(title, rows) {
     if (valid.length === 0) return '';
     return '<div class="player-panel"><div class="player-panel-title">' + escapeHtml(title) + '</div>' +
         valid.map(function (r) {
-            var cp = r.copy ? '<button class="player-copy-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(r.copy) + '\')">📋 Копировать</button>' : '';
+            var cp = r.copy ? '<button class="player-copy-btn" onclick="copyToClipboardSafe(\'' + escapeAttr(r.copy) + '\')">📋</button>' : '';
             return '<div class="player-panel-row"><div class="row-label">' + escapeHtml(r.label) + '</div>' +
                 '<div class="row-value ' + (r.cls || '') + '">' + escapeHtml(String(r.value)) + '</div>' + cp + '</div>';
         }).join('') + '</div>';
 }
 
-/* 3D VIEWER (модуль в skin3d.js) */
-
+/* ============ 3D VIEWER (skin3d.js) ============ */
 function resolveSkinUrl(name, uuid) {
     if (localSkinCache.has(name)) return LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
     if (uuid) return CRAFATAR + '/skins/' + uuid.replace(/-/g, '') + '?default=MHF_Steve';
     return CRAFATAR + '/skins/' + STEVE_UUID + '?default=MHF_Steve';
 }
-
-function isLocalUrl(url) {
-    // Локальные скины (data/skins/...) — same-origin, crossOrigin НЕ ставим.
-    return url.indexOf(LOCAL_SKIN_DIR) === 0 || url.indexOf('data:') === 0;
-}
+function isLocalUrl(url) { return url.indexOf(LOCAL_SKIN_DIR) === 0 || url.indexOf('data:') === 0; }
 
 function initSkinViewer(name, uuid) {
     var wrap = document.getElementById('player-viewer-wrap'); if (!wrap) return;
@@ -597,18 +717,12 @@ function initSkinViewer(name, uuid) {
     var loading = document.getElementById('skin-loading');
     if (loading) { loading.classList.remove('hidden'); loading.innerHTML = '<div class="spinner"></div><div>Загрузка скина...</div>'; }
     if (typeof SkinViewer3D === 'undefined') {
-        console.error('[3d] SkinViewer3D не загружен. Добавь <script src="skin3d.js"></script> перед app.js в index.html');
-        if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">skin3d.js не подключён</div>';
+        if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;">skin3d.js не подключён</div>';
         return;
     }
     var url = resolveSkinUrl(name, uuid);
     var img = new Image();
-    // КРИТИЧНО: без crossOrigin='anonymous' canvas становится tainted
-    // и tc.toDataURL() падает с DOMException: The operation is insecure.
-    // Для локальных скинов атрибут не нужен и может даже мешать.
-    if (!isLocalUrl(url)) {
-        img.crossOrigin = 'anonymous';
-    }
+    if (!isLocalUrl(url)) img.crossOrigin = 'anonymous';
     img.onload = function () {
         try {
             var state = SkinViewer3D.build(img, name, wrap);
@@ -617,22 +731,16 @@ function initSkinViewer(name, uuid) {
             bindSkinControls(state);
             if (loading) loading.classList.add('hidden');
         } catch (err) {
-            console.error('[3d] build:', err);
             if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;">Ошибка: ' + escapeHtml(err.message) + '</div>';
         }
     };
-    img.onerror = function () {
-        console.warn('[3d] skin load fail: ' + url);
-        if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Скин не загрузился</div>';
-    };
+    img.onerror = function () { if (loading) loading.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Скин не загрузился</div>'; };
     img.src = url;
 }
 
 function bindSkinControls(state) {
     var sc = state.scene, drag = false, lx = 0, ly = 0;
-    sc.addEventListener('mousedown', function (e) {
-        drag = true; lx = e.clientX; ly = e.clientY; sc.style.cursor = 'grabbing'; e.preventDefault();
-    });
+    sc.addEventListener('mousedown', function (e) { drag = true; lx = e.clientX; ly = e.clientY; sc.style.cursor = 'grabbing'; e.preventDefault(); });
     window.addEventListener('mousemove', function (e) {
         if (!drag || currentSkinViewer !== state) return;
         state.rotation += (e.clientX - lx) * 0.7;
@@ -643,25 +751,9 @@ function bindSkinControls(state) {
         state.apply();
     });
     window.addEventListener('mouseup', function () { if (drag) { drag = false; sc.style.cursor = 'grab'; } });
-
-    sc.addEventListener('touchstart', function (e) {
-        if (!e.touches[0]) return;
-        drag = true; lx = e.touches[0].clientX; ly = e.touches[0].clientY;
-    }, { passive: true });
-    sc.addEventListener('touchmove', function (e) {
-        if (!drag || !e.touches[0] || currentSkinViewer !== state) return;
-        state.rotation += (e.touches[0].clientX - lx) * 1.0;
-        state.rotationX += (e.touches[0].clientY - ly) * 0.4;
-        if (state.rotationX > 30) state.rotationX = 30;
-        if (state.rotationX < -30) state.rotationX = -30;
-        lx = e.touches[0].clientX; ly = e.touches[0].clientY;
-        state.apply();
-        e.preventDefault();
-    }, { passive: false });
-    sc.addEventListener('touchend', function () { drag = false; });
 }
 
-/* NAV */
+/* ============ NAV ============ */
 function gotoCountry(name) {
     closePlayerModal();
     document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) { b.classList.remove('active'); });
@@ -693,7 +785,7 @@ function gotoPlayerOnMap(name) {
 
 function copyToClipboardSafe(text) { copyToClipboard(text).then(function (ok) { if (ok) showToast('✓ Скопировано: ' + text); }); }
 
-/* BONUS */
+/* ============ BONUS ============ */
 function renderBonus() {
     if (!currentData) return;
     var jp = currentData.jackpot;
@@ -746,7 +838,7 @@ function renderBonus() {
     var be = document.getElementById('panel-bonus-empty'); if (be) be.style.display = any ? 'none' : 'block';
 }
 
-/* COPY / TOAST */
+/* ============ COPY / TOAST ============ */
 function initCommandCopy() {
     document.body.addEventListener('click', function (e) {
         var t = e.target.closest('code[data-copy]'); if (!t) return;
@@ -776,7 +868,7 @@ function showToast(msg) {
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
 }
 
-/* GUIDE NAV */
+/* ============ GUIDE NAV ============ */
 function initGuideNav() {
     var nav = document.getElementById('guide-nav'); if (!nav) return;
     var sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
@@ -802,67 +894,40 @@ function initGuideNav() {
     });
 }
 
-/* COMMANDS */
+/* ============ COMMANDS ============ */
 var COMMANDS = [
     { cmd: '/c', desc: 'Меню страны', plugin: 'Sovereignty' },
     { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
     { cmd: '/c claim', desc: 'Захватить чанк', plugin: 'Sovereignty' },
     { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
-    { cmd: '/c bank', desc: 'Баланс казны', plugin: 'Sovereignty' },
     { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
     { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
     { cmd: '/c upgrade', desc: 'Прокачка', plugin: 'Sovereignty' },
     { cmd: '/c boost', desc: 'Буст регенерации', plugin: 'Sovereignty' },
     { cmd: '/c research', desc: 'Исследования', plugin: 'Sovereignty' },
     { cmd: '/c court', desc: 'Суд', plugin: 'Sovereignty' },
-    { cmd: '/c court file Steve причина', desc: 'Подать жалобу', plugin: 'Sovereignty' },
     { cmd: '/c ally Steve', desc: 'Союз', plugin: 'Sovereignty' },
     { cmd: '/c enemy Steve', desc: 'Война', plugin: 'Sovereignty' },
-    { cmd: '/c neutral Steve', desc: 'Нейтралитет', plugin: 'Sovereignty' },
-    { cmd: '/c pact trade Steve', desc: 'Торговый пакт', plugin: 'Sovereignty' },
-    { cmd: '/c pact military Steve', desc: 'Военный пакт', plugin: 'Sovereignty' },
-    { cmd: '/c pact defense Steve', desc: 'Оборонительный пакт', plugin: 'Sovereignty' },
-    { cmd: '/c pact nonaggression Steve', desc: 'Пакт о ненападении', plugin: 'Sovereignty' },
-    { cmd: '/c surrender', desc: 'Капитуляция', plugin: 'Sovereignty' },
     { cmd: '/c invite Steve', desc: 'Пригласить соправителя', plugin: 'Sovereignty' },
-    { cmd: '/c kick Steve', desc: 'Исключить соправителя', plugin: 'Sovereignty' },
-    { cmd: '/c accept', desc: 'Принять приглашение', plugin: 'Sovereignty' },
-    { cmd: '/c decline', desc: 'Отклонить приглашение', plugin: 'Sovereignty' },
-    { cmd: '/c rename НовоеИмя', desc: 'Переименовать страну', plugin: 'Sovereignty' },
-    { cmd: '/c top claims', desc: 'Топ стран', plugin: 'Sovereignty' },
-    { cmd: '/c achievements', desc: 'Достижения', plugin: 'Sovereignty' },
-    { cmd: '/c seechunk', desc: 'Показать границы', plugin: 'Sovereignty' },
-    { cmd: '/c autoclaim', desc: 'Автозахват', plugin: 'Sovereignty' },
-    { cmd: '/c unstuck', desc: 'Телепорт с чужой территории', plugin: 'Sovereignty' },
-    { cmd: '/c miningboost', desc: 'Шахтёрский бонус', plugin: 'Sovereignty' },
+    { cmd: '/c accept', desc: 'Принять', plugin: 'Sovereignty' },
+    { cmd: '/c decline', desc: 'Отклонить', plugin: 'Sovereignty' },
+    { cmd: '/c panel cache reset', desc: 'Сброс кэша карты', plugin: 'Sovereignty' },
     { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
-    { cmd: '/tax pay', desc: 'Оплатить долг', plugin: 'TaxCollector' },
     { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
-    { cmd: '/shop sell', desc: 'Мои товары', plugin: 'MarketGUI' },
     { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
-    { cmd: '/auc add 1000 60', desc: 'Выставить предмет', plugin: 'AuctionHouse' },
-    { cmd: '/auc bid 1 1500', desc: 'Сделать ставку', plugin: 'AuctionHouse' },
-    { cmd: '/bounty Steve 5000', desc: 'Награда за голову', plugin: 'Bounty' },
-    { cmd: '/bounty list', desc: 'Список целей', plugin: 'Bounty' },
-    { cmd: '/bounty remove Steve', desc: 'Снять свою награду', plugin: 'Bounty' },
-    { cmd: '/roll', desc: 'Казино (хаб)', plugin: 'RollGame' },
+    { cmd: '/bounty Steve 5000', desc: 'Награда', plugin: 'Bounty' },
+    { cmd: '/roll', desc: 'Казино', plugin: 'RollGame' },
     { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
-    { cmd: '/roll duel 1000', desc: 'Дуэль', plugin: 'RollGame' },
-    { cmd: '/roll mines 1000 3 5', desc: 'Мины', plugin: 'RollGame' },
-    { cmd: '/roll wheel 1000', desc: 'Колесо', plugin: 'RollGame' },
+    { cmd: '/roll crash 1000', desc: 'Crash', plugin: 'RollGame' },
+    { cmd: '/roll upgrade', desc: 'Апгрейдер', plugin: 'RollGame' },
     { cmd: '/roll stairs 1000', desc: 'Лестница', plugin: 'RollGame' },
     { cmd: '/roll poker', desc: 'Покер', plugin: 'RollGame' },
-    { cmd: '/roll bet 1000', desc: 'Классическая рулетка', plugin: 'RollGame' },
-    { cmd: '/roll stats', desc: 'Статистика игрока', plugin: 'RollGame' },
-    { cmd: '/roll jackpot', desc: 'Размер джекпота', plugin: 'RollGame' },
-    { cmd: '/roll top', desc: 'Топ игроков', plugin: 'RollGame' },
     { cmd: '/bal', desc: 'Баланс', plugin: 'EssentialsX' },
     { cmd: '/pay Steve 1000', desc: 'Перевод', plugin: 'EssentialsX' },
-    { cmd: '/baltop', desc: 'Топ богачей', plugin: 'EssentialsX' },
-    { cmd: '/sethome', desc: 'Установить дом', plugin: 'EssentialsX' },
-    { cmd: '/home', desc: 'Телепорт домой', plugin: 'EssentialsX' },
+    { cmd: '/sethome', desc: 'Дом', plugin: 'EssentialsX' },
+    { cmd: '/home', desc: 'Домой', plugin: 'EssentialsX' },
     { cmd: '/jobs browse', desc: 'Профессии', plugin: 'Jobs' },
-    { cmd: '/skin Steve', desc: 'Сменить скин', plugin: 'SkinsRestorer' }
+    { cmd: '/skin Steve', desc: 'Скин', plugin: 'SkinsRestorer' }
 ];
 
 function initCommandSearch() {
@@ -879,7 +944,7 @@ function initCommandSearch() {
     });
 }
 
-/* UTILS */
+/* ============ UTILS ============ */
 function formatMoney(a) {
     if (a == null) return '0';
     if (Math.abs(a) >= 1000000) return (a / 1000000).toFixed(2) + 'M';
