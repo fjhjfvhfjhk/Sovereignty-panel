@@ -1,14 +1,15 @@
-/* Sovereignty panel v4.9 — raw.githubusercontent для JSON + try/catch render */
+/* Sovereignty panel v5.0 — tiles, capitals, event log */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v4.9';
+var APP_VERSION = 'v5.0';
 
-/* ============ DATA SOURCES ============ */
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
 var GITHUB_BRANCH = 'main';
 var DATA_RAW_URL = 'https://raw.githubusercontent.com/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/' + GITHUB_BRANCH + '/data/server1.json';
 var DATA_LOCAL_URL = 'data/server1.json';
 var MAP_URL = 'data/map.png';
+var TILES_PREFIX = 'data/tiles/';
+var TILES_RAW_PREFIX = 'https://raw.githubusercontent.com/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/' + GITHUB_BRANCH + '/data/tiles/';
 var LOCAL_SKIN_DIR = 'data/skins/';
 
 var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
@@ -26,6 +27,12 @@ var highlightedCountry = null, showPlayerMarkers = true;
 var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 var currentSkinViewer = null, rotatePaused = true;
 var localSkinCache = new Map(), headCache = new Map(), localLoadedAttempted = new Set();
+
+// Тайлы
+var tileCache = new Map();          // "tx_ty" -> Image
+var tileLoadInFlight = new Set();
+var tilesMeta = null;               // {cols, rows, tile_size, img_width, img_height}
+var useTiles = false;
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
@@ -178,7 +185,7 @@ function headFromSkin(skinImg) {
 }
 function getHeadUrl(name, size) {
     if (headCache.has(name)) return headCache.get(name);
-    return SKIN_API + '/avatar/' + encodeURIComponent(name) + '/' + (size || 64);
+    return SKIN_API + '/avatar/' + encodeURIComponent(name) + '?size=' + (size || 64);
 }
 function refreshHeadImages() {
     document.querySelectorAll('img[data-pname]').forEach(function (img) {
@@ -188,12 +195,6 @@ function refreshHeadImages() {
 }
 
 /* ============ DATA ============ */
-
-/**
- * Загружает JSON. Основной источник — raw.githubusercontent.com
- * (там CDN свежее, чем GitHub Pages/Fastly). При ошибке — fallback
- * на относительный путь data/server1.json.
- */
 function loadData() {
     console.log('[Sovereignty] loadData');
     var tbody = document.getElementById('countries-body');
@@ -204,14 +205,10 @@ function loadData() {
         .then(function (text) {
             if (!text || !text.trim()) throw new Error('Пустой файл');
             currentData = JSON.parse(text);
-
-            var updAgo = currentData.updated_at
-                ? Math.floor((Date.now() - currentData.updated_at) / 60000) + ' мин назад'
-                : '?';
             console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
-                ', online_history: ' + ((currentData.online_history || []).length) +
-                ', ppb: ' + (currentData.map_meta && currentData.map_meta.pixels_per_block) +
-                ', updated: ' + updAgo);
+                ', capitals: ' + ((currentData.capitals || []).length) +
+                ', events: ' + ((currentData.event_log || []).length) +
+                ', tiles: ' + (currentData.map_meta && currentData.map_meta.tiles_grid ? 'yes' : 'no'));
             safeRender();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
@@ -223,42 +220,29 @@ function loadData() {
         });
 }
 
-/**
- * Пробует первый URL. Если fetch падает (сеть/404/CORS) — пробует второй.
- * Возвращает текст или reject с aggregated error.
- */
 function fetchWithFallback(primaryUrl, fallbackUrl) {
     return fetch(primaryUrl, { cache: 'no-store' })
-        .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status + ' from ' + primaryUrl);
-            return r.text();
-        })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
         .catch(function (primaryErr) {
-            console.warn('[Sovereignty] primary failed (' + primaryErr.message + '), trying fallback');
+            console.warn('[Sovereignty] primary failed (' + primaryErr.message + '), fallback');
             return fetch(fallbackUrl, { cache: 'no-store' })
-                .then(function (r) {
-                    if (!r.ok) throw new Error('HTTP ' + r.status + ' from ' + fallbackUrl);
-                    return r.text();
-                })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
                 .catch(function (fallbackErr) {
                     throw new Error('Оба источника упали: ' + primaryErr.message + ' | ' + fallbackErr.message);
                 });
         });
 }
 
-/**
- * Оборачивает render() в try/catch, чтобы при ошибке в одном виджете
- * остальные отрисовались, и в консоли было понятное сообщение.
- */
 function safeRender() {
     var steps = [
-        ['renderCountries',  renderCountries],
-        ['renderLegend',     renderLegend],
-        ['renderPlayers',    renderPlayers],
-        ['renderBonus',      renderBonus],
+        ['renderMeta',          renderMeta],
+        ['renderCountries',     renderCountries],
+        ['renderLegend',        renderLegend],
+        ['renderPlayers',       renderPlayers],
+        ['renderBonus',         renderBonus],
+        ['renderEventLog',      renderEventLog],
         ['renderPlayerMarkers', renderPlayerMarkers],
-        ['renderMeta',       renderMeta],
-        ['drawSparkline',    function () { drawSparkline(currentData.online_history || []); }]
+        ['drawSparkline',       function () { drawSparkline(currentData.online_history || []); }]
     ];
     for (var i = 0; i < steps.length; i++) {
         try { steps[i][1](); }
@@ -301,7 +285,7 @@ function getCountryColor(country) {
 
 function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
 
-/* ============ COUNTRIES TABLE ============ */
+/* ============ COUNTRIES ============ */
 function renderCountries() {
     if (!currentData) return;
     var countries = (currentData.countries || []).slice();
@@ -323,15 +307,36 @@ function renderCountries() {
         var deltaHtml = delta > 0 ? '<span style="color:#10b981;">+' + delta + '</span>' :
                         delta < 0 ? '<span style="color:#ef4444;">' + delta + '</span>' :
                         '<span style="color:#8b91a6;">0</span>';
+        var capIcon = c.capital ? ' 🏛️' : '';
         return '<tr class="' + rc + '" onclick="showDetails(\'' + escapeAttr(c.name) + '\')">' +
             '<td class="rank">#' + (i + 1) + '</td>' +
-            '<td class="name"><span class="country-dot" style="background:' + color + ';"></span> ' + escapeHtml(c.name || '?') + '</td>' +
+            '<td class="name"><span class="country-dot" style="background:' + color + ';"></span> ' + escapeHtml(c.name || '?') + capIcon + '</td>' +
             '<td>' + escapeHtml(c.owner || '?') + '</td>' +
             '<td>' + (c.claims || 0) + ' / ' + (c.max_claims || '?') + ' <span class="delta">(' + deltaHtml + ')</span></td>' +
             '<td class="money">' + formatMoney(c.bank || 0) + '</td>' +
             '<td class="energy">' + (c.energy || 0).toFixed(1) + '</td>' +
             '<td>' + activity + '</td>' +
             '<td>' + (c.pacts || 0) + '</td></tr>';
+    }).join('');
+}
+
+/* ============ EVENT LOG ============ */
+function renderEventLog() {
+    var list = document.getElementById('event-log-list');
+    if (!list) return;
+    var events = currentData.event_log || [];
+    if (events.length === 0) {
+        list.innerHTML = '<div class="event-log-empty">Пока тихо. События появятся здесь.</div>';
+        return;
+    }
+    list.innerHTML = events.slice(0, 20).map(function (e) {
+        var typeClass = 'event-type-' + (e.type || 'info');
+        return '<div class="event-log-item ' + typeClass + '">' +
+            '<div class="event-log-icon">' + escapeHtml(e.icon || '•') + '</div>' +
+            '<div class="event-log-body">' +
+            '<div class="event-log-msg">' + escapeHtml(e.message || '') + '</div>' +
+            '<div class="event-log-time">' + timeAgo(e.ts) + '</div>' +
+            '</div></div>';
     }).join('');
 }
 
@@ -422,32 +427,44 @@ function drawSparkline(history) {
     ctx.fillText('сейчас', w - 8, h - 6);
 }
 
-/* ============ MAP ============ */
+/* ============ MAP (с тайлами) ============ */
 function loadMap() {
     var ph = document.getElementById('map-placeholder');
     var canvas = document.getElementById('map-canvas'); if (!canvas) return;
+
+    // Решаем, использовать ли тайлы
+    var meta = currentData && currentData.map_meta;
+    if (meta && meta.tiles_grid && meta.tiles_grid.enabled) {
+        useTiles = true;
+        tilesMeta = {
+            cols: meta.tiles_grid.cols,
+            rows: meta.tiles_grid.rows,
+            tile_size: meta.tiles_grid.tile_size,
+            img_width: meta.img_width,
+            img_height: meta.img_height,
+            path_prefix: meta.tiles_grid.path_prefix || TILES_PREFIX
+        };
+        setupCanvasForTiles(tilesMeta.img_width, tilesMeta.img_height);
+        mapReady = true;
+        if (ph) ph.style.display = 'none';
+        canvas.style.display = 'block';
+        if (window.MapLayers) window.MapLayers.onMapReady(tilesMeta.img_width, tilesMeta.img_height, meta);
+        setTimeout(resetMapView, 50);
+        renderPlayerMarkers();
+        return;
+    }
+
+    // Fallback на map.png
+    useTiles = false;
     var img = new Image(); img.crossOrigin = 'anonymous';
     img.onload = function () {
         var first = !mapReady;
         mapImage = img;
-
-        if (currentData && currentData.map_meta) {
-            var m = currentData.map_meta;
-            if (m.img_width && Math.abs(img.naturalWidth - m.img_width) > 2) {
-                console.warn('[Map] Width mismatch: png=' + img.naturalWidth + ' meta=' + m.img_width);
-            }
-            if (m.img_height && Math.abs(img.naturalHeight - m.img_height) > 2) {
-                console.warn('[Map] Height mismatch: png=' + img.naturalHeight + ' meta=' + m.img_height);
-            }
-        }
-
         setupCanvas(img.naturalWidth, img.naturalHeight);
         mapReady = true;
         if (ph) ph.style.display = 'none';
         canvas.style.display = 'block';
-        if (window.MapLayers && currentData && currentData.map_meta) {
-            window.MapLayers.onMapReady(img.naturalWidth, img.naturalHeight, currentData.map_meta);
-        }
+        if (window.MapLayers && meta) window.MapLayers.onMapReady(img.naturalWidth, img.naturalHeight, meta);
         if (first) setTimeout(resetMapView, 50); else applyMapTransform();
         renderPlayerMarkers();
     };
@@ -458,13 +475,76 @@ function loadMap() {
     img.src = MAP_URL + '?t=' + Date.now() + '&v=' + APP_VERSION;
 }
 
+function setupCanvasForTiles(w, h) {
+    var canvas = document.getElementById('map-canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    mapCanvas = canvas;
+    mapCtx = canvas.getContext('2d', { willReadFrequently: true });
+    mapCtx.fillStyle = '#0f1117';
+    mapCtx.fillRect(0, 0, w, h);
+    // Загружаем тайлы асинхронно
+    loadAllTiles();
+}
+
+function loadAllTiles() {
+    if (!tilesMeta) return;
+    var total = tilesMeta.cols * tilesMeta.rows;
+    console.log('[Tiles] Loading ' + total + ' tiles (' + tilesMeta.cols + '×' + tilesMeta.rows + ')');
+    var loaded = 0;
+    for (var ty = 0; ty < tilesMeta.rows; ty++) {
+        for (var tx = 0; tx < tilesMeta.cols; tx++) {
+            loadTile(tx, ty, function () {
+                loaded++;
+                if (loaded === total) console.log('[Tiles] All ' + total + ' loaded');
+            });
+        }
+    }
+}
+
+function loadTile(tx, ty, onLoaded) {
+    var key = tx + '_' + ty;
+    if (tileCache.has(key) || tileLoadInFlight.has(key)) {
+        if (onLoaded) onLoaded();
+        return;
+    }
+    tileLoadInFlight.add(key);
+
+    var urlLocal = TILES_PREFIX + tx + '_' + ty + '.png?v=' + APP_VERSION;
+    var urlRaw = TILES_RAW_PREFIX + tx + '_' + ty + '.png?v=' + APP_VERSION;
+
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () {
+        tileCache.set(key, img);
+        tileLoadInFlight.delete(key);
+        drawTileOnCanvas(tx, ty, img);
+        if (onLoaded) onLoaded();
+    };
+    img.onerror = function () {
+        // Fallback на raw
+        img.onerror = function () {
+            tileLoadInFlight.delete(key);
+        };
+        img.src = urlRaw;
+    };
+    img.src = urlLocal;
+}
+
+function drawTileOnCanvas(tx, ty, img) {
+    if (!mapCtx || !tilesMeta) return;
+    var x = tx * tilesMeta.tile_size;
+    var y = ty * tilesMeta.tile_size;
+    mapCtx.drawImage(img, x, y);
+}
+
 function setupCanvas(w, h) {
     var canvas = document.getElementById('map-canvas');
     canvas.width = w; canvas.height = h;
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     mapCanvas = canvas;
     mapCtx = canvas.getContext('2d', { willReadFrequently: true });
-    mapCtx.drawImage(mapImage, 0, 0);
+    if (mapImage) mapCtx.drawImage(mapImage, 0, 0);
 }
 
 function initMapControls() {
@@ -523,9 +603,7 @@ function initMapFullscreen() {
             var req = vp.requestFullscreen || vp.webkitRequestFullscreen || vp.mozRequestFullScreen;
             if (!req) { showToast('Fullscreen не поддерживается'); return; }
             var promise = req.call(vp);
-            if (promise && promise.catch) promise.catch(function (err) {
-                showToast('Fullscreen: ' + err.message);
-            });
+            if (promise && promise.catch) promise.catch(function (err) { showToast('Fullscreen: ' + err.message); });
         } else {
             var exit = document.exitFullscreen || document.webkitExitFullscreen;
             if (exit) exit.call(document);
@@ -542,7 +620,6 @@ function onFullscreenChange() {
     if (btn) btn.textContent = isFs ? '⛶ Выйти (Esc)' : '⛶ Полный экран';
     if (hint) hint.style.display = isFs ? 'block' : 'none';
     document.body.classList.toggle('map-fullscreen-active', isFs);
-
     setTimeout(function () {
         if (mapReady) resetMapView();
         if (currentData && currentData.online_history) drawSparkline(currentData.online_history);
@@ -633,7 +710,7 @@ function renderPlayerMarkers() {
         if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) return;
         var name = p.name || '?';
         var headUrl = getHeadUrl(name, 32);
-        var fallback = SKIN_API + '/avatar/Steve/32';
+        var fallback = SKIN_API + '/avatar/Steve?size=32';
         var borderColor = p.country_color || '#ffffff';
         var staleClass = pos.stale ? ' stale' : '';
         markers.push('<div class="map-marker ' + (p.online ? 'online' : '') + staleClass + '" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;" onclick="openPlayer(\'' + escapeAttr(name) + '\');event.stopPropagation();" title="' + escapeAttr(name) + (pos.stale ? ' (последняя позиция)' : '') + '">' +
@@ -651,9 +728,10 @@ function renderLegend() {
     var countries = currentData && currentData.countries ? currentData.countries : [];
     if (countries.length === 0) { legend.innerHTML = ''; return; }
     legend.innerHTML = countries.map(function (c) {
+        var capMark = c.capital ? ' 🏛️' : '';
         return '<div class="legend-item" data-country="' + escapeAttr(c.name) + '" onclick="highlightCountry(\'' + escapeAttr(c.name) + '\')">' +
             '<div class="legend-color" style="background:' + getCountryColor(c) + '"></div>' +
-            '<span>' + escapeHtml(c.name) + '</span></div>';
+            '<span>' + escapeHtml(c.name) + capMark + '</span></div>';
     }).join('');
 }
 
@@ -674,6 +752,7 @@ function showDetails(countryName) {
     var items = [
         { label: 'Лидер', value: c.owner || '?' },
         { label: 'Территория', value: (c.claims || 0) + ' / ' + (c.max_claims || '?') + ' чанков' },
+        { label: 'Столица', value: c.capital ? (c.capital.chunk_x + ':' + c.capital.chunk_z) : 'не задана', cls: c.capital ? 'accent' : '' },
         { label: 'Рост 7д', value: (c.claims_delta_7d > 0 ? '+' : '') + (c.claims_delta_7d || 0), cls: c.claims_delta_7d > 0 ? 'success' : (c.claims_delta_7d < 0 ? 'danger' : '') },
         { label: 'Активность', value: c.activity || 0 },
         { label: 'Активных войн', value: c.active_wars || 0, cls: (c.active_wars || 0) > 0 ? 'danger' : '' },
@@ -727,7 +806,7 @@ function renderPlayers() {
 function renderPlayerCard(p) {
     var name = p.name || '?';
     var avatar = getHeadUrl(name, 64);
-    var fallback = SKIN_API + '/avatar/Steve/64';
+    var fallback = SKIN_API + '/avatar/Steve?size=64';
     var badge = '';
     if (p.country_role === 'leader') badge = '<div class="player-card-badge leader">Лидер</div>';
     else if (p.country_role === 'co_ruler') badge = '<div class="player-card-badge co-ruler">Co</div>';
@@ -780,6 +859,7 @@ function openPlayer(name) {
         if (cd) {
             if (cd.bank != null) cR.push({ label: 'Казна страны', value: formatMoney(cd.bank) });
             if (cd.claims != null) cR.push({ label: 'Территория', value: cd.claims + ' чанков' });
+            if (cd.capital) cR.push({ label: 'Столица', value: cd.capital.chunk_x + ':' + cd.capital.chunk_z, cls: 'accent' });
             if (cd.activity != null) cR.push({ label: 'Активность', value: cd.activity });
         }
     } else cR.push({ label: 'Страна', value: 'Нет' });
@@ -1013,6 +1093,8 @@ var COMMANDS = [
     { cmd: '/c create МояСтрана', desc: 'Создать страну', plugin: 'Sovereignty' },
     { cmd: '/c claim', desc: 'Захватить чанк', plugin: 'Sovereignty' },
     { cmd: '/c unclaim', desc: 'Освободить чанк', plugin: 'Sovereignty' },
+    { cmd: '/c capital set', desc: 'Установить столицу', plugin: 'Sovereignty' },
+    { cmd: '/c capital remove', desc: 'Снять столицу', plugin: 'Sovereignty' },
     { cmd: '/c bank deposit 5000', desc: 'Внести в казну', plugin: 'Sovereignty' },
     { cmd: '/c bank withdraw 5000', desc: 'Снять из казны', plugin: 'Sovereignty' },
     { cmd: '/c upgrade', desc: 'Прокачка', plugin: 'Sovereignty' },

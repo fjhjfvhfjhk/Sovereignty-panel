@@ -73,6 +73,21 @@ header h1 {
 .tab-content.active { display: block; animation: fadeIn .2s; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+/* OVERVIEW LAYOUT (main + sidebar) */
+.overview-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    align-items: start;
+}
+.overview-main { min-width: 0; }
+.overview-side { min-width: 0; position: sticky; top: 140px; }
+
+@media (max-width: 1100px) {
+    .overview-layout { grid-template-columns: 1fr; }
+    .overview-side { position: static; }
+}
+
 /* STATS */
 .stats-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -99,6 +114,68 @@ header h1 {
     margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
 }
 .panel-header h2 { margin-bottom: 0; }
+
+/* EVENT LOG (лента событий) */
+.event-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 720px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.event-log-list::-webkit-scrollbar { width: 6px; }
+.event-log-list::-webkit-scrollbar-track { background: transparent; }
+.event-log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.event-log-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(0,0,0,.2);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+    transition: background .15s;
+    animation: eventIn .3s ease-out;
+}
+@keyframes eventIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+.event-log-item:hover { background: rgba(0,0,0,.35); }
+.event-log-icon {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+.event-log-body { flex: 1; min-width: 0; }
+.event-log-msg {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+    word-break: break-word;
+}
+.event-log-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+}
+.event-log-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 30px 20px;
+    font-size: 13px;
+    font-style: italic;
+}
+/* Цвета по типу события */
+.event-type-war_declared,
+.event-type-war_ended,
+.event-type-capitulation,
+.event-type-capital_captured { border-left-color: var(--danger); }
+.event-type-country_created,
+.event-type-pact_signed { border-left-color: var(--success); }
+.event-type-capital_set { border-left-color: var(--gold); }
+.event-type-jackpot_won,
+.event-type-big_win { border-left-color: #ec4899; }
+.event-type-court_verdict { border-left-color: var(--warning); }
 
 /* SPARKLINE */
 #panel-online-chart .chart-stats {
@@ -134,15 +211,12 @@ header h1 {
     position: relative; width: 100%; height: 600px;
     background: #0a0c12; border: 1px solid var(--border); border-radius: 8px;
     overflow: hidden; cursor: grab; user-select: none;
-    transition: none;
 }
 .map-viewport:active { cursor: grabbing; }
 .map-viewport:fullscreen,
 .map-viewport:-webkit-full-screen {
     width: 100vw; height: 100vh;
-    border-radius: 0;
-    border: none;
-    background: #0a0c12;
+    border-radius: 0; border: none; background: #0a0c12;
 }
 
 #map-canvas {
@@ -215,7 +289,6 @@ header h1 {
 }
 .map-placeholder-icon { font-size: 48px; margin-bottom: 12px; }
 
-/* Панель слоёв карты */
 .map-layers-panel {
     position: absolute; top: 12px; right: 12px;
     background: rgba(15,17,23,.92);
@@ -230,15 +303,13 @@ header h1 {
 }
 .map-layers-header {
     display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
+    margin-bottom: 10px; padding-bottom: 6px;
     border-bottom: 1px solid var(--border);
 }
 .map-layers-title {
     font-size: 11px; font-weight: 600;
     color: var(--text-dim);
     text-transform: uppercase; letter-spacing: .5px;
-    margin: 0; padding: 0;
 }
 .map-layers-close {
     background: transparent; border: none;
@@ -256,8 +327,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: 10px;
     color: var(--text);
-    font-size: 18px;
-    cursor: pointer;
+    font-size: 18px; cursor: pointer;
     display: none;
     z-index: 20;
     box-shadow: 0 8px 24px rgba(0,0,0,.5);
@@ -296,7 +366,6 @@ header h1 {
     border-top: 1px solid var(--border);
     font-size: 11px; color: var(--text-dim);
     text-align: center;
-    letter-spacing: .3px;
 }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
@@ -345,9 +414,7 @@ tr.top-3 td.rank { color: #d97706; }
     vertical-align: middle;
     border: 1px solid rgba(255,255,255,.15);
 }
-.delta {
-    font-size: 11px; opacity: .85; margin-left: 4px;
-}
+.delta { font-size: 11px; opacity: .85; margin-left: 4px; }
 
 #country-details {
     background: linear-gradient(135deg, rgba(99,102,241,.1) 0%, rgba(49,46,129,.1) 100%);
@@ -368,6 +435,7 @@ tr.top-3 td.rank { color: #d97706; }
 .detail-item .value.success { color: var(--success); }
 .detail-item .value.warning { color: var(--warning); }
 .detail-item .value.danger { color: var(--danger); }
+.detail-item .value.accent { color: var(--accent-light); }
 
 /* PLAYERS GRID */
 .players-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -460,7 +528,6 @@ tr.top-3 td.rank { color: #d97706; }
 }
 .modal-close:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
-/* PLAYER MODAL */
 .player-modal-content { padding: 28px; }
 .player-modal-grid { display: grid; grid-template-columns: 380px 1fr; gap: 32px; align-items: start; }
 .player-viewer-col { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 0; }
@@ -530,7 +597,6 @@ tr.top-3 td.rank { color: #d97706; }
     border: 1px solid var(--border);
 }
 
-/* PLAYER INFO PANELS */
 .player-panel {
     position: relative;
     margin-top: 24px; margin-bottom: 12px;
@@ -782,6 +848,7 @@ footer strong { color: var(--accent-light); }
     .cmd-row { flex-direction: column; align-items: flex-start; gap: 6px; }
     .cmd-row code { min-width: 0; white-space: normal; }
     .map-layers-panel { min-width: 160px; padding: 10px 12px; font-size: 12px; }
+    .overview-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
     header h1 { font-size: 22px; }
@@ -806,4 +873,5 @@ footer strong { color: var(--accent-light); }
     .sparkline-wrap { height: 120px; }
     .guide-section h2 { font-size: 18px; }
     .guide-section h3 { font-size: 15px; }
+    .event-log-list { max-height: 400px; }
 }
