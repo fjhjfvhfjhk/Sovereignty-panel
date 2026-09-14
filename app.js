@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.2 — метки битв */
+/* Sovereignty panel v5.3 — ночной режим с подсветкой источников света */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.2';
+var APP_VERSION = 'v5.3';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -208,8 +208,7 @@ function loadData() {
             if (!text || !text.trim()) throw new Error('Пустой файл');
             currentData = JSON.parse(text);
             console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
-                ', capitals: ' + ((currentData.capitals || []).length) +
-                ', events: ' + ((currentData.event_log || []).length) +
+                ', lights: ' + ((currentData.lights || []).length) +
                 ', pvp: ' + ((currentData.pvp_events || []).length));
             safeRender();
             loadMap();
@@ -245,6 +244,7 @@ function safeRender() {
         ['renderEventLog',      renderEventLog],
         ['renderPlayerMarkers', renderPlayerMarkers],
         ['renderBattleMarkers', renderBattleMarkers],
+        ['renderNightLights',   renderNightLights],
         ['drawSparkline',       function () { drawSparkline(currentData.online_history || []); }]
     ];
     for (var i = 0; i < steps.length; i++) {
@@ -464,6 +464,7 @@ function loadMap() {
         setTimeout(resetMapView, 50);
         renderPlayerMarkers();
         renderBattleMarkers();
+        renderNightLights();
         return;
     }
 
@@ -480,6 +481,7 @@ function loadMap() {
         if (first) setTimeout(resetMapView, 50); else applyMapTransform();
         renderPlayerMarkers();
         renderBattleMarkers();
+        renderNightLights();
     };
     img.onerror = function () {
         mapReady = false; canvas.style.display = 'none';
@@ -678,12 +680,14 @@ function handleMapClick(e) {
 function applyMapTransform() {
     var canvas = document.getElementById('map-canvas'),
         overlay = document.getElementById('map-overlay'),
-        battleLayer = document.getElementById('map-battle-layer');
+        battleLayer = document.getElementById('map-battle-layer'),
+        nightLayer = document.getElementById('map-night-layer');
     if (!canvas) return;
     var t = 'translate(' + mapOffsetX + 'px,' + mapOffsetY + 'px) scale(' + mapZoom + ')';
     canvas.style.transform = t;
     if (overlay) { overlay.style.transform = t; updateMarkerScale(); }
     if (battleLayer) { battleLayer.style.transform = t; }
+    if (nightLayer) { nightLayer.style.transform = t; }
     if (window.MapLayers) window.MapLayers.applyTransform(t);
     var dn = document.getElementById('map-daynight');
     if (dn) dn.style.transform = t;
@@ -774,6 +778,72 @@ function renderBattleMarkers() {
     });
     layer.innerHTML = markers.join('');
 }
+
+/* ============ NIGHT LIGHTS (v5.3) ============ */
+
+/**
+ * Коэффициент «ночной интенсивности» (0.25 днём, 1.0 ночью).
+ * Плавные переходы в сумерки/рассвет.
+ *   world_time: 0..24000
+ *   0      = рассвет
+ *   6000   = полдень
+ *   12000  = закат
+ *   18000  = полночь
+ */
+function nightIntensity(worldTime) {
+    if (worldTime == null || worldTime < 0) return 0.25;
+    if (worldTime < 1000) {
+        var t = worldTime / 1000.0;
+        return 1.0 - t * 0.75; // 1.0 → 0.25
+    }
+    if (worldTime < 11000) return 0.25; // полный день
+    if (worldTime < 13000) {
+        var t2 = (worldTime - 11000) / 2000.0;
+        return 0.25 + t2 * 0.75; // 0.25 → 1.0
+    }
+    if (worldTime < 22000) return 1.0; // полная ночь
+    var t3 = (worldTime - 22000) / 2000.0;
+    return 1.0 - t3 * 0.75; // 1.0 → 0.25
+}
+
+function renderNightLights() {
+    var layer = document.getElementById('map-night-layer');
+    if (!layer) return;
+    if (!mapReady || !currentData) { layer.innerHTML = ''; return; }
+    var meta = currentData.map_meta;
+    var lights = currentData.lights || [];
+    if (!meta || lights.length === 0) { layer.innerHTML = ''; return; }
+
+    var intensity = nightIntensity(meta.world_time);
+    if (intensity < 0.02) { layer.innerHTML = ''; return; }
+
+    var markers = [];
+    lights.forEach(function (l) {
+        if (l.w && meta.world && l.w !== meta.world) return;
+        if (l.x == null || l.z == null) return;
+        var pt = worldToImagePx(l.x, l.z, meta);
+        if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) return;
+
+        var tier = l.t || 1;
+        var size, baseAlpha;
+        switch (tier) {
+            case 3: size = 64; baseAlpha = 0.90; break;
+            case 2: size = 40; baseAlpha = 0.72; break;
+            default: size = 26; baseAlpha = 0.55;
+        }
+        var alpha = baseAlpha * intensity;
+        if (alpha < 0.02) return;
+
+        markers.push('<div class="light-spot" data-tier="' + tier + '" ' +
+            'style="left:' + pt.px + 'px;top:' + pt.pz + 'px;' +
+            'width:' + size + 'px;height:' + size + 'px;' +
+            '--light-alpha:' + alpha.toFixed(2) + ';"></div>');
+    });
+    layer.innerHTML = markers.join('');
+}
+
+/* Экспорт для map-layers.js */
+window.renderNightLights = renderNightLights;
 
 /* ============ LEGEND ============ */
 function renderLegend() {

@@ -1,18 +1,10 @@
-/* map-layers.js v1.1
+/* map-layers.js v1.2
  * ============================================================
- * Управление слоями карты + видимостью панели слоёв.
+ * Управление слоями карты + синхронизация с ночным режимом.
  *
- * v1.1:
- *   - Панель слоёв теперь можно скрыть (X). Состояние хранится
- *     в localStorage и восстанавливается при следующей загрузке.
- *   - Появился floating restore-кнопка 🎨 (показывает панель обратно).
- *   - Fullscreen логика вынесена в app.js (там она ближе к карте).
- *
- * Экспортирует window.MapLayers с методами:
- *   onMapReady(width, height, meta)
- *   updateDayNight(worldTime)
- *   applyTransform(cssTransform)
- *   getState()
+ * v1.2:
+ *   - При смене world_time вызывается window.renderNightLights(),
+ *     если он определён (для перерисовки световых пятен).
  * ============================================================ */
 (function () {
     'use strict';
@@ -47,26 +39,19 @@
 
     function $(id) { return document.getElementById(id); }
 
-    /** Проставить чекбоксы в соответствии с state. */
     function syncCheckboxes() {
         var p = $('layer-players'); if (p) p.checked = state.players;
         var g = $('layer-grid');    if (g) g.checked = state.grid;
         var d = $('layer-daynight'); if (d) d.checked = state.dayNight;
     }
 
-    /** Показать/скрыть панель слоёв + floating restore-кнопку. */
     function applyPanelVisibility() {
         var panel = $('map-layers-panel');
         var restore = $('map-layers-restore');
-        if (panel) {
-            panel.style.display = state.panelVisible ? '' : 'none';
-        }
-        if (restore) {
-            restore.style.display = state.panelVisible ? 'none' : 'flex';
-        }
+        if (panel) panel.style.display = state.panelVisible ? '' : 'none';
+        if (restore) restore.style.display = state.panelVisible ? 'none' : 'flex';
     }
 
-    /** Применить видимость слоёв. */
     function applyLayers() {
         if (window.showPlayerMarkers !== undefined) {
             window.showPlayerMarkers = state.players;
@@ -92,10 +77,6 @@
         }
     }
 
-    /**
-     * Обновить overlay день/ночь по времени мира.
-     * worldTime: 0..24000 (0 = рассвет, 6000 = полдень, 12000 = закат, 18000 = полночь)
-     */
     function updateDayNight(worldTime) {
         lastWorldTime = worldTime;
 
@@ -106,12 +87,14 @@
         if (!state.dayNight) {
             overlay.style.opacity = '0';
             if (status) status.textContent = 'День/ночь выкл';
+            if (typeof window.renderNightLights === 'function') window.renderNightLights();
             return;
         }
 
         if (worldTime < 0) {
             overlay.style.opacity = '0';
             if (status) status.textContent = 'Время неизвестно';
+            if (typeof window.renderNightLights === 'function') window.renderNightLights();
             return;
         }
 
@@ -149,14 +132,14 @@
             var m = Math.floor((worldTime % 1000) / 1000 * 60);
             status.textContent = phase + ' • ' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
         }
+
+        // v1.2: обновить яркость источников света
+        if (typeof window.renderNightLights === 'function') window.renderNightLights();
     }
 
-    /** Установить CSS transform для слоя сетки (синхронно с картой). */
     function applyTransform(cssTransform) {
         var gridSvg = $('map-grid-svg');
-        if (gridSvg) {
-            gridSvg.style.transform = cssTransform;
-        }
+        if (gridSvg) gridSvg.style.transform = cssTransform;
     }
 
     function onMapReady(width, height, meta) {
@@ -216,7 +199,6 @@
             syncCheckboxes();
         });
 
-        // Панель слоёв — закрытие / открытие
         var closeBtn = $('map-layers-close');
         if (closeBtn) closeBtn.addEventListener('click', function (e) {
             e.stopPropagation();

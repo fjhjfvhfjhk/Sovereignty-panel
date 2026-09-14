@@ -68,12 +68,10 @@ header h1 {
 .btn-badge { cursor: pointer; font-family: inherit; transition: all .2s; }
 .btn-badge:hover { background: var(--accent); color: white; border-color: var(--accent); }
 
-/* TABS */
 .tab-content { display: none; }
 .tab-content.active { display: block; animation: fadeIn .2s; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* OVERVIEW LAYOUT (main + sidebar) */
 .overview-layout {
     display: grid;
     grid-template-columns: 1fr 380px;
@@ -88,7 +86,6 @@ header h1 {
     .overview-side { position: static; }
 }
 
-/* STATS */
 .stats-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px; margin-bottom: 30px;
@@ -103,7 +100,6 @@ header h1 {
 .stat-value { font-size: 28px; font-weight: 700; color: var(--accent-light); margin-bottom: 4px; }
 .stat-label { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
 
-/* PANEL */
 .panel {
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: 12px; padding: 24px; margin-bottom: 24px;
@@ -149,7 +145,6 @@ header h1 {
 .event-type-big_win { border-left-color: #ec4899; }
 .event-type-court_verdict { border-left-color: var(--warning); }
 
-/* SPARKLINE */
 #panel-online-chart .chart-stats { display: flex; gap: 16px; flex-wrap: wrap; }
 .chart-stat {
     font-size: 13px; color: var(--text-dim);
@@ -191,6 +186,7 @@ header h1 {
 #map-canvas {
     position: absolute; top: 0; left: 0; transform-origin: 0 0;
     image-rendering: pixelated; pointer-events: none; max-width: none;
+    z-index: 1;
 }
 
 .map-grid-svg {
@@ -210,7 +206,40 @@ header h1 {
     z-index: 6;
 }
 
-/* v5.2: слой с метками битв */
+/* v5.3: ночные источники света */
+.map-night-layer {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    transform-origin: 0 0;
+    pointer-events: none;
+    z-index: 7;
+    mix-blend-mode: screen;
+    transition: opacity .4s;
+}
+.light-spot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: opacity;
+    /* Радиальное свечение: яркое ядро, мягкие края */
+    background: radial-gradient(circle,
+        rgba(255, 235, 170, var(--light-alpha, 0.8)) 0%,
+        rgba(255, 215, 130, calc(var(--light-alpha, 0.8) * 0.55)) 22%,
+        rgba(255, 190, 90, calc(var(--light-alpha, 0.8) * 0.18)) 52%,
+        rgba(255, 180, 80, 0) 100%);
+    transition: opacity .4s;
+}
+.light-spot[data-tier="3"] {
+    filter: blur(1.8px) brightness(1.05);
+}
+.light-spot[data-tier="2"] {
+    filter: blur(1.2px);
+}
+.light-spot[data-tier="1"] {
+    filter: blur(0.6px);
+}
+
 .map-battle-layer {
     position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
@@ -233,10 +262,7 @@ header h1 {
     box-shadow: 0 0 8px rgba(255, 60, 60, 0.5);
     will-change: transform, opacity;
 }
-.battle-marker:hover {
-    z-index: 100;
-    filter: brightness(1.4);
-}
+.battle-marker:hover { z-index: 100; filter: brightness(1.4); }
 @keyframes battlePulse {
     0%   { transform: translate(-50%, -50%) scale(1);    opacity: 0.85; }
     50%  { transform: translate(-50%, -50%) scale(1.35); opacity: 0.35; }
@@ -246,7 +272,7 @@ header h1 {
 .map-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; transform-origin: 0 0;
-    z-index: 7;
+    z-index: 9;
 }
 
 .map-marker {
@@ -268,9 +294,7 @@ header h1 {
     box-shadow: 0 3px 8px rgba(0,0,0,.7);
     transition: box-shadow .15s, border-color .15s;
 }
-.map-marker:hover .map-marker-head {
-    box-shadow: 0 0 12px rgba(99,102,241,.8);
-}
+.map-marker:hover .map-marker-head { box-shadow: 0 0 12px rgba(99,102,241,.8); }
 .map-marker-label {
     font-size: 10px; font-weight: 600; padding: 1px 5px;
     background: rgba(0,0,0,.85); border-radius: 3px; color: #fff;
@@ -439,7 +463,7 @@ tr.top-3 td.rank { color: #d97706; }
 .detail-item .value.danger { color: var(--danger); }
 .detail-item .value.accent { color: var(--accent-light); }
 
-/* PLAYERS GRID */
+/* PLAYERS */
 .players-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .player-filter {
     display: flex; align-items: center; gap: 6px; font-size: 13px;
@@ -722,7 +746,6 @@ tr.top-3 td.rank { color: #d97706; }
 }
 .guide-note b { color: var(--accent-light); }
 
-/* COMMAND COPY */
 code {
     background: var(--bg-code); border: 1px solid var(--border);
     color: var(--accent-light); padding: 3px 8px; border-radius: 5px;
@@ -743,7 +766,6 @@ code[data-copy]:active { transform: scale(.97); }
 .cmd-row code { flex-shrink: 0; min-width: 220px; }
 .cmd-row span { color: var(--text-dim); font-size: 13px; }
 
-/* FAQ */
 .faq-item {
     background: rgba(0,0,0,.15); border: 1px solid var(--border);
     border-radius: 8px; padding: 12px 16px; margin-bottom: 10px;
@@ -764,7 +786,6 @@ code[data-copy]:active { transform: scale(.97); }
 .faq-item ul { margin-top: 10px; padding-left: 22px; color: var(--text-dim); }
 .faq-item ul li { margin-bottom: 4px; }
 
-/* COMMANDS LIST */
 .cmd-search {
     background: var(--bg-hover); border: 1px solid var(--border);
     color: var(--text); padding: 8px 14px; border-radius: 8px;
@@ -791,7 +812,6 @@ code[data-copy]:active { transform: scale(.97); }
 }
 .command-item.hidden { display: none; }
 
-/* BONUS */
 .jackpot-display { text-align: center; padding: 20px; }
 .jackpot-value {
     font-size: 52px; font-weight: 800;
@@ -814,7 +834,6 @@ code[data-copy]:active { transform: scale(.97); }
 .event-item .desc, .war-item .desc, .bounty-item .desc { color: var(--text-dim); font-size: 13px; }
 .empty-hint { color: var(--text-dim); text-align: center; padding: 20px; }
 
-/* TOAST */
 .toast {
     position: fixed; bottom: 30px; left: 50%;
     transform: translateX(-50%) translateY(20px);
@@ -827,7 +846,6 @@ code[data-copy]:active { transform: scale(.97); }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* FOOTER */
 footer {
     margin-top: auto; padding: 30px 0;
     border-top: 1px solid var(--border);
@@ -836,7 +854,6 @@ footer {
 footer .small { margin-top: 6px; font-size: 12px; opacity: .7; }
 footer strong { color: var(--accent-light); }
 
-/* RESPONSIVE */
 @media (max-width: 1024px) {
     .player-modal-grid { grid-template-columns: 1fr; }
     .player-viewer-col { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
