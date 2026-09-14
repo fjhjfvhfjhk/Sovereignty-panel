@@ -115,57 +115,29 @@ header h1 {
 }
 .panel-header h2 { margin-bottom: 0; }
 
-/* EVENT LOG (лента событий) */
+/* EVENT LOG */
 .event-log-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 720px;
-    overflow-y: auto;
-    padding-right: 4px;
+    display: flex; flex-direction: column;
+    gap: 8px; max-height: 720px;
+    overflow-y: auto; padding-right: 4px;
 }
 .event-log-list::-webkit-scrollbar { width: 6px; }
 .event-log-list::-webkit-scrollbar-track { background: transparent; }
 .event-log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .event-log-item {
-    display: flex;
-    gap: 12px;
-    padding: 10px 12px;
-    background: rgba(0,0,0,.2);
-    border-radius: 8px;
-    border-left: 3px solid var(--accent);
+    display: flex; gap: 12px;
+    padding: 10px 12px; background: rgba(0,0,0,.2);
+    border-radius: 8px; border-left: 3px solid var(--accent);
     transition: background .15s;
     animation: eventIn .3s ease-out;
 }
 @keyframes eventIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
 .event-log-item:hover { background: rgba(0,0,0,.35); }
-.event-log-icon {
-    font-size: 20px;
-    line-height: 1;
-    flex-shrink: 0;
-    width: 24px;
-    text-align: center;
-}
+.event-log-icon { font-size: 20px; line-height: 1; flex-shrink: 0; width: 24px; text-align: center; }
 .event-log-body { flex: 1; min-width: 0; }
-.event-log-msg {
-    font-size: 13px;
-    color: var(--text);
-    line-height: 1.4;
-    word-break: break-word;
-}
-.event-log-time {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 3px;
-}
-.event-log-empty {
-    text-align: center;
-    color: var(--text-dim);
-    padding: 30px 20px;
-    font-size: 13px;
-    font-style: italic;
-}
-/* Цвета по типу события */
+.event-log-msg { font-size: 13px; color: var(--text); line-height: 1.4; word-break: break-word; }
+.event-log-time { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.event-log-empty { text-align: center; color: var(--text-dim); padding: 30px 20px; font-size: 13px; font-style: italic; }
 .event-type-war_declared,
 .event-type-war_ended,
 .event-type-capitulation,
@@ -178,9 +150,7 @@ header h1 {
 .event-type-court_verdict { border-left-color: var(--warning); }
 
 /* SPARKLINE */
-#panel-online-chart .chart-stats {
-    display: flex; gap: 16px; flex-wrap: wrap;
-}
+#panel-online-chart .chart-stats { display: flex; gap: 16px; flex-wrap: wrap; }
 .chart-stat {
     font-size: 13px; color: var(--text-dim);
     background: rgba(99,102,241,.1);
@@ -191,8 +161,7 @@ header h1 {
 .sparkline-wrap {
     width: 100%; height: 160px;
     background: var(--bg-code);
-    border-radius: 8px;
-    border: 1px solid var(--border);
+    border-radius: 8px; border: 1px solid var(--border);
     overflow: hidden;
 }
 #sparkline-canvas { display: block; width: 100%; height: 100%; }
@@ -239,6 +208,39 @@ header h1 {
     mix-blend-mode: multiply;
     transition: background .3s, opacity .3s;
     z-index: 6;
+}
+
+/* v5.2: слой с метками битв */
+.map-battle-layer {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    transform-origin: 0 0;
+    pointer-events: none;
+    z-index: 8;
+}
+
+.battle-marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle,
+        rgba(255, 90, 90, var(--pulse-opacity, 0.7)) 0%,
+        rgba(220, 40, 40, var(--pulse-opacity, 0.6)) 40%,
+        rgba(180, 20, 20, 0.0) 75%);
+    pointer-events: auto;
+    cursor: help;
+    animation: battlePulse var(--pulse-dur, 1.6s) ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(255, 60, 60, 0.5);
+    will-change: transform, opacity;
+}
+.battle-marker:hover {
+    z-index: 100;
+    filter: brightness(1.4);
+}
+@keyframes battlePulse {
+    0%   { transform: translate(-50%, -50%) scale(1);    opacity: 0.85; }
+    50%  { transform: translate(-50%, -50%) scale(1.35); opacity: 0.35; }
+    100% { transform: translate(-50%, -50%) scale(1);    opacity: 0.85; }
 }
 
 .map-overlay {
@@ -558,10 +560,7 @@ tr.top-3 td.rank { color: #d97706; }
     animation: sp .9s linear infinite;
 }
 @keyframes sp { to { transform: rotate(360deg); } }
-.player-viewer-hint {
-    text-align: center; font-size: 11px;
-    color: var(--text-dim); padding: 4px 0;
-}
+.player-viewer-hint { text-align: center; font-size: 11px; color: var(--text-dim); padding: 4px 0; }
 .player-viewer-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .player-modal-btn {
     background: var(--bg-hover); border: 1px solid var(--border);

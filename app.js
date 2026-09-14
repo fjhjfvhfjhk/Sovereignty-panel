@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.1 — cache-bust fix для тайлов через tiles_version */
+/* Sovereignty panel v5.2 — метки битв */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.1';
+var APP_VERSION = 'v5.2';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -20,20 +20,20 @@ var DEFAULT_PIXELS_PER_BLOCK = 1;
 var MARKER_BASE_PX = 32, MARKER_MIN_PX = 18, MARKER_MAX_PX = 72, MARKER_GROWTH_POWER = 0.5;
 var PALETTE_FALLBACK = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
 
+var PVP_TTL_MS = 24 * 3600 * 1000;
+
 var currentData = null, currentSort = 'claims';
 var mapZoom = 1, mapOffsetX = 0, mapOffsetY = 0;
 var isDragging = false, dragStartX = 0, dragStartY = 0, dragMoved = false;
-var highlightedCountry = null, showPlayerMarkers = true;
+var highlightedCountry = null, showPlayerMarkers = true, showBattleMarkers = true;
 var mapImage = null, mapCanvas = null, mapCtx = null, mapReady = false;
 var currentSkinViewer = null, rotatePaused = true;
 var localSkinCache = new Map(), headCache = new Map(), localLoadedAttempted = new Set();
 
-// Тайлы
 var tileCache = new Map();
 var tileLoadInFlight = new Set();
 var tilesMeta = null;
 var useTiles = false;
-/** Cache buster для тайлов — меняется вместе с map_meta.tiles_version. */
 var currentTilesVersion = 0;
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -210,7 +210,7 @@ function loadData() {
             console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
                 ', capitals: ' + ((currentData.capitals || []).length) +
                 ', events: ' + ((currentData.event_log || []).length) +
-                ', tiles_version: ' + (currentData.map_meta ? currentData.map_meta.tiles_version : 'n/a'));
+                ', pvp: ' + ((currentData.pvp_events || []).length));
             safeRender();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
@@ -244,6 +244,7 @@ function safeRender() {
         ['renderBonus',         renderBonus],
         ['renderEventLog',      renderEventLog],
         ['renderPlayerMarkers', renderPlayerMarkers],
+        ['renderBattleMarkers', renderBattleMarkers],
         ['drawSparkline',       function () { drawSparkline(currentData.online_history || []); }]
     ];
     for (var i = 0; i < steps.length; i++) {
@@ -436,8 +437,6 @@ function loadMap() {
 
     var meta = currentData && currentData.map_meta;
     if (meta && meta.tiles_grid && meta.tiles_grid.enabled) {
-        // Проверяем смену tiles_version — если сервер перепушил карту,
-        // надо сбросить локальный кэш canvas и загрузить новые тайлы.
         var newVersion = meta.tiles_version || 0;
         var versionChanged = (newVersion !== currentTilesVersion);
         if (versionChanged) {
@@ -464,10 +463,10 @@ function loadMap() {
         if (window.MapLayers) window.MapLayers.onMapReady(tilesMeta.img_width, tilesMeta.img_height, meta);
         setTimeout(resetMapView, 50);
         renderPlayerMarkers();
+        renderBattleMarkers();
         return;
     }
 
-    // Fallback на map.png
     useTiles = false;
     var img = new Image(); img.crossOrigin = 'anonymous';
     img.onload = function () {
@@ -480,6 +479,7 @@ function loadMap() {
         if (window.MapLayers && meta) window.MapLayers.onMapReady(img.naturalWidth, img.naturalHeight, meta);
         if (first) setTimeout(resetMapView, 50); else applyMapTransform();
         renderPlayerMarkers();
+        renderBattleMarkers();
     };
     img.onerror = function () {
         mapReady = false; canvas.style.display = 'none';
@@ -528,8 +528,6 @@ function loadTile(tx, ty, onLoaded) {
     }
     tileLoadInFlight.add(key);
 
-    // Cache buster = tiles_version из JSON. Меняется только когда сервер
-    // пушит новую карту. Между пушами — тайл берётся из кэша браузера.
     var v = tilesMeta.version || APP_VERSION;
     var urlLocal = TILES_PREFIX + tx + '_' + ty + '.png?v=' + v;
     var urlRaw = TILES_RAW_PREFIX + tx + '_' + ty + '.png?v=' + v;
@@ -543,7 +541,6 @@ function loadTile(tx, ty, onLoaded) {
         if (onLoaded) onLoaded();
     };
     img.onerror = function () {
-        // Fallback на raw.githubusercontent (обход Fastly cache)
         img.onerror = function () {
             tileLoadInFlight.delete(key);
             console.warn('[Tiles] Failed to load ' + tx + '_' + ty);
@@ -572,7 +569,7 @@ function setupCanvas(w, h) {
 function initMapControls() {
     var vp = document.getElementById('map-viewport'); if (!vp) return;
     vp.addEventListener('mousedown', function (e) {
-        if (!mapReady || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel') || e.target.closest('.map-layers-restore')) return;
+        if (!mapReady || e.target.closest('.map-marker') || e.target.closest('.battle-marker') || e.target.closest('.map-layers-panel') || e.target.closest('.map-layers-restore')) return;
         isDragging = true; dragMoved = false;
         dragStartX = e.clientX - mapOffsetX; dragStartY = e.clientY - mapOffsetY;
     });
@@ -585,7 +582,7 @@ function initMapControls() {
     });
     window.addEventListener('mouseup', function () { isDragging = false; });
     vp.addEventListener('click', function (e) {
-        if (!mapReady || dragMoved || e.target.closest('.map-marker') || e.target.closest('.map-layers-panel') || e.target.closest('.map-layers-restore')) return;
+        if (!mapReady || dragMoved || e.target.closest('.map-marker') || e.target.closest('.battle-marker') || e.target.closest('.map-layers-panel') || e.target.closest('.map-layers-restore')) return;
         handleMapClick(e);
     });
     vp.addEventListener('wheel', function (e) {
@@ -679,11 +676,14 @@ function handleMapClick(e) {
 }
 
 function applyMapTransform() {
-    var canvas = document.getElementById('map-canvas'), overlay = document.getElementById('map-overlay');
+    var canvas = document.getElementById('map-canvas'),
+        overlay = document.getElementById('map-overlay'),
+        battleLayer = document.getElementById('map-battle-layer');
     if (!canvas) return;
     var t = 'translate(' + mapOffsetX + 'px,' + mapOffsetY + 'px) scale(' + mapZoom + ')';
     canvas.style.transform = t;
     if (overlay) { overlay.style.transform = t; updateMarkerScale(); }
+    if (battleLayer) { battleLayer.style.transform = t; }
     if (window.MapLayers) window.MapLayers.applyTransform(t);
     var dn = document.getElementById('map-daynight');
     if (dn) dn.style.transform = t;
@@ -741,6 +741,38 @@ function renderPlayerMarkers() {
     });
     overlay.innerHTML = markers.join('');
     updateMarkerScale();
+}
+
+/* ============ BATTLE MARKERS ============ */
+function renderBattleMarkers() {
+    var layer = document.getElementById('map-battle-layer');
+    if (!layer) return;
+    if (!showBattleMarkers || !mapReady || !currentData) { layer.innerHTML = ''; return; }
+    var meta = currentData.map_meta;
+    var events = currentData.pvp_events || [];
+    if (!meta || events.length === 0) { layer.innerHTML = ''; return; }
+
+    var now = Date.now();
+    var markers = [];
+    events.forEach(function (e) {
+        if (!e.w || meta.world !== e.w) return;
+        if (e.x == null || e.z == null) return;
+        var pt = worldToImagePx(e.x, e.z, meta);
+        if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) return;
+
+        var age = Math.max(0, Math.min(1, (now - e.ts) / PVP_TTL_MS));
+        var freshness = 1 - age;
+        var size = 14 + freshness * 18;
+        var opacity = 0.35 + freshness * 0.55;
+
+        var title = (e.k || '?') + ' ⚔ ' + (e.v || '?') + ' (' + timeAgo(e.ts) + ')';
+        markers.push('<div class="battle-marker" style="left:' + pt.px + 'px;top:' + pt.pz + 'px;' +
+            'width:' + size + 'px;height:' + size + 'px;' +
+            '--pulse-opacity:' + opacity.toFixed(2) + ';' +
+            '--pulse-dur:' + (1.4 + freshness * 0.8).toFixed(2) + 's;' +
+            '" title="' + escapeAttr(title) + '"></div>');
+    });
+    layer.innerHTML = markers.join('');
 }
 
 /* ============ LEGEND ============ */
