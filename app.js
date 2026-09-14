@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.0 — tiles, capitals, event log */
+/* Sovereignty panel v5.1 — cache-bust fix для тайлов через tiles_version */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.0';
+var APP_VERSION = 'v5.1';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -29,10 +29,12 @@ var currentSkinViewer = null, rotatePaused = true;
 var localSkinCache = new Map(), headCache = new Map(), localLoadedAttempted = new Set();
 
 // Тайлы
-var tileCache = new Map();          // "tx_ty" -> Image
+var tileCache = new Map();
 var tileLoadInFlight = new Set();
-var tilesMeta = null;               // {cols, rows, tile_size, img_width, img_height}
+var tilesMeta = null;
 var useTiles = false;
+/** Cache buster для тайлов — меняется вместе с map_meta.tiles_version. */
+var currentTilesVersion = 0;
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
@@ -208,7 +210,7 @@ function loadData() {
             console.log('[Sovereignty] ok, players: ' + ((currentData.players || []).length) +
                 ', capitals: ' + ((currentData.capitals || []).length) +
                 ', events: ' + ((currentData.event_log || []).length) +
-                ', tiles: ' + (currentData.map_meta && currentData.map_meta.tiles_grid ? 'yes' : 'no'));
+                ', tiles_version: ' + (currentData.map_meta ? currentData.map_meta.tiles_version : 'n/a'));
             safeRender();
             loadMap();
             setTimeout(preloadLocalSkins, 0);
@@ -427,14 +429,24 @@ function drawSparkline(history) {
     ctx.fillText('сейчас', w - 8, h - 6);
 }
 
-/* ============ MAP (с тайлами) ============ */
+/* ============ MAP ============ */
 function loadMap() {
     var ph = document.getElementById('map-placeholder');
     var canvas = document.getElementById('map-canvas'); if (!canvas) return;
 
-    // Решаем, использовать ли тайлы
     var meta = currentData && currentData.map_meta;
     if (meta && meta.tiles_grid && meta.tiles_grid.enabled) {
+        // Проверяем смену tiles_version — если сервер перепушил карту,
+        // надо сбросить локальный кэш canvas и загрузить новые тайлы.
+        var newVersion = meta.tiles_version || 0;
+        var versionChanged = (newVersion !== currentTilesVersion);
+        if (versionChanged) {
+            console.log('[Tiles] tiles_version changed: ' + currentTilesVersion + ' → ' + newVersion);
+            tileCache.clear();
+            tileLoadInFlight.clear();
+            currentTilesVersion = newVersion;
+        }
+
         useTiles = true;
         tilesMeta = {
             cols: meta.tiles_grid.cols,
@@ -442,7 +454,8 @@ function loadMap() {
             tile_size: meta.tiles_grid.tile_size,
             img_width: meta.img_width,
             img_height: meta.img_height,
-            path_prefix: meta.tiles_grid.path_prefix || TILES_PREFIX
+            path_prefix: meta.tiles_grid.path_prefix || TILES_PREFIX,
+            version: newVersion
         };
         setupCanvasForTiles(tilesMeta.img_width, tilesMeta.img_height);
         mapReady = true;
@@ -483,14 +496,14 @@ function setupCanvasForTiles(w, h) {
     mapCtx = canvas.getContext('2d', { willReadFrequently: true });
     mapCtx.fillStyle = '#0f1117';
     mapCtx.fillRect(0, 0, w, h);
-    // Загружаем тайлы асинхронно
     loadAllTiles();
 }
 
 function loadAllTiles() {
     if (!tilesMeta) return;
     var total = tilesMeta.cols * tilesMeta.rows;
-    console.log('[Tiles] Loading ' + total + ' tiles (' + tilesMeta.cols + '×' + tilesMeta.rows + ')');
+    console.log('[Tiles] Loading ' + total + ' tiles (' + tilesMeta.cols + '×' + tilesMeta.rows +
+                ') v=' + tilesMeta.version);
     var loaded = 0;
     for (var ty = 0; ty < tilesMeta.rows; ty++) {
         for (var tx = 0; tx < tilesMeta.cols; tx++) {
@@ -504,14 +517,22 @@ function loadAllTiles() {
 
 function loadTile(tx, ty, onLoaded) {
     var key = tx + '_' + ty;
-    if (tileCache.has(key) || tileLoadInFlight.has(key)) {
+    if (tileCache.has(key)) {
+        drawTileOnCanvas(tx, ty, tileCache.get(key));
+        if (onLoaded) onLoaded();
+        return;
+    }
+    if (tileLoadInFlight.has(key)) {
         if (onLoaded) onLoaded();
         return;
     }
     tileLoadInFlight.add(key);
 
-    var urlLocal = TILES_PREFIX + tx + '_' + ty + '.png?v=' + APP_VERSION;
-    var urlRaw = TILES_RAW_PREFIX + tx + '_' + ty + '.png?v=' + APP_VERSION;
+    // Cache buster = tiles_version из JSON. Меняется только когда сервер
+    // пушит новую карту. Между пушами — тайл берётся из кэша браузера.
+    var v = tilesMeta.version || APP_VERSION;
+    var urlLocal = TILES_PREFIX + tx + '_' + ty + '.png?v=' + v;
+    var urlRaw = TILES_RAW_PREFIX + tx + '_' + ty + '.png?v=' + v;
 
     var img = new Image();
     img.crossOrigin = 'anonymous';
@@ -522,9 +543,10 @@ function loadTile(tx, ty, onLoaded) {
         if (onLoaded) onLoaded();
     };
     img.onerror = function () {
-        // Fallback на raw
+        // Fallback на raw.githubusercontent (обход Fastly cache)
         img.onerror = function () {
             tileLoadInFlight.delete(key);
+            console.warn('[Tiles] Failed to load ' + tx + '_' + ty);
         };
         img.src = urlRaw;
     };
@@ -592,7 +614,6 @@ function initMapControls() {
     });
 }
 
-/* ============ FULLSCREEN ============ */
 function initMapFullscreen() {
     var btn = document.getElementById('map-fullscreen');
     if (!btn) return;
