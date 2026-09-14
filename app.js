@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.3 — ночной режим с подсветкой источников света */
+/* Sovereignty panel v5.5 — пиксельные источники света, подписи под щитами */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.3';
+var APP_VERSION = 'v5.5';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -779,7 +779,7 @@ function renderBattleMarkers() {
     layer.innerHTML = markers.join('');
 }
 
-/* ============ NIGHT LIGHTS (v5.3) ============ */
+/* ============ NIGHT LIGHTS (v5.5) ============ */
 
 /**
  * Коэффициент «ночной интенсивности» (0.25 днём, 1.0 ночью).
@@ -794,18 +794,23 @@ function nightIntensity(worldTime) {
     if (worldTime == null || worldTime < 0) return 0.25;
     if (worldTime < 1000) {
         var t = worldTime / 1000.0;
-        return 1.0 - t * 0.75; // 1.0 → 0.25
+        return 1.0 - t * 0.75;
     }
-    if (worldTime < 11000) return 0.25; // полный день
+    if (worldTime < 11000) return 0.25;
     if (worldTime < 13000) {
         var t2 = (worldTime - 11000) / 2000.0;
-        return 0.25 + t2 * 0.75; // 0.25 → 1.0
+        return 0.25 + t2 * 0.75;
     }
-    if (worldTime < 22000) return 1.0; // полная ночь
+    if (worldTime < 22000) return 1.0;
     var t3 = (worldTime - 22000) / 2000.0;
-    return 1.0 - t3 * 0.75; // 1.0 → 0.25
+    return 1.0 - t3 * 0.75;
 }
 
+/**
+ * v5.5 — пиксельные световые пятна.
+ * Позиция привязывается к целым пикселям (round), чтобы квадратные
+ * пятна не размывались браузером на subpixel-рендере.
+ */
 function renderNightLights() {
     var layer = document.getElementById('map-night-layer');
     if (!layer) return;
@@ -822,7 +827,12 @@ function renderNightLights() {
         if (l.w && meta.world && l.w !== meta.world) return;
         if (l.x == null || l.z == null) return;
         var pt = worldToImagePx(l.x, l.z, meta);
-        if (pt.px < 0 || pt.pz < 0 || pt.px > mapCanvas.width || pt.pz > mapCanvas.height) return;
+
+        // v5.5: пиксель-перфект — округляем до целых пикселей
+        var px = Math.round(pt.px);
+        var pz = Math.round(pt.pz);
+
+        if (px < 0 || pz < 0 || px > mapCanvas.width || pz > mapCanvas.height) return;
 
         var tier = l.t || 1;
         var size, baseAlpha;
@@ -835,14 +845,13 @@ function renderNightLights() {
         if (alpha < 0.02) return;
 
         markers.push('<div class="light-spot" data-tier="' + tier + '" ' +
-            'style="left:' + pt.px + 'px;top:' + pt.pz + 'px;' +
+            'style="left:' + px + 'px;top:' + pz + 'px;' +
             'width:' + size + 'px;height:' + size + 'px;' +
             '--light-alpha:' + alpha.toFixed(2) + ';"></div>');
     });
     layer.innerHTML = markers.join('');
 }
 
-/* Экспорт для map-layers.js */
 window.renderNightLights = renderNightLights;
 
 /* ============ LEGEND ============ */
