@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.5 — пиксельные источники света, подписи под щитами */
+/* Sovereignty panel v5.7 — canvas-based light rendering с маской видимости */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.5';
+var APP_VERSION = 'v5.7';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -21,6 +21,22 @@ var MARKER_BASE_PX = 32, MARKER_MIN_PX = 18, MARKER_MAX_PX = 72, MARKER_GROWTH_P
 var PALETTE_FALLBACK = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
 
 var PVP_TTL_MS = 24 * 3600 * 1000;
+
+/* v5.7: параметры маски видимости. Должны совпадать с TerrainRenderer. */
+var LIGHT_RADIUS = 2;
+var LIGHT_GRID = LIGHT_RADIUS * 2 + 1; // 5
+var LIGHT_GRID_CELLS = LIGHT_GRID * LIGHT_GRID; // 25
+var LIGHT_FULL_MASK = (1 << LIGHT_GRID_CELLS) - 1; // 0x1FFFFFF
+
+/* Базовые альфы (очень прозрачные, чтобы не забивать карту) */
+var LIGHT_ALPHA_TIER3 = 0.42;
+var LIGHT_ALPHA_TIER2 = 0.32;
+var LIGHT_ALPHA_TIER1 = 0.22;
+
+/* Размер клетки маски в пикселях карты (native, до CSS-scale). */
+var LIGHT_CELL_PX_TIER3 = 3;
+var LIGHT_CELL_PX_TIER2 = 2;
+var LIGHT_CELL_PX_TIER1 = 2;
 
 var currentData = null, currentSort = 'claims';
 var mapZoom = 1, mapOffsetX = 0, mapOffsetY = 0;
@@ -779,17 +795,8 @@ function renderBattleMarkers() {
     layer.innerHTML = markers.join('');
 }
 
-/* ============ NIGHT LIGHTS (v5.5) ============ */
+/* ============ NIGHT LIGHTS (v5.7 canvas-based) ============ */
 
-/**
- * Коэффициент «ночной интенсивности» (0.25 днём, 1.0 ночью).
- * Плавные переходы в сумерки/рассвет.
- *   world_time: 0..24000
- *   0      = рассвет
- *   6000   = полдень
- *   12000  = закат
- *   18000  = полночь
- */
 function nightIntensity(worldTime) {
     if (worldTime == null || worldTime < 0) return 0.25;
     if (worldTime < 1000) {
@@ -807,49 +814,130 @@ function nightIntensity(worldTime) {
 }
 
 /**
- * v5.5 — пиксельные световые пятна.
- * Позиция привязывается к целым пикселям (round), чтобы квадратные
- * пятна не размывались браузером на subpixel-рендере.
+ * Возвращает canvas внутри контейнера `map-night-layer`.
+ * Контейнер в HTML может быть div (тогда canvas вставляется внутрь)
+ * или сразу canvas.
+ */
+function ensureNightCanvas() {
+    var el = document.getElementById('map-night-layer');
+    if (!el) return null;
+    if (el.tagName === 'CANVAS') return el;
+
+    var c = el.querySelector('canvas');
+    if (!c) {
+        c = document.createElement('canvas');
+        c.style.position = 'absolute';
+        c.style.left = '0';
+        c.style.top = '0';
+        c.style.imageRendering = 'pixelated';
+        c.style.pointerEvents = 'none';
+        el.appendChild(c);
+    }
+    return c;
+}
+
+/**
+ * v5.7: canvas-отрисовка источников света.
+ *
+ * <p>Каждый источник — до 25 клеток (5×5 маска). Клетка рисуется как
+ * маленький заполненный прямоугольник. При opacity &lt; 1 и additive-режиме
+ * (globalCompositeOperation = 'lighter') перекрывающиеся клетки дают
+ * мягкое свечение.
+ *
+ * <p>Правила:
+ * <ul>
+ *   <li>mask == 0 — источник не рисуется (полностью закрыт).</li>
+ *   <li>Яркость каждой клетки зависит от расстояния до центра маски.</li>
+ *   <li>Alpha базово очень низкая (0.22–0.42), чтобы источники не забивали
+ *       карту.</li>
+ * </ul>
  */
 function renderNightLights() {
-    var layer = document.getElementById('map-night-layer');
-    if (!layer) return;
-    if (!mapReady || !currentData) { layer.innerHTML = ''; return; }
+    var canvas = ensureNightCanvas();
+    if (!canvas || !canvas.getContext) return;
+    if (!mapReady || !currentData) {
+        // Clear
+        var g0 = canvas.getContext('2d');
+        if (g0) g0.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
+
     var meta = currentData.map_meta;
     var lights = currentData.lights || [];
-    if (!meta || lights.length === 0) { layer.innerHTML = ''; return; }
+
+    var W = mapCanvas.width;
+    var H = mapCanvas.height;
+    if (canvas.width !== W || canvas.height !== H) {
+        canvas.width = W;
+        canvas.height = H;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+    }
+
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    if (!meta || lights.length === 0) return;
 
     var intensity = nightIntensity(meta.world_time);
-    if (intensity < 0.02) { layer.innerHTML = ''; return; }
+    if (intensity < 0.02) return;
 
-    var markers = [];
-    lights.forEach(function (l) {
-        if (l.w && meta.world && l.w !== meta.world) return;
-        if (l.x == null || l.z == null) return;
+    var ppb = (typeof meta.pixels_per_block === 'number' && meta.pixels_per_block > 0)
+        ? meta.pixels_per_block : 1;
+
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = false;
+
+    for (var i = 0; i < lights.length; i++) {
+        var l = lights[i];
+        if (l.w && meta.world && l.w !== meta.world) continue;
+        if (l.x == null || l.z == null) continue;
+
         var pt = worldToImagePx(l.x, l.z, meta);
-
-        // v5.5: пиксель-перфект — округляем до целых пикселей
-        var px = Math.round(pt.px);
-        var pz = Math.round(pt.pz);
-
-        if (px < 0 || pz < 0 || px > mapCanvas.width || pz > mapCanvas.height) return;
+        var cx = pt.px;
+        var cz = pt.pz;
+        if (cx < -64 || cz < -64 || cx > W + 64 || cz > H + 64) continue;
 
         var tier = l.t || 1;
-        var size, baseAlpha;
+        var cellPx, baseAlpha;
         switch (tier) {
-            case 3: size = 64; baseAlpha = 0.90; break;
-            case 2: size = 40; baseAlpha = 0.72; break;
-            default: size = 26; baseAlpha = 0.55;
+            case 3: cellPx = LIGHT_CELL_PX_TIER3; baseAlpha = LIGHT_ALPHA_TIER3; break;
+            case 2: cellPx = LIGHT_CELL_PX_TIER2; baseAlpha = LIGHT_ALPHA_TIER2; break;
+            default: cellPx = LIGHT_CELL_PX_TIER1; baseAlpha = LIGHT_ALPHA_TIER1;
         }
-        var alpha = baseAlpha * intensity;
-        if (alpha < 0.02) return;
 
-        markers.push('<div class="light-spot" data-tier="' + tier + '" ' +
-            'style="left:' + px + 'px;top:' + pz + 'px;' +
-            'width:' + size + 'px;height:' + size + 'px;' +
-            '--light-alpha:' + alpha.toFixed(2) + ';"></div>');
-    });
-    layer.innerHTML = markers.join('');
+        var mask = (typeof l.m === 'number') ? l.m : LIGHT_FULL_MASK;
+        if (mask === 0) continue;
+
+        var halfCell = cellPx >> 1;
+
+        for (var bit = 0; bit < LIGHT_GRID_CELLS; bit++) {
+            if ((mask & (1 << bit)) === 0) continue;
+            var dx = (bit % LIGHT_GRID) - LIGHT_RADIUS;
+            var dz = Math.floor(bit / LIGHT_GRID) - LIGHT_RADIUS;
+
+            var px = Math.round(cx + dx * ppb);
+            var pz = Math.round(cz + dz * ppb);
+
+            // Falloff по Манхэттену/Евклиду: центр ярче, края тускнее
+            var distSq = dx * dx + dz * dz;
+            var falloff;
+            if (distSq === 0) falloff = 1.00;
+            else if (distSq === 1) falloff = 0.78;
+            else if (distSq === 2) falloff = 0.55;
+            else if (distSq === 4) falloff = 0.38;
+            else if (distSq === 5) falloff = 0.28;
+            else falloff = 0.15;
+
+            var alpha = baseAlpha * falloff * intensity;
+            if (alpha < 0.02) continue;
+
+            ctx.fillStyle = 'rgba(255, 232, 148, ' + alpha.toFixed(3) + ')';
+            ctx.fillRect(px - halfCell, pz - halfCell, cellPx, cellPx);
+        }
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
 }
 
 window.renderNightLights = renderNightLights;
