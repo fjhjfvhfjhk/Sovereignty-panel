@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.8 — guide loader + light visibility mask */
+/* Sovereignty panel v5.9 — guide loader fix + light visibility mask */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.8';
+var APP_VERSION = 'v5.9';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -51,13 +51,12 @@ var tilesMeta = null;
 var useTiles = false;
 var currentTilesVersion = 0;
 
-/* v5.8: guide loader state. */
 var guideLoaded = false;
 var guideLoadingPromise = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
-    // v5.8: initGuideNav УБРАН из списка — он вызывается внутри loadGuide().
+    // initGuideNav НЕ в списке — он вызывается внутри loadGuide().
     ['initTabs','initSortTabs','initMapControls','initMapFullscreen','initCommandCopy',
      'initCommandSearch','initPlayerControls','initModalControls'].forEach(function (fn) {
         try { window[fn](); } catch (e) { console.error(fn + ':', e); }
@@ -71,7 +70,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (currentData && currentData.online_history) drawSparkline(currentData.online_history);
         if (mapReady) applyMapTransform();
     }, 200));
-    // v5.8: подгружаем гайд из guide.html.
     loadGuide();
 });
 
@@ -92,19 +90,21 @@ function skinRotateLoop() {
     requestAnimationFrame(skinRotateLoop);
 }
 
-/* ============ GUIDE LOADER (v5.8) ============ */
+/* ============ GUIDE LOADER (v5.9) ============ */
 
 /**
  * Загружает guide.html в #guide-content и инициализирует навигацию.
- * Идемпотентно — повторные вызовы возвращают тот же promise.
+ * v5.9: fallback на старую разметку, если #guide-content отсутствует.
  */
 function loadGuide() {
     if (guideLoadingPromise) return guideLoadingPromise;
 
     var container = document.getElementById('guide-content');
     if (!container) {
-        console.warn('[Guide] #guide-content не найден в DOM');
-        return Promise.resolve();
+        console.warn('[Guide] #guide-content не найден. Fallback на старую разметку #tab-guide.');
+        try { initGuideNav(); } catch (e) { console.error('[Guide] initGuideNav (fallback):', e); }
+        guideLoadingPromise = Promise.resolve();
+        return guideLoadingPromise;
     }
 
     var url = GUIDE_URL + '?v=' + APP_VERSION;
@@ -119,13 +119,14 @@ function loadGuide() {
             container.innerHTML = html;
             guideLoaded = true;
 
-            // Пересобираем навигацию по загруженному контенту.
-            var nav = document.getElementById('guide-nav');
-            if (nav) {
-                var links = nav.querySelectorAll('a');
-                links.forEach(function (a) { a.remove(); });
+            var count = container.querySelectorAll('.guide-section').length;
+            console.log('[Guide] Загружено секций: ' + count);
+            if (count === 0) {
+                console.warn('[Guide] guide.html загружен, но .guide-section не найдены.');
             }
-            try { initGuideNav(); } catch (e) { console.error('[Guide] initGuideNav:', e); }
+
+            try { initGuideNav(); }
+            catch (e) { console.error('[Guide] initGuideNav:', e); }
         })
         .catch(function (err) {
             console.error('[Guide] Не удалось загрузить guide.html:', err);
@@ -1314,24 +1315,58 @@ function showToast(msg) {
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
 }
 
-/* ============ GUIDE NAV (v5.8: вызывается ИЗ loadGuide) ============ */
+/* ============ GUIDE NAV (v5.9) ============ */
+
+/**
+ * v5.9: поиск секций идёт под #tab-guide (устойчиво к обоим вариантам
+ * разметки). Старые <a> удаляются перед добавлением новых.
+ */
 function initGuideNav() {
-    var nav = document.getElementById('guide-nav'); if (!nav) return;
-    var sections = document.querySelectorAll('#guide-content .guide-section h2[data-guide-title]');
-    sections.forEach(function (h2) {
-        var s = h2.closest('.guide-section'); if (!s) return;
+    var nav = document.getElementById('guide-nav');
+    if (!nav) {
+        console.warn('[Guide] #guide-nav не найден в DOM');
+        return;
+    }
+
+    nav.querySelectorAll('a').forEach(function (a) { a.remove(); });
+
+    var sections = document.querySelectorAll('#tab-guide .guide-section');
+    console.log('[Guide] Найдено секций для nav: ' + sections.length);
+    if (sections.length === 0) {
+        console.warn('[Guide] Нет .guide-section в #tab-guide.');
+        return;
+    }
+
+    var added = 0;
+    sections.forEach(function (section) {
+        var h2 = section.querySelector('h2[data-guide-title]');
+        if (!h2) return;
+        if (!section.id) {
+            console.warn('[Guide] У секции нет id: ' + h2.textContent);
+            return;
+        }
         var a = document.createElement('a');
-        a.href = '#' + s.id; a.textContent = h2.textContent.trim(); a.dataset.target = s.id;
+        a.href = '#' + section.id;
+        a.textContent = h2.textContent.trim();
+        a.dataset.target = section.id;
         nav.appendChild(a);
+        added++;
     });
+
     var links = nav.querySelectorAll('a');
     if (links.length === 0) return;
+
     var obs = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
-            if (e.isIntersecting) links.forEach(function (a) { a.classList.toggle('active', a.dataset.target === e.target.id); });
+            if (e.isIntersecting) {
+                links.forEach(function (a) {
+                    a.classList.toggle('active', a.dataset.target === e.target.id);
+                });
+            }
         });
     }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
-    sections.forEach(function (h2) { var s = h2.closest('.guide-section'); if (s) obs.observe(s); });
+    sections.forEach(function (s) { obs.observe(s); });
+
     links.forEach(function (a) {
         a.addEventListener('click', function (e) {
             e.preventDefault();
@@ -1339,7 +1374,11 @@ function initGuideNav() {
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
+
+    console.log('[Guide] Nav готов: добавлено ссылок ' + added);
 }
+
+window.initGuideNav = initGuideNav;
 
 /* ============ COMMANDS ============ */
 var COMMANDS = [
