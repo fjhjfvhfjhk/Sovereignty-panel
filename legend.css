@@ -1,0 +1,302 @@
+/* ============================================================
+   legend.css — Легенда символов карты (v1.0)
+   ============================================================
+   Подключается отдельно от style.css.
+   Все классы имеют префикс .msl- (map symbol legend).
+   ============================================================ */
+
+.map-symbol-legend {
+    margin-top: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color .15s;
+}
+.map-symbol-legend:hover { border-color: #3a4055; }
+
+.map-symbol-legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, .15);
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s;
+}
+.map-symbol-legend-header:hover { background: rgba(99, 102, 241, .08); }
+
+.map-symbol-legend-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.map-symbol-legend-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-left: 4px;
+}
+
+.map-symbol-legend-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+    font-family: inherit;
+    transition: color .15s, transform .2s;
+}
+.map-symbol-legend-toggle:hover { color: var(--accent-light); }
+.map-symbol-legend.collapsed .map-symbol-legend-toggle { transform: rotate(0deg); }
+.map-symbol-legend:not(.collapsed) .map-symbol-legend-toggle { transform: rotate(0deg); }
+
+.map-symbol-legend-body {
+    padding: 14px 16px 16px;
+}
+
+.map-symbol-legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+}
+
+.msl-item {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, .18);
+    border-radius: 8px;
+    border-left: 2px solid transparent;
+    transition: background .15s;
+}
+.msl-item:hover { background: rgba(0, 0, 0, .3); }
+
+/* Класс для items с расширенной иконкой (например, набор линий пактов). */
+.msl-item.msl-wide {
+    grid-column: 1 / -1;
+    grid-template-columns: 42px 1fr;
+}
+
+.msl-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.msl-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.msl-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+}
+.msl-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.3;
+}
+
+/* ============ Symbol primitives ============ */
+
+/* Границы страны */
+.msl-territory {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    background: rgba(99, 102, 241, .2);
+    border: 2px solid #6366f1;
+    box-shadow:
+        0 0 0 1px rgba(42, 26, 16, .9),
+        0 0 6px rgba(99, 102, 241, .6);
+    position: relative;
+}
+
+/* Щит столицы */
+.msl-capital {
+    font-size: 24px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .7));
+}
+
+/* Линия — solid (союз) */
+.msl-line {
+    width: 30px;
+    height: 0;
+    border-top-width: 2px;
+    border-top-style: solid;
+    border-radius: 1px;
+}
+.msl-line-ally  { border-top-color: #f0e6c8; box-shadow: 0 0 4px rgba(240, 230, 200, .5); }
+.msl-line-mil   { border-top-color: #b03c2d; border-top-style: dashed; }
+.msl-line-trade { border-top-color: #dcb446; border-top-style: dashed; }
+.msl-line-def   { border-top-color: #5a8cb4; border-top-style: dashed; }
+.msl-line-nonag { border-top-color: #8c8278; border-top-style: dashed; }
+
+/* Мини-полоска для сложного описания пактов */
+.msl-pact-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    justify-content: center;
+    align-items: flex-start;
+}
+.msl-pact-stack .msl-line { width: 34px; }
+
+/* Пульсирующий маркер битвы */
+.msl-battle {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+        rgba(255, 90, 90, .9) 0%,
+        rgba(220, 40, 40, .6) 40%,
+        rgba(180, 20, 20, 0) 75%);
+    box-shadow: 0 0 8px rgba(255, 60, 60, .6);
+    animation: msl-battle-pulse 1.6s ease-in-out infinite;
+}
+@keyframes msl-battle-pulse {
+    0%   { transform: scale(1);    opacity: .85; }
+    50%  { transform: scale(1.35); opacity: .35; }
+    100% { transform: scale(1);    opacity: .85; }
+}
+
+/* Источник света (ночь) */
+.msl-light {
+    width: 18px;
+    height: 18px;
+    background: rgba(255, 232, 148, .95);
+    box-shadow:
+        0 0 0 3px rgba(255, 232, 148, .5),
+        0 0 0 6px rgba(255, 210, 110, .25);
+    border-radius: 0;
+}
+
+/* Топографический контур */
+.msl-contour {
+    width: 30px;
+    height: 0;
+    border-top: 1px solid rgba(96, 62, 32, .8);
+}
+
+/* Маркер игрока (голова) */
+.msl-player {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    background: #2a2f3e;
+    border: 2px solid #22c55e;
+    box-shadow:
+        0 3px 6px rgba(0, 0, 0, .6),
+        0 0 8px rgba(34, 197, 94, .5);
+    position: relative;
+}
+.msl-player::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, #8b5a2b 0%, #6b4419 100%);
+}
+
+.msl-player-offline {
+    border-color: #8b91a6;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, .6);
+    opacity: .7;
+}
+.msl-player-offline::after { background: linear-gradient(135deg, #565a68 0%, #3a3d48 100%); }
+
+/* Туман войны */
+.msl-fog {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    background:
+        repeating-linear-gradient(
+            45deg,
+            rgba(110, 90, 58, .9) 0,
+            rgba(110, 90, 58, .9) 4px,
+            rgba(140, 116, 78, .9) 4px,
+            rgba(140, 116, 78, .9) 8px
+        );
+    border: 1px solid rgba(42, 26, 16, .5);
+}
+
+/* Компас */
+.msl-compass {
+    font-size: 24px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6));
+}
+
+/* Морской змей (декорация) */
+.msl-monster {
+    font-size: 22px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6));
+}
+
+/* Координатная сетка */
+.msl-coord {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #3a2a1a;
+    background: #d8c098;
+    border-radius: 3px;
+    padding: 3px 6px;
+    border: 1px solid #4a3520;
+}
+
+/* Подпись страны под щитом */
+.msl-label-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+.msl-label-marker .msl-shield-mini {
+    font-size: 16px;
+    line-height: 1;
+}
+.msl-label-marker .msl-label-tag {
+    font-family: Georgia, serif;
+    font-size: 9px;
+    font-weight: 700;
+    color: #3a2a1a;
+    background: #d8c098;
+    border: 1px solid #4a3520;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-top: -2px;
+    white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .map-symbol-legend-grid { grid-template-columns: 1fr; }
+    .map-symbol-legend-header { padding: 10px 12px; }
+    .map-symbol-legend-body { padding: 12px; }
+    .msl-item { padding: 6px 8px; gap: 10px; }
+    .msl-icon { width: 36px; height: 36px; }
+}
