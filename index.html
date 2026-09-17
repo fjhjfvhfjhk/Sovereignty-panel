@@ -15,6 +15,7 @@
 
     <link rel="stylesheet" href="style.css?v=5.3">
     <meta name="theme-color" content="#6366f1">
+	<link rel="stylesheet" href="legend.css?v=1.0">
 </head>
 <body>
     <header>
@@ -135,7 +136,158 @@
                     <button class="map-layers-restore" id="map-layers-restore" title="Показать слои" aria-label="Показать слои">🎨</button>
                     <div class="map-fullscreen-hint" id="map-fullscreen-hint">Esc — выйти из полноэкранного</div>
                 </div>
-                <div class="map-legend" id="map-legend"></div>
+                 <section class="map-symbol-legend" id="map-symbol-legend">
+    <div class="map-symbol-legend-header" id="map-symbol-legend-header">
+        <div class="map-symbol-legend-title">
+            🎨 Легенда карты
+            <span class="map-symbol-legend-hint">— что обозначает каждый символ</span>
+        </div>
+        <button class="map-symbol-legend-toggle" id="map-symbol-legend-toggle"
+                aria-label="Свернуть/развернуть">▾</button>
+    </div>
+    <div class="map-symbol-legend-body" id="map-symbol-legend-body">
+
+        <div class="map-symbol-legend-grid">
+
+            <!-- 1. Границы стран -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-territory"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Границы стран</div>
+                    <div class="msl-desc">Цвет = страна. Свечение + тёмная тень вокруг.</div>
+                </div>
+            </div>
+
+            <!-- 2. Столица -->
+            <div class="msl-item">
+                <div class="msl-icon"><span class="msl-capital">🏛️</span></div>
+                <div class="msl-text">
+                    <div class="msl-label">Столица</div>
+                    <div class="msl-desc">Щит с золотой короной в цвете страны. Захват = капитуляция.</div>
+                </div>
+            </div>
+
+            <!-- 3. Подпись страны -->
+            <div class="msl-item">
+                <div class="msl-icon">
+                    <div class="msl-label-marker">
+                        <span class="msl-shield-mini">🏛️</span>
+                        <span class="msl-label-tag">Норвегия</span>
+                    </div>
+                </div>
+                <div class="msl-text">
+                    <div class="msl-label">Название страны</div>
+                    <div class="msl-desc">Serif-шрифт на пергаментной плашке — <b>под</b> щитом столицы.</div>
+                </div>
+            </div>
+
+            <!-- 4. Маркер игрока (онлайн) -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-player"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Игрок онлайн</div>
+                    <div class="msl-desc">Голова с <span style="color:#22c55e;">зелёной рамкой</span> = сейчас в сети.</div>
+                </div>
+            </div>
+
+            <!-- 5. Маркер игрока (оффлайн) -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-player msl-player-offline"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Игрок оффлайн</div>
+                    <div class="msl-desc">Приглушённый маркер, ник курсивом — последняя позиция.</div>
+                </div>
+            </div>
+
+            <!-- 6. Метка битвы -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-battle"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Недавняя битва</div>
+                    <div class="msl-desc">PvP-смерть за 24 часа. Свежие — ярче и крупнее. Наведение → кто кого.</div>
+                </div>
+            </div>
+
+            <!-- 7. Источник света -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-light"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Источник света (ночью)</div>
+                    <div class="msl-desc">Факелы, фонари, glowstone. Маска видимости 5×5 — крыша не закрывает всё пятно.</div>
+                </div>
+            </div>
+
+            <!-- 8. Топографические контуры -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-contour"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Топографические контуры</div>
+                    <div class="msl-desc">Тонкие коричневые линии каждые 10 блоков высоты. Частые = крутой склон.</div>
+                </div>
+            </div>
+
+            <!-- 9. Туман войны -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-fog"></div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Туман войны</div>
+                    <div class="msl-desc">Пергаментная дымка — неисследованные земли. Проявляется, когда игроки ходят рядом.</div>
+                </div>
+            </div>
+
+            <!-- 10. Координатная сетка -->
+            <div class="msl-item">
+                <div class="msl-icon"><div class="msl-coord">0</div></div>
+                <div class="msl-text">
+                    <div class="msl-label">Координаты</div>
+                    <div class="msl-desc">Ярлыки по краям карты каждые 500 world-блоков. Верх = X, лево = Z.</div>
+                </div>
+            </div>
+
+            <!-- 11. Компас -->
+            <div class="msl-item">
+                <div class="msl-icon"><span class="msl-compass">🧭</span></div>
+                <div class="msl-text">
+                    <div class="msl-label">Компас-роза</div>
+                    <div class="msl-desc">В правом верхнем углу. N — на север, E — восток. Старинный стиль «Antique Atlas».</div>
+                </div>
+            </div>
+
+            <!-- 12. Морские змеи -->
+            <div class="msl-item">
+                <div class="msl-icon"><span class="msl-monster">🐉</span></div>
+                <div class="msl-text">
+                    <div class="msl-label">Морские змеи</div>
+                    <div class="msl-desc">Декоративные чудовища в зонах тумана. Не влияют на игру.</div>
+                </div>
+            </div>
+
+            <!-- 13. Дороги дипломатии — широкий блок с 5 линиями -->
+            <div class="msl-item msl-wide">
+                <div class="msl-icon">
+                    <div class="msl-pact-stack">
+                        <div class="msl-line msl-line-ally"></div>
+                        <div class="msl-line msl-line-mil"></div>
+                        <div class="msl-line msl-line-trade"></div>
+                        <div class="msl-line msl-line-def"></div>
+                        <div class="msl-line msl-line-nonag"></div>
+                    </div>
+                </div>
+                <div class="msl-text">
+                    <div class="msl-label">Дороги дипломатии</div>
+                    <div class="msl-desc">
+                        Линии между странами: <b style="color:#f0e6c8;">кремовая</b> — союз,
+                        <b style="color:#b03c2d;">красный пунктир</b> — военный пакт,
+                        <b style="color:#dcb446;">золотой пунктир</b> — торговый,
+                        <b style="color:#5a8cb4;">синий пунктир</b> — оборонительный,
+                        <b style="color:#8c8278;">серый пунктир</b> — ненападение.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
             </section>
         </section>
 
@@ -154,11 +306,428 @@
             </section>
         </section>
 
-        <!-- v5.9: гайд вынесен в guide.html и подгружается через app.js. -->
+        <!-- ============ ГАЙД ============ -->
         <section class="tab-content" id="tab-guide">
             <div class="guide-layout">
                 <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
-                <div id="guide-content"></div>
+                <div class="guide-content">
+
+                    <article class="guide-section" id="guide-start">
+                        <h2 data-guide-title>🌱 С чего начать</h2>
+                        <p>Ты только что зашёл на сервер — держи пошаговый план первых 30 минут.</p>
+                        <ol class="guide-steps">
+                            <li>Получи стартовый баланс от администрации или из магазина.</li>
+                            <li>Создай свою страну: <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code></li>
+                            <li>Захвати первый чанк: встань в нужное место и введи <code data-copy="/c claim">/c claim</code></li>
+                            <li>Поставь точку дома: <code data-copy="/sethome">/sethome</code></li>
+                            <li>Выбери профессию: <code data-copy="/jobs browse">/jobs browse</code></li>
+                            <li>Начни торговать: <code data-copy="/shop">/shop</code></li>
+                            <li>Установи столицу: <code data-copy="/c capital set">/c capital set</code></li>
+                        </ol>
+                        <p class="guide-note">💡 <b>Совет:</b> не трать всю энергию на один захват. Энергия восстанавливается медленно — лучше захвати небольшой ровный участок.</p>
+                    </article>
+
+                    <article class="guide-section" id="guide-country">
+                        <h2 data-guide-title>🏛️ Государство (Sovereignty)</h2>
+                        <p>Главное меню: <code data-copy="/c">/c</code>. Алиасы: <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>.</p>
+
+                        <h3>🏛️ Столица</h3>
+                        <p>Столица — «сердце» страны. Установить может только лидер, стоя на своей территории: <code data-copy="/c capital set">/c capital set</code>.</p>
+                        <ul class="guide-list">
+                            <li><b>Визуально:</b> на карте отмечена <b>геральдическим щитом с золотой короной</b>.</li>
+                            <li><b>Стратегически:</b> захват столицы врагом = <b>мгновенная капитуляция</b> и 20% казны в репарациях.</li>
+                            <li>Управление: <code data-copy="/c capital">/c capital</code> — информация, <code data-copy="/c capital remove">/c capital remove</code> — снять.</li>
+                        </ul>
+                        <p class="guide-note">⚠️ Не ставьте столицу на границе! Её легко захватить первым ударом.</p>
+
+                        <h3>⚡ Энергия</h3>
+                        <ul class="guide-list">
+                            <li><b>Старт:</b> 10 ⚡ | <b>Захват чанка:</b> −2 ⚡ | <b>Смерть:</b> −1 ⚡</li>
+                            <li><b>Купить:</b> <code data-copy="/c buyenergy 10">/c buyenergy &lt;кол-во&gt;</code></li>
+                            <li><b>Буст:</b> <code data-copy="/c boost">/c boost</code> — 5000 монет, +2 ⚡/час на 1 час</li>
+                        </ul>
+
+                        <h3>🗺️ Захват территории</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c claim">/c claim</code><span>Захватить чанк (2 ⚡)</span></div>
+                            <div class="cmd-row"><code data-copy="/c unclaim">/c unclaim</code><span>Освободить чанк</span></div>
+                            <div class="cmd-row"><code data-copy="/c autoclaim">/c autoclaim</code><span>Автозахват при беге</span></div>
+                        </div>
+
+                        <h3>🏗️ Типы чанков</h3>
+                        <ul class="guide-list">
+                            <li>🌾 <b>Ферма</b> — доход (+150/час)</li>
+                            <li>⛏ <b>Шахта</b> — усиливает Спешку</li>
+                            <li>⚔ <b>Военный</b> — защита и урон</li>
+                            <li>💰 <b>Торговый</b> — +10% к соседним фермам</li>
+                            <li>🛡 <b>Защитный</b> — щит (2500 монет)</li>
+                        </ul>
+
+                        <h3>💎 Прокачка</h3>
+                        <p>Меню: <code data-copy="/c upgrade">/c upgrade</code>. 4 ветки: энергия, регенерация, лимит чанков, доход ферм.</p>
+
+                        <h3>🔬 Технологии</h3>
+                        <p>Меню: <code data-copy="/c research">/c research</code>. 8 технологий.</p>
+
+                        <h3>🏦 Банк страны</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c bank deposit 5000">/c bank deposit &lt;сумма&gt;</code><span>Внести</span></div>
+                            <div class="cmd-row"><code data-copy="/c bank withdraw 5000">/c bank withdraw &lt;сумма&gt;</code><span>Снять</span></div>
+                            <div class="cmd-row"><code data-copy="/c bank withdraw all">/c bank withdraw all</code><span>Забрать всё</span></div>
+                        </div>
+
+                        <h3>👥 Соправители</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c invite Steve">/c invite &lt;ник&gt;</code><span>Пригласить</span></div>
+                            <div class="cmd-row"><code data-copy="/c kick Steve">/c kick &lt;ник&gt;</code><span>Исключить</span></div>
+                            <div class="cmd-row"><code data-copy="/c accept">/c accept</code><span>Принять</span></div>
+                        </div>
+
+                        <h3>🗺️ Утилиты</h3>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/c seechunk">/c seechunk</code><span>Границы частицами</span></div>
+                            <div class="cmd-row"><code data-copy="/c map">/c map</code><span>ASCII-карта</span></div>
+                            <div class="cmd-row"><code data-copy="/c unstuck">/c unstuck</code><span>Телепорт с чужой территории</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-map">
+                        <h2 data-guide-title>🗺️ Карта — стиль «Antique Atlas» <span style="color:var(--success);">(v5.0)</span></h2>
+
+                        <p>Карта оформлена как <b>старинный атлас в пиксель-арт стиле</b> — тёплые земляные тона, компас-роза, вьющиеся орнаменты. При этом сохранены все технические слои — контуры, свет, битвы.</p>
+
+                        <h3>🎨 Пиксель-арт база</h3>
+                        <ul class="guide-list">
+                            <li>Тёплая палитра: охра, охра-жёлтый, коричневый, оливковый.</li>
+                            <li>Вода — мшисто-синяя, приглушённая.</li>
+                            <li>Снег — кремовый, а не чисто белый.</li>
+                            <li>Шрифт названий стран — Serif (Georgia), как в старых книгах.</li>
+                        </ul>
+
+                        <h3>📜 Старинные украшения</h3>
+                        <ul class="guide-list">
+                            <li><b>Компас-роза</b> в правом верхнем углу — 8 лучей, подписи N/E/S/W.</li>
+                            <li><b>Угловые орнаменты</b> — вьющиеся линии в 4 углах карты.</li>
+                            <li><b>Двойная рамка</b> по периметру — тёмная внешняя + светлая внутренняя.</li>
+                            <li><b>Пергаментная виньетка</b> — края уходят в тёплый бежевый туман.</li>
+                            <li><b>Волны на воде</b> — короткие дуги, как на старинных морских картах.</li>
+                            <li><b>Морские змеи</b> в зонах тумана войны — стилизованные чудовища.</li>
+                        </ul>
+
+                        <h3>🌫️ Туман войны</h3>
+                        <p>Неисследованные чанки покрыты <b>пергаментной дымкой</b>. По мере того как игроки ходят по миру, они «проявляются».</p>
+
+                        <h3>💧 Береговая линия</h3>
+                        <p>Вода окружена тонкой <b>тёмно-коричневой</b> окантовкой — граница вода/суша.</p>
+
+                        <h3>📐 Топографические контуры</h3>
+                        <p>Тонкие коричневые горизонтали каждые 10 блоков высоты. Частые линии = крутой склон, редкие = равнина.</p>
+
+                        <h3>📏 Координатная сетка</h3>
+                        <p>По краям карты — подписи 0, 500, 1k, 1.5k, 2k в стиле старинных ярлыков с фоном.</p>
+
+                        <h3>🌙 Ночной режим</h3>
+                        <p>Ночью на карте загораются <b>тёплые светящиеся пятна</b> — источники света в ваших странах: факелы, фонари, glowstone, campfire, маяки.</p>
+                        <ul class="guide-list">
+                            <li><b>Ночь:</b> пятна максимально яркие.</li>
+                            <li><b>День:</b> едва заметны (25%).</li>
+                            <li><b>Рассвет/закат:</b> плавный переход.</li>
+                        </ul>
+
+                        <h3>🛤️ Дороги дипломатии</h3>
+                        <ul class="guide-list">
+                            <li>⚪ <b>Кремовая сплошная</b> — союз</li>
+                            <li>🔴 <b>Красный пунктир</b> — военный пакт</li>
+                            <li>🟡 <b>Золотой пунктир</b> — торговый пакт</li>
+                            <li>🔵 <b>Синий пунктир</b> — оборонительный пакт</li>
+                            <li>⚫ <b>Серый пунктир</b> — пакт о ненападении</li>
+                        </ul>
+
+                        <h3>⚔️ Метки недавних битв</h3>
+                        <p><b>Красно-коричневые пульсирующие точки</b> — места PvP-смертей за последние 24 часа.</p>
+
+                        <h3>🏛️ Столицы</h3>
+                        <p>Отмечены <b>геральдическим щитом с золотой короной</b> в цвете страны.</p>
+
+                        <h3>🔍 Управление</h3>
+                        <ul class="guide-list">
+                            <li><b>Мышь:</b> перетаскивание — панорама, колесо — зум</li>
+                            <li><b>Слои:</b> Игроки / Сетка чанков / День-Ночь (кнопка 🎨)</li>
+                            <li><b>Клик по стране</b> — открывает детали</li>
+                            <li><b>⛶ Полный экран</b> — разворот карты</li>
+                        </ul>
+                    </article>
+
+                    <article class="guide-section" id="guide-diplomacy">
+                        <h2 data-guide-title>🤝 Дипломатия и войны</h2>
+                        <p>Меню: <code data-copy="/c">/c</code> → Дипломатия.</p>
+                        <h3>Отношения</h3>
+                        <ul class="guide-list">
+                            <li>🟢 <b>Союз</b> — PvP запрещён, разрешено строить</li>
+                            <li>⚪ <b>Нейтралитет</b></li>
+                            <li>🔴 <b>Враг</b> — можно атаковать</li>
+                        </ul>
+                        <h3>4 пакта</h3>
+                        <ul class="guide-list">
+                            <li>💰 Торговый (+5% доход) | ⚔ Военный</li>
+                            <li>🛡 Оборонительный | 🕊 О ненападении</li>
+                        </ul>
+                        <h3>Войны</h3>
+                        <ol class="guide-steps">
+                            <li>Объявить: <code data-copy="/c enemy Steve">/c enemy &lt;ник&gt;</code></li>
+                            <li>Захватывать чанки врага</li>
+                            <li>Захват <b>столицы</b> → мгновенная капитуляция + 20% казны</li>
+                            <li>Потеря 40% → авто-победа</li>
+                            <li>Сдаться: <code data-copy="/c surrender">/c surrender</code></li>
+                        </ol>
+                    </article>
+
+                    <article class="guide-section" id="guide-court">
+                        <h2 data-guide-title>⚖️ Международный суд</h2>
+                        <p>Меню: <code data-copy="/c court">/c court</code>. Жалоба: <code data-copy="/c court file Steve Причина">/c court file &lt;ник&gt; &lt;причина&gt;</code></p>
+                        <h3>3 санкции</h3>
+                        <ul class="guide-list">
+                            <li>💸 Штраф — 5000 монет из казны</li>
+                            <li>🚫 Эмбарго — рвутся торговые пакты</li>
+                            <li>🕊 Дипбан — альянсы рвутся, дипломатия на 2ч</li>
+                        </ul>
+                    </article>
+
+                    <article class="guide-section" id="guide-casino">
+                        <h2 data-guide-title>🎰 Казино (RollGame)</h2>
+                        <p>Хаб: <code data-copy="/roll">/roll</code>.</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/roll slots 1000">/roll slots &lt;ставка&gt;</code><span>Слоты — до x200</span></div>
+                            <div class="cmd-row"><code data-copy="/roll crash 1000">/roll crash &lt;ставка&gt;</code><span>Crash</span></div>
+                            <div class="cmd-row"><code data-copy="/roll upgrade">/roll upgrade</code><span>Апгрейдер</span></div>
+                            <div class="cmd-row"><code data-copy="/roll stairs 1000">/roll stairs &lt;ставка&gt;</code><span>Лестница — до x42</span></div>
+                            <div class="cmd-row"><code data-copy="/roll duel 1000">/roll duel &lt;ставка&gt;</code><span>Дуэль</span></div>
+                            <div class="cmd-row"><code data-copy="/roll mines 1000 3 5">/roll mines &lt;ставка&gt; &lt;мины&gt; &lt;размер&gt;</code><span>Мины</span></div>
+                            <div class="cmd-row"><code data-copy="/roll wheel 1000">/roll wheel &lt;ставка&gt;</code><span>Колесо — до x5</span></div>
+                            <div class="cmd-row"><code data-copy="/roll poker">/roll poker</code><span>Покер</span></div>
+                            <div class="cmd-row"><code data-copy="/roll bet 1000">/roll bet &lt;ставка&gt;</code><span>Классика</span></div>
+                        </div>
+
+                        <h3>🔄 Повторить ставку</h3>
+                        <p>В большинстве игр есть кнопка <b>«🔁 Повторить»</b> после финиша.</p>
+
+                        <h3>🔮 Апгрейдер v3.7</h3>
+                        <p>Множитель: ×1 (базовый), ×2 (выход ×2, шанс ÷2), ×3 (выход ×3, шанс ÷3).</p>
+                        <p>Пример: 64 палки с ×3 при победе = 192 огненных стержня. RTP = 95%.</p>
+
+                        <h3>🎯 Честная рулетка</h3>
+                        <p>Указатель <b>всегда</b> останавливается на панели, соответствующей исходу.</p>
+                    </article>
+
+                    <article class="guide-section" id="guide-tax">
+                        <h2 data-guide-title>💸 Налоги</h2>
+                        <p>Каждые 5 игровых дней. Меню: <code data-copy="/tax">/tax</code>.</p>
+                        <p>Формула: <code>100 + 100 × чанков + 200 × (чанков / 5)</code>.</p>
+                        <p>Списание: казна → личный счёт владельца → долг. <b>3 просрочки = потеря чанка.</b></p>
+                    </article>
+
+                    <article class="guide-section" id="guide-market">
+                        <h2 data-guide-title>🏪 Рынок между игроками</h2>
+                        <p>Меню: <code data-copy="/shop">/shop</code>.</p>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/shop add money 500">/shop add money &lt;сумма&gt;</code><span>За деньги</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add DIAMOND 5">/shop add &lt;материал&gt; &lt;кол-во&gt;</code><span>За предметы</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add DIAMOND 5 money 500">/shop add &lt;материал&gt; &lt;кол-во&gt; money &lt;сумма&gt;</code><span>Смешанно</span></div>
+                            <div class="cmd-row"><code data-copy="/shop add money 500 for Steve">/shop add money &lt;сумма&gt; for &lt;ник&gt;</code><span>Личный лот</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-auction">
+    <h2 data-guide-title>🔨 Аукцион <span style="color:var(--success);">(v2.0)</span></h2>
+    <p>Меню: <code data-copy="/auc">/auc</code>. Внутри — категории, мгновенный выкуп, ставки предметами.</p>
+
+    <h3>🎯 Категории</h3>
+    <p>В верхней части GUI — 7 иконок: <b>Все</b>, <b>Блоки</b>, <b>Оружие</b>, <b>Броня</b>, <b>Инструменты</b>, <b>Еда</b>, <b>Ресурсы</b>, <b>Прочее</b>. Клик — фильтр.</p>
+
+    <h3>📝 Как выставить лот</h3>
+    <p>Держите предмет в руке, потом команда. За <b>деньги</b>:</p>
+    <div class="cmd-grid">
+        <div class="cmd-row"><code data-copy="/auc add 1000">/auc add &lt;цена&gt;</code><span>60 минут по умолчанию</span></div>
+        <div class="cmd-row"><code data-copy="/auc add 1000 120">/auc add &lt;цена&gt; &lt;минуты&gt;</code><span>свой таймер</span></div>
+        <div class="cmd-row"><code data-copy="/auc add 1000 60 buyout 5000">/auc add ... buyout &lt;цена&gt;</code><span>мгновенный выкуп</span></div>
+        <div class="cmd-row"><code data-copy="/auc add 1000 60 category weapons">/auc add ... category &lt;ключ&gt;</code><span>своя категория</span></div>
+    </div>
+    <p>За <b>предметы</b>:</p>
+    <div class="cmd-grid">
+        <div class="cmd-row"><code data-copy="/auc add DIAMOND 5">/auc add &lt;материал&gt; &lt;кол-во&gt;</code><span>ставки только этим материалом</span></div>
+    </div>
+
+    <h3>💰 Ставки</h3>
+    <div class="cmd-grid">
+        <div class="cmd-row"><code data-copy="/auc bid 1 1500">/auc bid &lt;id&gt; &lt;сумма&gt;</code><span>денежная ставка</span></div>
+        <div class="cmd-row"><code data-copy="/auc biditem 1 DIAMOND 10">/auc biditem &lt;id&gt; &lt;материал&gt; &lt;кол-во&gt;</code><span>ставка предметами</span></div>
+        <div class="cmd-row"><code data-copy="/auc buy 1">/auc buy &lt;id&gt;</code><span>мгновенный выкуп по buyout-цене</span></div>
+    </div>
+
+    <h3>⚡ Anti-snipe</h3>
+    <p>Если кто-то делает ставку в последние 60 секунд — лот <b>продлевается на 60 секунд</b>. Это не даёт вырвать лот последней секундой.</p>
+
+    <h3>👁️ GUI обновляется сам</h3>
+    <p>Если открыт GUI аукциона и другой игрок ставит — ты увидишь обновление через 3 секунды, не нужно переоткрывать.</p>
+
+    <h3>🖱 В GUI</h3>
+    <ul>
+        <li><b>ЛКМ</b> по лоту — быстрый <code>/auc info</code></li>
+        <li><b>ПКМ</b> по лоту — выкупить сразу (если есть buyout)</li>
+        <li><b>Клик</b> по иконке категории — фильтр</li>
+        <li><b>Клик</b> по воронке — сортировка (новые / старые)</li>
+    </ul>
+</article>
+
+
+                    <article class="guide-section" id="guide-bounty">
+                        <h2 data-guide-title>💀 Наёмники</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/bounty Steve 10000">/bounty &lt;ник&gt; &lt;сумма&gt;</code><span>Награда</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty list">/bounty list</code><span>Список наград</span></div>
+                            <div class="cmd-row"><code data-copy="/bounty remove Steve">/bounty remove &lt;ник&gt;</code><span>Снять награду</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-pvp">
+                        <h2 data-guide-title>⚔️ PvP и защита</h2>
+                        <ul class="guide-list">
+                            <li>🔴 Нейтралы: PvP разрешён</li>
+                            <li>🟢 Союзники: запрещён</li>
+                            <li>🔴 Враги: разрешён везде</li>
+                            <li>🕊 Пакт о ненападении блокирует PvP</li>
+                        </ul>
+                        <h3>8 глобальных событий</h3>
+                        <ul class="guide-list">
+                            <li>🌵 Засуха, 🌊 Наводнение, ☠ Чума — негативные</li>
+                            <li>🌾 Урожайный сезон, 💰 Торговый бум, ⛏ Горный бум, ⚡ Энергетический всплеск, 🕊 Мирное время — позитивные</li>
+                        </ul>
+                    </article>
+
+                    <article class="guide-section" id="guide-economy">
+                        <h2 data-guide-title>💰 Экономика и профессии</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/bal">/bal</code><span>Баланс</span></div>
+                            <div class="cmd-row"><code data-copy="/pay Steve 1000">/pay &lt;ник&gt; &lt;сумма&gt;</code><span>Перевод</span></div>
+                            <div class="cmd-row"><code data-copy="/jobs browse">/jobs browse</code><span>Профессии</span></div>
+                            <div class="cmd-row"><code data-copy="/sethome">/sethome</code><span>Дом</span></div>
+                            <div class="cmd-row"><code data-copy="/home">/home</code><span>Домой</span></div>
+                            <div class="cmd-row"><code data-copy="/tpa Steve">/tpa &lt;ник&gt;</code><span>Телепорт к игроку</span></div>
+                            <div class="cmd-row"><code data-copy="/spawn">/spawn</code><span>На спавн</span></div>
+                        </div>
+                    </article>
+
+                    <article class="guide-section" id="guide-skins">
+                        <h2 data-guide-title>🎨 Скины</h2>
+                        <div class="cmd-grid">
+                            <div class="cmd-row"><code data-copy="/skin Steve">/skin &lt;ник&gt;</code><span>Установить скин</span></div>
+                            <div class="cmd-row"><code data-copy="/skin clear">/skin clear</code><span>Убрать скин</span></div>
+                        </div>
+                        <p class="guide-note">💡 На панели есть свой 3D-просмотрщик — клик по игроку в разделе <b>Игроки</b>.</p>
+                    </article>
+
+                    <article class="guide-section" id="guide-faq">
+                        <h2 data-guide-title>❓ FAQ</h2>
+
+                        <details class="faq-item">
+                            <summary>Почему карта выглядит как старинный атлас?</summary>
+                            <p>Так задумано — <b>стиль "Antique Atlas"</b>. Тёплая земляная палитра, компас-роза, угловые орнаменты, пергаментная виньетка. При этом все технические слои сохранены (туман, контуры, свет, битвы, дороги).</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что за компас в углу?</summary>
+                            <p><b>Компас-роза</b> — старинный навигационный инструмент. 8 лучей: 4 главных (N/E/S/W), 4 промежуточных. Служит для ориентации на карте.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что за странные фигуры в зонах тумана?</summary>
+                            <p><b>Морские змеи</b> — декоративные чудовища в неизученных областях карты. Нарисованы специально, чтобы заполнить пустые зоны в стиле старинных морских карт. Никак не влияют на игру.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что за светящиеся пятна на карте ночью?</summary>
+                            <p><b>Ночной режим</b> — источники света в ваших странах: факелы, фонари, glowstone, campfire, маяки. Ночью пятна яркие, днём почти незаметны.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что за линии между странами?</summary>
+                            <p><b>Дороги дипломатии</b>. Кремовая сплошная — союз. Красный пунктир — военный пакт, золотой — торговый, синий — оборонительный, серый — ненападение.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что за красные точки на карте?</summary>
+                            <p><b>Метки недавних битв</b> — места PvP-смертей за 24 часа.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что за тонкие коричневые линии на карте?</summary>
+                            <p><b>Топографические контуры</b> — горизонтали одинаковой высоты. Рисуются каждые 10 блоков.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что означают цифры по краям карты?</summary>
+                            <p><b>Координатная сетка</b> — 0, 500, 1k… каждые 500 world-блоков. Верх = X, лево = Z.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Почему некоторые чанки на карте в тумане?</summary>
+                            <p>Неисследованные земли. Когда игроки ходят по миру, чанки «проявляются».</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Рулетка показывает зелёное, но пишет «провал»?</summary>
+                            <p>Было в старой версии. В Upgrader v3.7 указатель всегда на правильной панели.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Не могу захватить чанк — почему?</summary>
+                            <ul>
+                                <li>Есть ли страна? <code>/c info</code></li>
+                                <li>Хватает ли энергии? Нужно 2 ⚡</li>
+                                <li>Не превышен ли лимит? <code>/c upgrade</code></li>
+                                <li>Не защищён ли щитом?</li>
+                                <li>Если чанк чужой — объявлена ли война? <code>/c enemy &lt;ник&gt;</code></li>
+                                <li>Не действует ли пакт о ненападении?</li>
+                            </ul>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как работает множитель в апгрейдере?</summary>
+                            <p>Item-режим: ×1 — базовый, выход = вход. ×2 — выход ×2, шанс ÷2. ×3 — выход ×3, шанс ÷3. RTP = 95%.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Почему меня атакуют на моей территории?</summary>
+                            <p>Если владелец страны оффлайн — чанки защищены. Если ты онлайн и щит не активен — враг может ломать. Активируй <b>защитный чанк</b> (<code>/c chunkupgrade</code> → 🛡).</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как получать больше энергии?</summary>
+                            <p>Купить (<code>/c buyenergy</code>), прокачать регенерацию (<code>/c upgrade</code>), купить буст (<code>/c boost</code>).</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Что делать, если застрял на чужой территории?</summary>
+                            <p><code>/c unstuck</code> — телепортирует на 50-100 блоков.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Карта и данные обновляются с задержкой?</summary>
+                            <p>Карта — раз в час. Данные — раз в 5 минут. Ctrl+Shift+R не требуется.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как переименовать страну?</summary>
+                            <p><code>/c rename НовоеНазвание</code>. Только лидер.</p>
+                        </details>
+
+                        <details class="faq-item">
+                            <summary>Как установить панель как приложение?</summary>
+                            <p>Chrome/Edge: три точки → «Установить Sovereignty Panel». Появится иконка на рабочем столе.</p>
+                        </details>
+                    </article>
+
+                </div>
             </div>
         </section>
 
@@ -237,6 +806,6 @@
 
     <script src="map-layers.js?v=1.2"></script>
     <script src="skin3d.js?v=4.7"></script>
-    <script src="app.js?v=5.9"></script>
+    <script src="app.js?v=5.3"></script>
 </body>
 </html>
