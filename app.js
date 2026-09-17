@@ -1,6 +1,6 @@
-/* Sovereignty panel v5.7 — canvas-based light rendering с маской видимости */
+/* Sovereignty panel v5.8 — guide loader + light visibility mask */
 window.addEventListener('error', function (e) { console.error('[ERR] ' + e.message + ' @' + e.filename + ':' + e.lineno); });
-var APP_VERSION = 'v5.7';
+var APP_VERSION = 'v5.8';
 
 var GITHUB_OWNER = 'fjhjfvhfjhk';
 var GITHUB_REPO  = 'Sovereignty-panel';
@@ -11,6 +11,7 @@ var MAP_URL = 'data/map.png';
 var TILES_PREFIX = 'data/tiles/';
 var TILES_RAW_PREFIX = 'https://raw.githubusercontent.com/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/' + GITHUB_BRANCH + '/data/tiles/';
 var LOCAL_SKIN_DIR = 'data/skins/';
+var GUIDE_URL = 'guide.html';
 
 var SKIN_API = 'https://mc-heads.net', CRAFATAR = 'https://crafatar.com';
 var STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
@@ -22,18 +23,16 @@ var PALETTE_FALLBACK = ['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6
 
 var PVP_TTL_MS = 24 * 3600 * 1000;
 
-/* v5.7: параметры маски видимости. Должны совпадать с TerrainRenderer. */
+/* v5.7: параметры маски видимости света (синхронизированы с TerrainRenderer). */
 var LIGHT_RADIUS = 2;
-var LIGHT_GRID = LIGHT_RADIUS * 2 + 1; // 5
-var LIGHT_GRID_CELLS = LIGHT_GRID * LIGHT_GRID; // 25
-var LIGHT_FULL_MASK = (1 << LIGHT_GRID_CELLS) - 1; // 0x1FFFFFF
+var LIGHT_GRID = LIGHT_RADIUS * 2 + 1;
+var LIGHT_GRID_CELLS = LIGHT_GRID * LIGHT_GRID;
+var LIGHT_FULL_MASK = (1 << LIGHT_GRID_CELLS) - 1;
 
-/* Базовые альфы (очень прозрачные, чтобы не забивать карту) */
 var LIGHT_ALPHA_TIER3 = 0.42;
 var LIGHT_ALPHA_TIER2 = 0.32;
 var LIGHT_ALPHA_TIER1 = 0.22;
 
-/* Размер клетки маски в пикселях карты (native, до CSS-scale). */
 var LIGHT_CELL_PX_TIER3 = 3;
 var LIGHT_CELL_PX_TIER2 = 2;
 var LIGHT_CELL_PX_TIER1 = 2;
@@ -52,9 +51,14 @@ var tilesMeta = null;
 var useTiles = false;
 var currentTilesVersion = 0;
 
+/* v5.8: guide loader state. */
+var guideLoaded = false;
+var guideLoadingPromise = null;
+
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[Sovereignty] ' + APP_VERSION + ' DOMContentLoaded');
-    ['initTabs','initSortTabs','initMapControls','initMapFullscreen','initCommandCopy','initGuideNav',
+    // v5.8: initGuideNav УБРАН из списка — он вызывается внутри loadGuide().
+    ['initTabs','initSortTabs','initMapControls','initMapFullscreen','initCommandCopy',
      'initCommandSearch','initPlayerControls','initModalControls'].forEach(function (fn) {
         try { window[fn](); } catch (e) { console.error(fn + ':', e); }
     });
@@ -67,6 +71,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (currentData && currentData.online_history) drawSparkline(currentData.online_history);
         if (mapReady) applyMapTransform();
     }, 200));
+    // v5.8: подгружаем гайд из guide.html.
+    loadGuide();
 });
 
 function debounce(fn, ms) {
@@ -85,6 +91,56 @@ function skinRotateLoop() {
     }
     requestAnimationFrame(skinRotateLoop);
 }
+
+/* ============ GUIDE LOADER (v5.8) ============ */
+
+/**
+ * Загружает guide.html в #guide-content и инициализирует навигацию.
+ * Идемпотентно — повторные вызовы возвращают тот же promise.
+ */
+function loadGuide() {
+    if (guideLoadingPromise) return guideLoadingPromise;
+
+    var container = document.getElementById('guide-content');
+    if (!container) {
+        console.warn('[Guide] #guide-content не найден в DOM');
+        return Promise.resolve();
+    }
+
+    var url = GUIDE_URL + '?v=' + APP_VERSION;
+    container.innerHTML = '<div class="empty-hint">⏳ Загрузка гайда...</div>';
+
+    guideLoadingPromise = fetch(url, { cache: 'no-cache' })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function (html) {
+            container.innerHTML = html;
+            guideLoaded = true;
+
+            // Пересобираем навигацию по загруженному контенту.
+            var nav = document.getElementById('guide-nav');
+            if (nav) {
+                var links = nav.querySelectorAll('a');
+                links.forEach(function (a) { a.remove(); });
+            }
+            try { initGuideNav(); } catch (e) { console.error('[Guide] initGuideNav:', e); }
+        })
+        .catch(function (err) {
+            console.error('[Guide] Не удалось загрузить guide.html:', err);
+            container.innerHTML =
+                '<div class="empty-hint" style="color:#ef4444;">' +
+                '❌ Не удалось загрузить гайд: ' + escapeHtml(err.message) + '<br>' +
+                'Проверь, что файл <code>guide.html</code> лежит в корне репозитория.' +
+                '</div>';
+            guideLoadingPromise = null;
+        });
+
+    return guideLoadingPromise;
+}
+
+window.loadGuide = loadGuide;
 
 /* ============ TABS ============ */
 function initTabs() {
@@ -795,7 +851,7 @@ function renderBattleMarkers() {
     layer.innerHTML = markers.join('');
 }
 
-/* ============ NIGHT LIGHTS (v5.7 canvas-based) ============ */
+/* ============ NIGHT LIGHTS (v5.7: canvas + mask) ============ */
 
 function nightIntensity(worldTime) {
     if (worldTime == null || worldTime < 0) return 0.25;
@@ -813,11 +869,6 @@ function nightIntensity(worldTime) {
     return 1.0 - t3 * 0.75;
 }
 
-/**
- * Возвращает canvas внутри контейнера `map-night-layer`.
- * Контейнер в HTML может быть div (тогда canvas вставляется внутрь)
- * или сразу canvas.
- */
 function ensureNightCanvas() {
     var el = document.getElementById('map-night-layer');
     if (!el) return null;
@@ -836,27 +887,10 @@ function ensureNightCanvas() {
     return c;
 }
 
-/**
- * v5.7: canvas-отрисовка источников света.
- *
- * <p>Каждый источник — до 25 клеток (5×5 маска). Клетка рисуется как
- * маленький заполненный прямоугольник. При opacity &lt; 1 и additive-режиме
- * (globalCompositeOperation = 'lighter') перекрывающиеся клетки дают
- * мягкое свечение.
- *
- * <p>Правила:
- * <ul>
- *   <li>mask == 0 — источник не рисуется (полностью закрыт).</li>
- *   <li>Яркость каждой клетки зависит от расстояния до центра маски.</li>
- *   <li>Alpha базово очень низкая (0.22–0.42), чтобы источники не забивали
- *       карту.</li>
- * </ul>
- */
 function renderNightLights() {
     var canvas = ensureNightCanvas();
     if (!canvas || !canvas.getContext) return;
     if (!mapReady || !currentData) {
-        // Clear
         var g0 = canvas.getContext('2d');
         if (g0) g0.clearRect(0, 0, canvas.width, canvas.height);
         return;
@@ -919,7 +953,6 @@ function renderNightLights() {
             var px = Math.round(cx + dx * ppb);
             var pz = Math.round(cz + dz * ppb);
 
-            // Falloff по Манхэттену/Евклиду: центр ярче, края тускнее
             var distSq = dx * dx + dz * dz;
             var falloff;
             if (distSq === 0) falloff = 1.00;
@@ -1281,10 +1314,10 @@ function showToast(msg) {
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
 }
 
-/* ============ GUIDE NAV ============ */
+/* ============ GUIDE NAV (v5.8: вызывается ИЗ loadGuide) ============ */
 function initGuideNav() {
     var nav = document.getElementById('guide-nav'); if (!nav) return;
-    var sections = document.querySelectorAll('.guide-section h2[data-guide-title]');
+    var sections = document.querySelectorAll('#guide-content .guide-section h2[data-guide-title]');
     sections.forEach(function (h2) {
         var s = h2.closest('.guide-section'); if (!s) return;
         var a = document.createElement('a');
@@ -1292,6 +1325,7 @@ function initGuideNav() {
         nav.appendChild(a);
     });
     var links = nav.querySelectorAll('a');
+    if (links.length === 0) return;
     var obs = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
             if (e.isIntersecting) links.forEach(function (a) { a.classList.toggle('active', a.dataset.target === e.target.id); });
@@ -1329,8 +1363,17 @@ var COMMANDS = [
     { cmd: '/c panel cache reset', desc: 'Сброс кэша карты', plugin: 'Sovereignty' },
     { cmd: '/tax', desc: 'Налоги', plugin: 'TaxCollector' },
     { cmd: '/shop', desc: 'Рынок', plugin: 'MarketGUI' },
+    { cmd: '/shop add money 500', desc: 'Выставить за деньги', plugin: 'MarketGUI' },
+    { cmd: '/shop add DIAMOND 5', desc: 'Выставить за предметы', plugin: 'MarketGUI' },
     { cmd: '/auc', desc: 'Аукцион', plugin: 'AuctionHouse' },
+    { cmd: '/auc add 1000', desc: 'Лот за 1000 монет', plugin: 'AuctionHouse' },
+    { cmd: '/auc add 1000 60 buyout 5000', desc: 'Лот с buyout', plugin: 'AuctionHouse' },
+    { cmd: '/auc add DIAMOND 5', desc: 'Лот со ставками изумрудами', plugin: 'AuctionHouse' },
+    { cmd: '/auc bid 1 1500', desc: 'Ставка деньгами', plugin: 'AuctionHouse' },
+    { cmd: '/auc biditem 1 DIAMOND 10', desc: 'Ставка предметами', plugin: 'AuctionHouse' },
+    { cmd: '/auc buy 1', desc: 'Мгновенный выкуп', plugin: 'AuctionHouse' },
     { cmd: '/bounty Steve 5000', desc: 'Награда', plugin: 'Bounty' },
+    { cmd: '/bounty list', desc: 'Топ наград', plugin: 'Bounty' },
     { cmd: '/roll', desc: 'Казино', plugin: 'RollGame' },
     { cmd: '/roll slots 1000', desc: 'Слоты', plugin: 'RollGame' },
     { cmd: '/roll crash 1000', desc: 'Crash', plugin: 'RollGame' },
