@@ -1,0 +1,186 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · MAP-ENHANCE.CSS v1.0
+   ============================================================
+   Улучшения карты: кнопка «К моей столице», hover-tooltip,
+   пульсация онлайн-маркеров.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. КНОПКА «К МОЕЙ СТОЛИЦЕ»
+   ------------------------------------------------------------ */
+.map-btn.btn-capital {
+    background: linear-gradient(180deg, #4f5cd9, #3a44a8);
+    border-color: #4f5cd9;
+    color: #fff;
+    font-weight: 600;
+}
+.map-btn.btn-capital:hover {
+    background: linear-gradient(180deg, #6366f1, #4f5cd9);
+    border-color: #818cf8;
+    box-shadow: 0 4px 18px rgba(99, 102, 241, .4);
+}
+
+/* ------------------------------------------------------------
+   2. HOVER-TOOLTIP ДЛЯ МАРКЕРОВ ИГРОКОВ
+   ------------------------------------------------------------
+   При наведении на карту-маркер появляется плашка с ником,
+   страной и балансом.
+   ------------------------------------------------------------ */
+.map-marker {
+    position: absolute;
+}
+.map-marker .marker-tooltip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(6px);
+    background: rgba(15, 17, 23, .96);
+    border: 1px solid rgba(99, 102, 241, .5);
+    color: #e8eaed;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s cubic-bezier(.2, 1, .3, 1),
+                transform .18s cubic-bezier(.2, 1, .3, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .6);
+    z-index: 1000;
+    backdrop-filter: blur(6px);
+    text-align: left;
+    min-width: 140px;
+}
+.map-marker .marker-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(15, 17, 23, .96);
+}
+.map-marker:hover .marker-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.marker-tooltip .mt-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+.marker-tooltip .mt-country {
+    color: var(--accent-light);
+    font-weight: 500;
+}
+.marker-tooltip .mt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-top: 3px;
+}
+.marker-tooltip .mt-row b {
+    color: #e8eaed;
+    font-weight: 600;
+}
+.marker-tooltip .mt-status {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+.marker-tooltip .mt-status.online { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.marker-tooltip .mt-status.offline { background: #8b91a6; }
+
+/* ------------------------------------------------------------
+   3. ПУЛЬСАЦИЯ МАРКЕРОВ ОНЛАЙН
+   ------------------------------------------------------------ */
+.map-marker.online .map-marker-head {
+    animation: markerOnlinePulse 2.4s ease-in-out infinite;
+}
+@keyframes markerOnlinePulse {
+    0%, 100% {
+        box-shadow: 0 3px 8px rgba(0, 0, 0, .7), 0 0 10px rgba(34, 197, 94, .4);
+    }
+    50% {
+        box-shadow: 0 3px 8px rgba(0, 0, 0, .7), 0 0 18px rgba(34, 197, 94, .75);
+    }
+}
+
+/* ------------------------------------------------------------
+   4. ПЛАВНОЕ ПЕРЕМЕЩЕНИЕ МАРКЕРОВ
+   ------------------------------------------------------------ */
+.map-marker {
+    transition: left 1.2s cubic-bezier(.2, 1, .3, 1),
+                top 1.2s cubic-bezier(.2, 1, .3, 1),
+                opacity .25s;
+}
+
+/* ------------------------------------------------------------
+   5. СЧЁТЧИК ОНЛАЙН НА КАРТЕ
+   ------------------------------------------------------------ */
+.map-online-counter {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(15, 17, 23, .9);
+    border: 1px solid rgba(99, 102, 241, .3);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+    z-index: 20;
+    pointer-events: none;
+}
+.map-online-counter::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
+    animation: counterDot 2s ease-in-out infinite;
+}
+@keyframes counterDot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+}
+.map-online-counter b {
+    color: #fff;
+    font-weight: 700;
+}
+
+/* ------------------------------------------------------------
+   6. FULLSCREEN — скрываем контролы если надо
+   ------------------------------------------------------------ */
+.map-viewport:fullscreen .map-online-counter {
+    bottom: 24px;
+    left: 24px;
+    font-size: 13px;
+    padding: 8px 14px;
+}
+
+/* ------------------------------------------------------------
+   7. RESPONSIVE
+   ------------------------------------------------------------ */
+@media (max-width: 640px) {
+    .map-marker .marker-tooltip {
+        display: none;   /* на мобилке tooltip не работает */
+    }
+    .map-online-counter {
+        bottom: 8px;
+        left: 8px;
+        font-size: 11px;
+        padding: 4px 10px;
+    }
+}

@@ -17,7 +17,8 @@
     <link rel="stylesheet" href="legend.css?v=1.0">
     <link rel="stylesheet" href="panel-animations.css?v=1.0">
     <link rel="stylesheet" href="panel-loading.css?v=1.0">
-    <link rel="stylesheet" href="panel-detail.css?v=1.0">
+    <link rel="stylesheet" href="panel-detail.css?v=1.1">
+    <link rel="stylesheet" href="map-enhance.css?v=1.0">
     <meta name="theme-color" content="#6366f1">
 </head>
 <body>
@@ -108,6 +109,7 @@
                     <div class="map-controls">
                         <button class="map-btn" id="map-reset">Сбросить вид</button>
                         <button class="map-btn" id="map-clear-highlight">Снять выделение</button>
+                        <button class="map-btn btn-capital" id="map-capital">🏛 К моей столице</button>
                         <button class="map-btn" id="map-fullscreen">⛶ Полный экран</button>
                     </div>
                 </div>
@@ -125,6 +127,7 @@
                     <div class="map-night-layer" id="map-night-layer"></div>
                     <div class="map-battle-layer" id="map-battle-layer"></div>
                     <div class="map-overlay" id="map-overlay"></div>
+                    <div class="map-online-counter" id="map-online-counter"></div>
                     <div class="map-placeholder" id="map-placeholder">
                         <div class="map-placeholder-icon">🗺️</div>
                         <p>Карта ещё не сгенерирована.<br>Подождите первого обновления от сервера.</p>
@@ -174,31 +177,10 @@
                             </div>
 
                             <div class="msl-item">
-                                <div class="msl-icon">
-                                    <div class="msl-label-marker">
-                                        <span class="msl-shield-mini">🏛️</span>
-                                        <span class="msl-label-tag">Норвегия</span>
-                                    </div>
-                                </div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Название страны</div>
-                                    <div class="msl-desc">Serif-шрифт на пергаментной плашке — <b>под</b> щитом столицы.</div>
-                                </div>
-                            </div>
-
-                            <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-player"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Игрок онлайн</div>
-                                    <div class="msl-desc">Голова с <span style="color:#22c55e;">зелёной рамкой</span> = сейчас в сети.</div>
-                                </div>
-                            </div>
-
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-player msl-player-offline"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Игрок оффлайн</div>
-                                    <div class="msl-desc">Приглушённый маркер, ник курсивом — последняя позиция.</div>
+                                    <div class="msl-desc">Голова с <span style="color:#22c55e;">зелёной рамкой</span>. Пульсирует. Наведи — детали.</div>
                                 </div>
                             </div>
 
@@ -235,26 +217,10 @@
                             </div>
 
                             <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-coord">0</div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Координаты</div>
-                                    <div class="msl-desc">Ярлыки по краям карты каждые 500 блоков. Верх = X, лево = Z.</div>
-                                </div>
-                            </div>
-
-                            <div class="msl-item">
                                 <div class="msl-icon"><span class="msl-compass">🧭</span></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Компас-роза</div>
                                     <div class="msl-desc">В правом верхнем углу. N — север, E — восток.</div>
-                                </div>
-                            </div>
-
-                            <div class="msl-item">
-                                <div class="msl-icon"><span class="msl-monster">🐉</span></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Морские змеи</div>
-                                    <div class="msl-desc">Декоративные чудовища в зонах тумана. Не влияют на игру.</div>
                                 </div>
                             </div>
 
@@ -271,12 +237,11 @@
                                 <div class="msl-text">
                                     <div class="msl-label">Дороги дипломатии</div>
                                     <div class="msl-desc">
-                                        Линии между странами: <b style="color:#f0e6c8;">кремовая</b> — союз,
-                                        <b style="color:#b03c2d;">красный пунктир</b> — военный пакт,
-                                        <b style="color:#dcb446;">золотой пунктир</b> — торговый,
-                                        <b style="color:#5a8cb4;">синий пунктир</b> — оборонительный,
-                                        <b style="color:#8c8278;">серый пунктир</b> — ненападение.
-                                        Несколько пактов между одной парой стран рисуются <b>параллельно</b>.
+                                        <b style="color:#f0e6c8;">кремовая</b> — союз ·
+                                        <b style="color:#b03c2d;">красный</b> — военный пакт ·
+                                        <b style="color:#dcb446;">золотой</b> — торговый ·
+                                        <b style="color:#5a8cb4;">синий</b> — оборонительный ·
+                                        <b style="color:#8c8278;">серый</b> — ненападение.
                                     </div>
                                 </div>
                             </div>
@@ -386,9 +351,11 @@
     <script src="skin3d.js?v=4.7"></script>
     <script src="legend.js?v=1.1"></script>
     <script src="app.js?v=5.9"></script>
+    <script src="avatars.js?v=1.0"></script>
     <script src="sparkline.js?v=1.0"></script>
     <script src="panel-ambient.js?v=1.0"></script>
     <script src="panel-loading.js?v=1.0"></script>
-    <script src="panel-detail.js?v=1.0"></script>
+    <script src="panel-detail.js?v=1.1"></script>
+    <script src="map-enhance.js?v=1.0"></script>
 </body>
 </html>
