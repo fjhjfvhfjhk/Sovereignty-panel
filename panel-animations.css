@@ -1,0 +1,294 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · PANEL-ANIMATIONS.CSS v1.0
+   ============================================================
+   Фаза 1 внедрения анимаций из lux-7-демо.
+   Подключается ПОСЛЕ style.css и legend.css.
+   Все стили изолированы — существующие классы не ломаются,
+   только дополняются новыми анимациями.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. AMBIENT GLOW LAYER
+   ------------------------------------------------------------
+   Меняется от состояния мира:
+     default — бренд-индиго (99, 102, 241)
+     war     — красный (239, 68, 68)
+     peace   — зелёный (16, 185, 129)
+     event   — фиолетовый (168, 139, 232)
+   Состояние выставляет panel-ambient.js на основе JSON.
+   ------------------------------------------------------------ */
+body {
+    --amb-r: 99;
+    --amb-g: 102;
+    --amb-b: 241;
+    transition: background-color 1.2s cubic-bezier(.2, 1, .3, 1);
+}
+body[data-state="war"]   { --amb-r: 239; --amb-g: 68;  --amb-b: 68;  }
+body[data-state="peace"] { --amb-r: 16;  --amb-g: 185; --amb-b: 129; }
+body[data-state="event"] { --amb-r: 168; --amb-g: 139; --amb-b: 232; }
+
+#ambient {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(80% 50% at 50% -10%,
+            rgba(var(--amb-r), var(--amb-g), var(--amb-b), .28), transparent 62%),
+        radial-gradient(90% 55% at 50% 110%,
+            rgba(var(--amb-r), var(--amb-g), var(--amb-b), .16), transparent 65%);
+    opacity: .9;
+    transition: background 1.2s cubic-bezier(.2, 1, .3, 1);
+    animation: panelAmbBreath 9s ease-in-out infinite;
+}
+@keyframes panelAmbBreath {
+    0%, 100% { opacity: .78; }
+    50%      { opacity: 1; }
+}
+
+#particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: .55;
+}
+
+/* Над амбиент-слоем */
+main.container,
+footer {
+    position: relative;
+    z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #ambient { animation: none; }
+    #particles { display: none; }
+}
+
+@media (max-width: 768px) {
+    #particles { opacity: .35; }
+}
+
+/* ------------------------------------------------------------
+   2. SHINE-ЗАГОЛОВОК «SOVEREIGNTY»
+   ------------------------------------------------------------
+   Плавный градиент, проезжающий по буквам.
+   Работает поверх существующей полосы заголовка,
+   в стиле не ломает перенос строк.
+   ------------------------------------------------------------ */
+#server-name {
+    background: linear-gradient(90deg,
+        #818cf8 0%,
+        #c7d2fe 30%,
+        #ffffff 50%,
+        #c7d2fe 70%,
+        #818cf8 100%);
+    background-size: 220% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: panelShine 8s linear infinite;
+}
+@keyframes panelShine {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #server-name {
+        background: linear-gradient(90deg, #fff 0%, #c7d2fe 100%);
+        animation: none;
+    }
+}
+
+/* ------------------------------------------------------------
+   3. CARD HOVER SHINE
+   ------------------------------------------------------------
+   Диагональная световая полоса при наведении.
+   Только для .stat-card и .player-card — не для больших
+   .panel (там могут быть сложные вложенные структуры).
+   ------------------------------------------------------------ */
+.stat-card,
+.player-card {
+    position: relative;
+    overflow: hidden;
+}
+.stat-card::after,
+.player-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(105deg,
+        transparent 40%,
+        rgba(var(--amb-r), var(--amb-g), var(--amb-b), .22) 50%,
+        transparent 60%);
+    background-size: 200% 100%;
+    background-position: -150% 0;
+    transition: background-position .7s cubic-bezier(.2, 1, .3, 1);
+    border-radius: inherit;
+}
+.stat-card:hover::after,
+.player-card:hover::after {
+    background-position: 250% 0;
+}
+
+/* ------------------------------------------------------------
+   4. RIPPLE НА КНОПКАХ
+   ------------------------------------------------------------
+   Активируется кликом. Требует panel-ambient.js для
+   создания span.ripple.
+   ------------------------------------------------------------ */
+.nav-btn,
+.map-btn,
+.btn-badge,
+.player-modal-btn,
+.tab,
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+.panel-ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .45);
+    transform: scale(0);
+    animation: panelRipple .7s cubic-bezier(.2, 1, .3, 1);
+    pointer-events: none;
+}
+@keyframes panelRipple {
+    to { transform: scale(4); opacity: 0; }
+}
+
+/* ------------------------------------------------------------
+   5. NUMBER POP
+   ------------------------------------------------------------
+   .stat-value и .num «подпрыгивают» при изменении.
+   Класс .pop добавляется из panel-ambient.js через
+   MutationObserver на textContent.
+   ------------------------------------------------------------ */
+.stat-value.pop,
+.num.pop {
+    animation: panelNumPop .42s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes panelNumPop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.22); color: #fff; }
+    100% { transform: scale(1); }
+}
+
+/* ------------------------------------------------------------
+   6. PULSE BADGES
+   ------------------------------------------------------------
+   Активируются в panel-ambient.js после рендера:
+     .badge#online-badge.pulse-war   — если есть войны
+     .badge#updated-badge.pulse-live — свежие данные (<60с)
+   ------------------------------------------------------------ */
+.badge.pulse-war {
+    background: rgba(239, 68, 68, .18);
+    border-color: rgba(239, 68, 68, .5);
+    color: #fca5a5;
+    animation: panelPulseWar 1.4s ease-in-out infinite;
+}
+@keyframes panelPulseWar {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, .5); }
+    50%      { box-shadow: 0 0 18px 3px rgba(239, 68, 68, .22); }
+}
+
+.badge.pulse-live {
+    background: rgba(16, 185, 129, .18);
+    border-color: rgba(16, 185, 129, .45);
+    color: #86efac;
+    animation: panelPulseLive 2s ease-in-out infinite;
+}
+@keyframes panelPulseLive {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, .45); }
+    50%      { box-shadow: 0 0 14px 2px rgba(16, 185, 129, .18); }
+}
+
+/* Бейдж «в войне» в таблице стран — тоже пульсирует */
+.event-type-war_declared,
+.event-type-capital_captured {
+    box-shadow: inset 0 0 12px rgba(239, 68, 68, .12);
+}
+
+/* ------------------------------------------------------------
+   7. SMOOTHER SCREEN TRANSITIONS
+   ------------------------------------------------------------
+   Усиливаем существующий fadeIn + добавляем slide-up.
+   Применяется к .tab-content.active через изменение
+   keyframes (перекрывает существующий в style.css).
+   ------------------------------------------------------------ */
+.tab-content.active {
+    animation: panelTabIn .28s cubic-bezier(.2, 1, .3, 1);
+}
+@keyframes panelTabIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------
+   8. SKELETON SHIMMER
+   ------------------------------------------------------------
+   Пока данные не пришли — «дышащая» плашка в цвет фона.
+   Класс .skeleton — переопределяется с существующих
+   .loading, но не ломает их.
+   ------------------------------------------------------------ */
+.skeleton {
+    background: linear-gradient(90deg,
+        var(--bg-card) 0%,
+        var(--bg-hover) 50%,
+        var(--bg-card) 100%);
+    background-size: 200% 100%;
+    animation: panelShimmer 1.5s linear infinite;
+    border-radius: 4px;
+    color: transparent;
+}
+@keyframes panelShimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ------------------------------------------------------------
+   9. TOAST SLIDE-IN
+   ------------------------------------------------------------
+   Переопределяет существующий .toast анимацией подъёма.
+   ------------------------------------------------------------ */
+.toast {
+    transition: opacity .25s cubic-bezier(.2, 1, .3, 1),
+                transform .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.toast.show {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+}
+
+/* ------------------------------------------------------------
+   10. EVENT LOG SLIDE-IN
+   ------------------------------------------------------------
+   Усиливаем существующий eventIn — делаем stagger через
+   CSS-переменную --idx (выставляется в panel-ambient.js).
+   ------------------------------------------------------------ */
+.event-log-item {
+    animation-delay: calc(var(--idx, 0) * 30ms);
+}
+
+/* ------------------------------------------------------------
+   11. ПЛАВНОСТЬ ДЛЯ ЖИВЫХ ОБНОВЛЕНИЙ
+   ------------------------------------------------------------
+   Когда JSON перезагружается, значения обновляются «мягко».
+   ------------------------------------------------------------ */
+.stat-value,
+.chip-val,
+.badge,
+td.money,
+td.energy,
+#countries-count,
+#total-claims,
+#total-bank,
+#total-energy,
+#total-players {
+    transition: color .3s cubic-bezier(.2, 1, .3, 1);
+}
