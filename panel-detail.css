@@ -1,22 +1,24 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.2
+   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.3
    ============================================================
-   Фаза 3 (детализация). ФИКС v1.2:
+   ФИКС v1.3: колонки таблицы «Топ стран» больше не съезжают.
 
-     - Убрана горизонтальная прокрутка таблицы (компактные ячейки).
-     - Уменьшен аватар (16px).
-     - Дельта-бейдж всегда виден, включая "0".
-     - Цветная полоска стран НЕ режет первый столбец.
-     - Убраны все внешние источники аватарок — только SVG или локальный
-       скин.
+   ПРИЧИНА СЪЕЗДА (v1.2 и ранее):
+     table-layout: auto + white-space: nowrap на заголовках →
+     длинные заголовки ("АКТИВНОСТЬ") раздувают свою колонку,
+     а короткие значения ("0") не дают нужной ширины → визуальный
+     сдвиг в правой части таблицы (КАЗНА/ЭНЕРГИЯ/АКТИВНОСТЬ/ПАКТЫ).
+
+   РЕШЕНИЕ:
+     table-layout: fixed + <colgroup> с процентными ширинами.
+     Браузер берёт ширины ТОЛЬКО из colgroup — заголовки и body
+     используют одни и те же колонки, сдвиг невозможен.
    ============================================================ */
 
 /* ------------------------------------------------------------
    1. STAT-CARDS
    ------------------------------------------------------------ */
-.stats-grid {
-    gap: 14px;
-}
+.stats-grid { gap: 14px; }
 .stat-card {
     padding: 20px 18px 18px;
     position: relative;
@@ -62,37 +64,21 @@
 }
 .stat-trend {
     position: absolute;
-    top: 16px;
-    right: 16px;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 12px;
+    top: 16px; right: 16px;
+    font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 12px;
     letter-spacing: .02em;
     font-variant-numeric: tabular-nums;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
+    display: inline-flex; align-items: center; gap: 3px;
 }
-.stat-trend.up {
-    background: rgba(16, 185, 129, .15);
-    color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, .3);
-}
-.stat-trend.down {
-    background: rgba(239, 68, 68, .15);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, .3);
-}
+.stat-trend.up { background: rgba(16, 185, 129, .15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, .3); }
+.stat-trend.down { background: rgba(239, 68, 68, .15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, .3); }
 
 .stat-card.is-live::before {
     content: "";
     position: absolute;
-    top: 16px;
-    left: 16px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+    top: 16px; left: 16px;
+    width: 6px; height: 6px; border-radius: 50%;
     background: #22c55e;
     box-shadow: 0 0 0 0 rgba(34, 197, 94, .6);
     animation: panelLivePulse 2s ease-out infinite;
@@ -103,37 +89,57 @@
 }
 
 /* ------------------------------------------------------------
-   2. ТОП СТРАН — компактная таблица, БЕЗ горизонтального скролла
+   2. ТОП СТРАН — жёсткая сетка колонок (фикс съезда)
    ------------------------------------------------------------ */
-#countries-table {
-    table-layout: fixed;
-    width: 100%;
+
+.table-wrap {
+    overflow-x: auto;
 }
+
+#countries-table {
+    table-layout: fixed;          /* <- ключевой фикс */
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#countries-table colgroup col.col-rank     { width: 6%;  }
+#countries-table colgroup col.col-country  { width: 17%; }
+#countries-table colgroup col.col-owner    { width: 18%; }
+#countries-table colgroup col.col-claims   { width: 13%; }
+#countries-table colgroup col.col-bank     { width: 11%; }
+#countries-table colgroup col.col-energy   { width: 10%; }
+#countries-table colgroup col.col-activity { width: 13%; }
+#countries-table colgroup col.col-pacts    { width: 12%; }
+
+/* Все ячейки одинаково обрезают содержимое */
 #countries-table th,
 #countries-table td {
-    white-space: nowrap;
+    padding: 13px 10px;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding: 12px 10px;
+    white-space: nowrap;
+    vertical-align: middle;
 }
-#countries-table col.col-rank    { width: 44px; }
-#countries-table col.col-country { width: 130px; }
-#countries-table col.col-owner   { width: 150px; }
-#countries-table col.col-claims  { width: 100px; }
-#countries-table col.col-bank    { width: 90px; }
-#countries-table col.col-energy  { width: 76px; }
-#countries-table col.col-activity{ width: 92px; }
-#countries-table col.col-pacts   { width: 64px; }
+#countries-table th {
+    /* Заголовки — те же 10px что и у ячеек, без letter-spacing
+       который расширял колонку. */
+    font-size: 11px;
+    letter-spacing: .08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 600;
+    background: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+}
 
 #countries-table tbody tr {
     position: relative;
+    border-top: 1px solid var(--border);
 }
 #countries-table tbody tr::before {
     content: "";
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    left: 0; top: 0; bottom: 0;
     width: 3px;
     background: var(--row-color, transparent);
     pointer-events: none;
@@ -148,8 +154,7 @@
     vertical-align: middle;
 }
 .cell-owner-img {
-    width: 16px;
-    height: 16px;
+    width: 16px; height: 16px;
     border-radius: 3px;
     image-rendering: pixelated;
     background: var(--bg-code);
@@ -160,13 +165,13 @@
 .cell-owner-name {
     font-weight: 500;
     font-size: 13px;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     min-width: 0;
 }
 
-/* Дельта — компактный бейдж, всегда видим */
+/* Дельта-бейдж */
 .delta-badge {
     display: inline-flex;
     align-items: center;
@@ -180,18 +185,9 @@
     vertical-align: middle;
     white-space: nowrap;
 }
-.delta-badge.up {
-    background: rgba(16, 185, 129, .14);
-    color: #6ee7b7;
-}
-.delta-badge.down {
-    background: rgba(239, 68, 68, .14);
-    color: #fca5a5;
-}
-.delta-badge.flat {
-    background: rgba(139, 145, 166, .12);
-    color: var(--text-dim);
-}
+.delta-badge.up   { background: rgba(16, 185, 129, .14); color: #6ee7b7; }
+.delta-badge.down { background: rgba(239, 68, 68, .14); color: #fca5a5; }
+.delta-badge.flat { background: rgba(139, 145, 166, .12); color: var(--text-dim); }
 
 /* ------------------------------------------------------------
    3. ЛЕНТА СОБЫТИЙ
@@ -203,25 +199,15 @@
     gap: 10px;
 }
 .event-log-icon {
-    width: 34px;
-    height: 34px;
+    width: 34px; height: 34px;
     border-radius: 8px;
     background: rgba(0, 0, 0, .28);
-    display: grid;
-    place-items: center;
+    display: grid; place-items: center;
     flex-shrink: 0;
     font-size: 17px;
 }
-.event-log-body {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
-.event-log-msg {
-    font-size: 13px;
-    line-height: 1.45;
-}
+.event-log-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.event-log-msg { font-size: 13px; line-height: 1.45; }
 .event-log-msg .country-link {
     color: var(--accent-light);
     text-decoration: none;
@@ -229,10 +215,8 @@
     cursor: pointer;
     transition: color .15s;
 }
-.event-log-msg .country-link:hover {
-    color: #fff;
-    text-decoration: underline;
-}
+.event-log-msg .country-link:hover { color: #fff; text-decoration: underline; }
+
 .event-new-badge {
     font-size: 9px;
     font-weight: 800;
@@ -249,29 +233,18 @@
 /* ------------------------------------------------------------
    4. КАРТОЧКИ ИГРОКОВ
    ------------------------------------------------------------ */
-.player-card {
-    padding: 16px;
-    gap: 14px;
-    align-items: flex-start;
-}
+.player-card { padding: 16px; gap: 14px; align-items: flex-start; }
 .player-card-avatar img {
-    width: 52px;
-    height: 52px;
+    width: 52px; height: 52px;
     border-radius: 10px;
     border: 2px solid transparent;
     transition: border-color .2s;
     image-rendering: pixelated;
     object-fit: cover;
 }
-.player-card:hover .player-card-avatar img {
-    border-color: var(--accent);
-}
+.player-card:hover .player-card-avatar img { border-color: var(--accent); }
 .player-card-name { font-size: 15px; }
-.player-card-meta {
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 6px;
-}
+.player-card-meta { gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .player-card-meta span {
     background: rgba(0, 0, 0, .25);
     padding: 2px 7px;
@@ -279,10 +252,7 @@
     font-size: 10.5px;
     letter-spacing: .02em;
 }
-.player-card-meta .money {
-    color: #6ee7b7;
-    background: rgba(16, 185, 129, .1);
-}
+.player-card-meta .money { color: #6ee7b7; background: rgba(16, 185, 129, .1); }
 
 /* ------------------------------------------------------------
    5. БЕЙДЖИ В ШАПКЕ
@@ -297,15 +267,13 @@
     font-weight: 600;
     transition: all .18s cubic-bezier(.2, 1, .3, 1);
 }
-#online-badge::before { content: "👥"; font-size: 13px; }
+#online-badge::before  { content: "👥"; font-size: 13px; }
 #updated-badge::before { content: "🕐"; font-size: 13px; }
-#refresh-btn::before { content: "🔄"; font-size: 13px; }
-.header-meta .badge:hover {
-    transform: translateY(-1px);
-}
+#refresh-btn::before   { content: "🔄"; font-size: 13px; }
+.header-meta .badge:hover { transform: translateY(-1px); }
 
 /* ------------------------------------------------------------
-   6. ГРАФИК ОНЛАЙНА — header
+   6. ГРАФИК ОНЛАЙНА
    ------------------------------------------------------------ */
 #panel-online-chart .chart-stats { gap: 10px; }
 .chart-stat {
@@ -327,8 +295,7 @@
     .stat-card { padding: 16px 14px 14px; }
     .stat-icon { width: 36px; height: 36px; font-size: 19px; }
     .player-card-avatar img { width: 48px; height: 48px; }
-    #countries-table col.col-country { width: 110px; }
-    #countries-table col.col-owner   { width: 120px; }
+    #countries-table th, #countries-table td { padding: 12px 8px; font-size: 12.5px; }
 }
 
 @media (max-width: 640px) {
@@ -337,5 +304,8 @@
     .stat-trend { top: 12px; right: 12px; font-size: 10px; padding: 2px 6px; }
     .event-log-icon { width: 30px; height: 30px; font-size: 15px; }
     .cell-owner-img { width: 14px; height: 14px; }
-    #countries-table th, #countries-table td { padding: 10px 6px; font-size: 12px; }
+    #countries-table th, #countries-table td { padding: 10px 5px; font-size: 11.5px; }
+    #countries-table colgroup col.col-owner    { width: 22%; }
+    #countries-table colgroup col.col-activity { width: 10%; }
+    #countries-table colgroup col.col-pacts    { width: 10%; }
 }

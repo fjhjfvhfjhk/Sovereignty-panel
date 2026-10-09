@@ -1,0 +1,808 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · MOBILE.CSS v1.0
+   ============================================================
+   Мобильная оптимизация панели.
+   Основной брейкпоинт: 768px (мобилка), 1024px (планшет).
+
+   Что делает:
+     - Bottom navigation bar вместо верхней панели.
+     - Топ стран → карточки (вместо таблицы).
+     - Stat-карточки в горизонтальной карусели.
+     - Компактная шапка (только онлайн + refresh).
+     - Полноэкранная модалка игрока.
+     - Тач-friendly кнопки (min 44px).
+     - Safe-area для iPhone-notch.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. BOTTOM NAVIGATION BAR
+   ------------------------------------------------------------ */
+.bottom-nav {
+    display: none;   /* показываем только на мобилке */
+}
+
+@media (max-width: 768px) {
+    .bottom-nav {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 200;
+        background: rgba(15, 17, 23, .96);
+        border-top: 1px solid var(--border);
+        padding: 6px 4px calc(env(safe-area-inset-bottom, 0px) + 6px);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        justify-content: space-around;
+        gap: 2px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .bottom-nav::-webkit-scrollbar { display: none; }
+
+    .bottom-nav .bn-btn {
+        flex: 1 0 auto;
+        min-width: 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 8px 4px;
+        background: transparent;
+        border: none;
+        color: var(--text-dim);
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: .02em;
+        cursor: pointer;
+        border-radius: 10px;
+        transition: color .15s, background .15s, transform .12s;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+    .bottom-nav .bn-btn .bn-icon {
+        font-size: 20px;
+        line-height: 1;
+        transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
+    }
+    .bottom-nav .bn-btn:active {
+        transform: scale(.92);
+    }
+    .bottom-nav .bn-btn.active {
+        color: var(--accent-light);
+        background: rgba(99, 102, 241, .12);
+    }
+    .bottom-nav .bn-btn.active .bn-icon {
+        transform: translateY(-1px) scale(1.1);
+    }
+    .bottom-nav .bn-btn.active::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 24px;
+        height: 2px;
+        border-radius: 0 0 3px 3px;
+        background: var(--accent-light);
+        box-shadow: 0 0 10px var(--accent-light);
+    }
+    .bottom-nav .bn-btn { position: relative; }
+}
+
+/* ------------------------------------------------------------
+   2. КОМПАКТНАЯ ШАПКА НА МОБИЛКЕ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    header {
+        padding: 12px 0 10px;
+        margin-bottom: 16px;
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    }
+    .header-row {
+        margin-bottom: 0;
+        gap: 8px;
+        flex-wrap: nowrap;
+    }
+    header h1 {
+        font-size: 18px;
+        letter-spacing: .04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+    }
+    /* Скрываем desktop-nav — его роль выполняет bottom-nav */
+    .main-nav {
+        display: none !important;
+    }
+    .header-meta {
+        gap: 6px;
+        margin-top: 10px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .header-meta::-webkit-scrollbar { display: none; }
+    .header-meta .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .header-meta .badge::before { font-size: 12px; }
+
+    /* Дополнительный отступ снизу, чтобы контент не прятался за bottom-nav */
+    body {
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+    }
+    main.container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    .container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
+
+/* ------------------------------------------------------------
+   3. STAT-КАРТОЧКИ — горизонтальная карусель
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .stats-grid {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        padding: 4px 0 12px;
+        margin-bottom: 20px;
+        scrollbar-width: none;
+    }
+    .stats-grid::-webkit-scrollbar { display: none; }
+    .stat-card {
+        flex: 0 0 150px;
+        scroll-snap-align: start;
+        padding: 14px 14px 12px;
+        min-height: 118px;
+    }
+    .stat-card .stat-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 17px;
+        border-radius: 10px;
+    }
+    .stat-card .stat-value {
+        font-size: 24px;
+    }
+    .stat-card .stat-label {
+        font-size: 10px;
+        letter-spacing: .08em;
+    }
+    .stat-trend {
+        top: 10px;
+        right: 10px;
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+    .stat-card.is-live::before {
+        top: 10px;
+        left: 10px;
+        width: 5px;
+        height: 5px;
+    }
+}
+
+/* ------------------------------------------------------------
+   4. ТОП СТРАН — таблица скрывается, показываются карточки
+   ------------------------------------------------------------ */
+.country-cards-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Скрываем таблицу и старый wrap */
+    #countries-table,
+    .table-wrap {
+        display: none !important;
+    }
+    .country-cards-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
+/* Карточка страны */
+.ccm-card {
+    position: relative;
+    background: linear-gradient(160deg, var(--bg-card), rgba(15, 17, 23, .6));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px 12px 18px;
+    overflow: hidden;
+    transition: transform .15s, border-color .15s;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.ccm-card:active {
+    transform: scale(.985);
+    border-color: var(--accent);
+}
+.ccm-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--row-color, transparent);
+}
+
+/* Шапка карточки */
+.ccm-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.ccm-rank {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(99, 102, 241, .12);
+    border: 1px solid rgba(99, 102, 241, .28);
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--accent-light);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+.ccm-rank.top-1 {
+    background: linear-gradient(135deg, rgba(251, 191, 36, .22), rgba(251, 191, 36, .06));
+    border-color: rgba(251, 191, 36, .5);
+    color: #fbbf24;
+    box-shadow: 0 0 14px rgba(251, 191, 36, .2);
+}
+.ccm-rank.top-2 {
+    background: linear-gradient(135deg, rgba(203, 213, 225, .22), rgba(203, 213, 225, .06));
+    border-color: rgba(203, 213, 225, .45);
+    color: #cbd5e1;
+}
+.ccm-rank.top-3 {
+    background: linear-gradient(135deg, rgba(217, 119, 6, .22), rgba(217, 119, 6, .06));
+    border-color: rgba(217, 119, 6, .45);
+    color: #f59e0b;
+}
+.ccm-name-block {
+    flex: 1;
+    min-width: 0;
+}
+.ccm-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+}
+.ccm-owner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+.ccm-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    image-rendering: pixelated;
+    background: var(--bg-code);
+    flex-shrink: 0;
+}
+
+/* Статистика внутри карточки — 4 плитки в ряд */
+.ccm-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    font-size: 12px;
+}
+.ccm-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 0;
+}
+.ccm-stat-label {
+    color: var(--text-dim);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+.ccm-stat-value {
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.ccm-stat-value.money { color: #10b981; }
+.ccm-stat-value.energy { color: #f59e0b; }
+.ccm-stat-value.delta.up { color: #6ee7b7; }
+.ccm-stat-value.delta.down { color: #fca5a5; }
+.ccm-stat-value.delta.flat { color: var(--text-dim); }
+
+/* ------------------------------------------------------------
+   5. КАРТОЧКИ ИГРОКОВ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .players-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .player-card {
+        padding: 10px;
+        gap: 10px;
+        align-items: center;
+        border-radius: 10px;
+    }
+    .player-card-avatar img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+    }
+    .player-card-name {
+        font-size: 13px;
+    }
+    .player-card-country {
+        font-size: 11px;
+    }
+    .player-card-meta {
+        gap: 4px;
+        margin-top: 4px;
+    }
+    .player-card-meta span {
+        font-size: 9.5px;
+        padding: 2px 5px;
+    }
+    .player-card-badge {
+        top: 6px;
+        right: 6px;
+        font-size: 9px;
+        padding: 2px 5px;
+    }
+    .players-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        width: 100%;
+    }
+    .cmd-search {
+        width: 100%;
+    }
+}
+
+/* ------------------------------------------------------------
+   6. ЛЕНТА СОБЫТИЙ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .overview-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .overview-side {
+        position: static;
+    }
+    .event-log-list {
+        max-height: none;
+    }
+    .event-log-item {
+        padding: 10px 12px;
+    }
+    .event-log-icon {
+        width: 30px;
+        height: 30px;
+        font-size: 15px;
+    }
+    .event-log-msg {
+        font-size: 12.5px;
+    }
+}
+
+/* ------------------------------------------------------------
+   7. ПАНЕЛИ / ОТСТУПЫ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .panel {
+        padding: 16px 14px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+    }
+    .panel h2 {
+        font-size: 17px;
+        margin-bottom: 14px;
+    }
+    .panel-header {
+        margin-bottom: 14px;
+    }
+    .panel-header h2 {
+        font-size: 16px;
+    }
+    .tabs {
+        gap: 6px;
+        margin-bottom: 14px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+        padding: 8px 14px;
+        font-size: 12.5px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+}
+
+/* ------------------------------------------------------------
+   8. ГРАФИК ОНЛАЙНА
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .sparkline-wrap {
+        height: 130px;
+    }
+    #sparkline-canvas {
+        height: 130px !important;
+    }
+    .chart-stats {
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .chart-stat {
+        padding: 4px 9px;
+        font-size: 11px;
+    }
+}
+
+/* ------------------------------------------------------------
+   9. КАРТА — компактные контролы, pinch-zoom
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .map-viewport {
+        height: 62vh;
+        min-height: 340px;
+        border-radius: 10px;
+        touch-action: none;   /* для pinch-zoom */
+    }
+    .map-controls {
+        gap: 6px;
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+    }
+    .map-controls::-webkit-scrollbar { display: none; }
+    .map-btn {
+        padding: 9px 12px;
+        font-size: 12px;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+    .map-layers-panel {
+        min-width: 170px;
+        padding: 10px 12px;
+        font-size: 12px;
+        top: 8px;
+        right: 8px;
+    }
+    .map-layers-restore {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+        top: 8px;
+        right: 8px;
+    }
+    .map-legend {
+        gap: 6px;
+        margin-top: 12px;
+    }
+    .legend-item {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+    .map-online-counter {
+        bottom: 8px;
+        left: 8px;
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    /* Tooltip маркеров не работает на тач — отключаем */
+    .map-marker .marker-tooltip {
+        display: none !important;
+    }
+
+    /* Символьная легенда карты — компактнее */
+    .map-symbol-legend-grid {
+        grid-template-columns: 1fr;
+    }
+    .map-symbol-legend-header {
+        padding: 10px 12px;
+    }
+    .map-symbol-legend-body {
+        padding: 10px;
+    }
+    .msl-item {
+        padding: 6px 8px;
+        gap: 10px;
+    }
+    .msl-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .msl-label { font-size: 12px; }
+    .msl-desc  { font-size: 10.5px; }
+}
+
+/* ------------------------------------------------------------
+   10. МОДАЛКА ИГРОКА — полноэкранная на мобилке
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .modal {
+        align-items: stretch;
+    }
+    .modal-content {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: 100%;
+        max-height: 100dvh;
+        border-radius: 0;
+        border: none;
+        padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+        transform: none;
+        animation: mobileModalIn .3s cubic-bezier(.2, 1, .3, 1);
+    }
+    @keyframes mobileModalIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .player-modal-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .player-viewer-col {
+        position: static;
+    }
+    .player-viewer-wrap {
+        max-width: 260px;
+        aspect-ratio: 1;
+    }
+    .player-modal-header h2 {
+        font-size: 22px;
+    }
+    .player-panel-row {
+        padding: 10px 14px;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .player-panel-row .row-label {
+        width: 100%;
+        font-size: 10.5px;
+        margin-bottom: 2px;
+    }
+    .player-modal-actions {
+        gap: 8px;
+        margin-top: 16px;
+    }
+    .player-modal-btn {
+        flex: 1 1 45%;
+        padding: 10px 12px;
+        font-size: 12px;
+        min-height: 44px;
+    }
+    .modal-close {
+        top: 10px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+}
+
+/* ------------------------------------------------------------
+   11. ГАЙД И КОМАНДЫ — вертикальная раскладка
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .guide-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .guide-nav {
+        position: static;
+        max-height: none;
+        padding: 12px;
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+        background: var(--bg-card);
+    }
+    .guide-nav::-webkit-scrollbar { display: none; }
+    .guide-nav .guide-nav-title {
+        display: none;
+    }
+    .guide-nav a {
+        padding: 7px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+        flex-shrink: 0;
+        background: rgba(0, 0, 0, .2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        display: inline-block;
+    }
+    .guide-nav a.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+
+    .guide-section {
+        padding: 18px 14px;
+        scroll-margin-top: 80px;
+    }
+    .guide-section h2 {
+        font-size: 18px;
+        scroll-margin-top: 80px;
+    }
+    .guide-section h3 {
+        font-size: 15px;
+        scroll-margin-top: 80px;
+    }
+    .cmd-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 10px 12px;
+    }
+    .cmd-row code {
+        min-width: 0;
+        width: 100%;
+        white-space: normal;
+        word-break: break-all;
+    }
+    .commands-list {
+        grid-template-columns: 1fr;
+    }
+    .command-item {
+        padding: 10px 12px;
+    }
+}
+
+/* ------------------------------------------------------------
+   12. ПЛАШКИ БОНУСОВ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .jackpot-value {
+        font-size: 38px;
+    }
+    .jackpot-display {
+        padding: 14px;
+    }
+    .event-item,
+    .war-item,
+    .bounty-item {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+}
+
+/* ------------------------------------------------------------
+   13. TAP-TARGETS
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    /* Любая интерактивная кнопка — минимум 44x44 */
+    .btn,
+    .nav-btn,
+    .tab,
+    .map-btn,
+    .player-modal-btn,
+    .icon-btn,
+    .btn-badge {
+        min-height: 44px;
+    }
+    /* Плюс — никакой подсветки тапа */
+    * {
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+/* ------------------------------------------------------------
+   14. PULL-TO-REFRESH ИНДИКАТОР
+   ------------------------------------------------------------ */
+.ptr-indicator {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -100%) scale(.6);
+    z-index: 250;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(15, 17, 23, .96);
+    border: 1px solid var(--accent);
+    display: grid;
+    place-items: center;
+    color: var(--accent-light);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .6);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .25s cubic-bezier(.2, 1, .3, 1),
+                opacity .2s;
+}
+.ptr-indicator.visible {
+    transform: translate(-50%, 16px) scale(1);
+    opacity: 1;
+}
+.ptr-indicator.spinning svg {
+    animation: ptrSpin .9s linear infinite;
+}
+@keyframes ptrSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+.ptr-indicator svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+
+/* ------------------------------------------------------------
+   15. TABLET — средний брейкпоинт
+   ------------------------------------------------------------ */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .player-card-avatar img { width: 48px; height: 48px; }
+    .stat-card .stat-value { font-size: 26px; }
+    .panel { padding: 20px 18px; }
+}
+
+/* ------------------------------------------------------------
+   16. ПЕЙЗАЖ НА ТЕЛЕФОНЕ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) and (orientation: landscape) {
+    .map-viewport {
+        height: 80vh;
+    }
+    .bottom-nav {
+        padding: 4px 4px calc(env(safe-area-inset-bottom, 0px) + 4px);
+    }
+    .bottom-nav .bn-btn {
+        padding: 5px 4px;
+        font-size: 9px;
+    }
+    .bottom-nav .bn-btn .bn-icon {
+        font-size: 17px;
+    }
+}

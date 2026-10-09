@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
     <title>Панель сервера</title>
 
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -12,14 +12,18 @@
     <link rel="mask-icon" href="favicon.svg" color="#6366f1">
     <meta name="apple-mobile-web-app-title" content="Sovereignty">
     <meta name="application-name" content="Sovereignty Panel">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#6366f1">
 
     <link rel="stylesheet" href="style.css?v=5.3">
     <link rel="stylesheet" href="legend.css?v=1.0">
     <link rel="stylesheet" href="panel-animations.css?v=1.0">
     <link rel="stylesheet" href="panel-loading.css?v=1.0">
-    <link rel="stylesheet" href="panel-detail.css?v=1.2">
+    <link rel="stylesheet" href="panel-detail.css?v=1.3">
     <link rel="stylesheet" href="map-enhance.css?v=1.0">
-    <meta name="theme-color" content="#6366f1">
+    <link rel="stylesheet" href="mobile.css?v=1.0">
 </head>
 <body>
     <div id="ambient" aria-hidden="true"></div>
@@ -116,12 +120,12 @@
             <section class="panel">
                 <div class="panel-header">
                     <h2>🗺️ Карта территорий</h2>
-                    <div class="map-controls">
-                        <button class="map-btn" id="map-reset">Сбросить вид</button>
-                        <button class="map-btn" id="map-clear-highlight">Снять выделение</button>
-                        <button class="map-btn btn-capital" id="map-capital">🏛 К моей столице</button>
-                        <button class="map-btn" id="map-fullscreen">⛶ Полный экран</button>
-                    </div>
+                </div>
+                <div class="map-controls" style="margin-bottom:12px">
+                    <button class="map-btn" id="map-reset">Сбросить</button>
+                    <button class="map-btn" id="map-clear-highlight">Снять выделение</button>
+                    <button class="map-btn btn-capital" id="map-capital">🏛 К столице</button>
+                    <button class="map-btn" id="map-fullscreen">⛶ Экран</button>
                 </div>
                 <div class="map-viewport" id="map-viewport">
                     <canvas id="map-canvas"></canvas>
@@ -144,16 +148,16 @@
                     </div>
                     <div class="map-layers-panel" id="map-layers-panel">
                         <div class="map-layers-header">
-                            <div class="map-layers-title">Слои карты</div>
+                            <div class="map-layers-title">Слои</div>
                             <button class="map-layers-close" id="map-layers-close" title="Скрыть" aria-label="Скрыть">✕</button>
                         </div>
                         <label class="layer-toggle"><input type="checkbox" id="layer-players" checked><span>👤 Игроки</span></label>
-                        <label class="layer-toggle"><input type="checkbox" id="layer-grid"><span>🔲 Сетка чанков</span></label>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-grid"><span>🔲 Сетка</span></label>
                         <label class="layer-toggle"><input type="checkbox" id="layer-daynight" checked><span>🌗 День/Ночь</span></label>
                         <div class="map-layers-timeline" id="daynight-status">—</div>
                     </div>
                     <button class="map-layers-restore" id="map-layers-restore" title="Показать слои" aria-label="Показать слои">🎨</button>
-                    <div class="map-fullscreen-hint" id="map-fullscreen-hint">Esc — выйти из полноэкранного</div>
+                    <div class="map-fullscreen-hint" id="map-fullscreen-hint">Esc — выйти</div>
                 </div>
                 <div class="map-legend" id="map-legend"></div>
 
@@ -190,7 +194,7 @@
                                 <div class="msl-icon"><div class="msl-player"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Игрок онлайн</div>
-                                    <div class="msl-desc">Зелёная рамка, пульсирует. Наведи — детали.</div>
+                                    <div class="msl-desc">Зелёная рамка, пульсирует.</div>
                                 </div>
                             </div>
 
@@ -206,7 +210,7 @@
                                 <div class="msl-icon"><div class="msl-light"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Источник света</div>
-                                    <div class="msl-desc">Ночью. Факелы, фонари, glowstone.</div>
+                                    <div class="msl-desc">Ночью.</div>
                                 </div>
                             </div>
 
@@ -214,7 +218,7 @@
                                 <div class="msl-icon"><div class="msl-contour"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Контуры рельефа</div>
-                                    <div class="msl-desc">Каждые 10 блоков высоты.</div>
+                                    <div class="msl-desc">Каждые 10 блоков.</div>
                                 </div>
                             </div>
 
@@ -223,14 +227,6 @@
                                 <div class="msl-text">
                                     <div class="msl-label">Туман войны</div>
                                     <div class="msl-desc">Неисследованные земли.</div>
-                                </div>
-                            </div>
-
-                            <div class="msl-item">
-                                <div class="msl-icon"><span class="msl-compass">🧭</span></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Компас-роза</div>
-                                    <div class="msl-desc">В правом верхнем углу.</div>
                                 </div>
                             </div>
 
@@ -243,13 +239,12 @@
         <section class="tab-content" id="tab-players">
             <section class="panel">
                 <div class="panel-header">
-                    <h2>👥 Игроки сервера</h2>
-                    <div class="players-controls">
-                        <input type="text" id="player-search" placeholder="🔍 Поиск по нику или стране..." class="cmd-search">
-                        <label class="player-filter"><input type="checkbox" id="player-online-only"> Только онлайн</label>
-                    </div>
+                    <h2>👥 Игроки</h2>
                 </div>
-                <p class="cmd-hint">Клик по игроку — открыть 3D-профиль.</p>
+                <div class="players-controls" style="margin-bottom:12px">
+                    <input type="text" id="player-search" placeholder="🔍 Поиск..." class="cmd-search">
+                    <label class="player-filter"><input type="checkbox" id="player-online-only"> Только онлайн</label>
+                </div>
                 <div class="players-grid" id="players-grid"></div>
                 <div class="empty-hint" id="players-empty" style="display:none;">Данные об игроках пока не передаются панелью.</div>
             </section>
@@ -265,10 +260,9 @@
         <section class="tab-content" id="tab-commands">
             <section class="panel">
                 <div class="panel-header">
-                    <h2>⌨️ Все команды сервера</h2>
-                    <input type="text" id="cmd-search" placeholder="🔍 Поиск..." class="cmd-search">
+                    <h2>⌨️ Команды</h2>
                 </div>
-                <p class="cmd-hint">Клик — копирует в буфер.</p>
+                <input type="text" id="cmd-search" placeholder="🔍 Поиск..." class="cmd-search" style="margin-bottom:14px">
                 <div class="commands-list" id="commands-list"></div>
             </section>
         </section>
@@ -343,7 +337,8 @@
     <script src="sparkline.js?v=1.0"></script>
     <script src="panel-ambient.js?v=1.0"></script>
     <script src="panel-loading.js?v=1.0"></script>
-    <script src="panel-detail.js?v=1.2"></script>
+    <script src="panel-detail.js?v=1.3"></script>
     <script src="map-enhance.js?v=1.0"></script>
+    <script src="mobile.js?v=1.0"></script>
 </body>
 </html>
