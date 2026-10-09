@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="style.css?v=5.3">
     <link rel="stylesheet" href="legend.css?v=1.0">
     <link rel="stylesheet" href="panel-animations.css?v=1.0">
+    <link rel="stylesheet" href="panel-loading.css?v=1.0">
     <meta name="theme-color" content="#6366f1">
 </head>
 <body>
@@ -79,7 +80,7 @@
                         <div class="table-wrap">
                             <table id="countries-table">
                                 <thead><tr><th>#</th><th>Страна</th><th>Лидер</th><th>Чанков</th><th>Казна</th><th>Энергия</th><th>Активность</th><th>Пакты</th></tr></thead>
-                                <tbody id="countries-body"><tr><td colspan="8" class="loading">Загрузка данных...</td></tr></tbody>
+                                <tbody id="countries-body"><tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr></tbody>
                             </table>
                         </div>
                     </section>
@@ -93,7 +94,7 @@
                 <aside class="overview-side">
                     <section class="panel" id="panel-event-log">
                         <div class="panel-header"><h2>📰 Лента событий</h2></div>
-                        <div class="event-log-list" id="event-log-list"><div class="event-log-empty">Загрузка...</div></div>
+                        <div class="event-log-list" id="event-log-list"><div class="event-log-empty">⏳ Загрузка...</div></div>
                     </section>
                 </aside>
             </div>
@@ -142,10 +143,6 @@
                 </div>
                 <div class="map-legend" id="map-legend"></div>
 
-                <!-- ============================================================
-                     v5.11: Легенда символов карты. Сворачивается кликом по
-                     заголовку. Состояние сохраняется в localStorage.
-                     ============================================================ -->
                 <section class="map-symbol-legend" id="map-symbol-legend">
                     <div class="map-symbol-legend-header" id="map-symbol-legend-header">
                         <div class="map-symbol-legend-title">
@@ -389,5 +386,6 @@
     <script src="legend.js?v=1.1"></script>
     <script src="app.js?v=5.9"></script>
     <script src="panel-ambient.js?v=1.0"></script>
+    <script src="panel-loading.js?v=1.0"></script>
 </body>
 </html>
