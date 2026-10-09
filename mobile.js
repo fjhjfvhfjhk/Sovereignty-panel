@@ -1,20 +1,16 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · MOBILE.JS v1.0
+   SOVEREIGNTY PANEL · MOBILE.JS v1.1
    ============================================================
-   Мобильные улучшения панели.
+   Мобильные улучшения. ИЗМЕНЕНИЯ v1.1:
 
-   Что делает:
-     1. Bottom navigation bar — фиксированная панель снизу.
-     2. Топ стран → карточки (mobile-only контейнер).
-     3. Свайпы между вкладками (влево/вправо).
-     4. Pull-to-refresh — потяни вниз для обновления.
-     5. Haptic feedback — вибрация на тапах.
-     6. Pinch-zoom для карты (touch).
-     7. Компактная шапка.
+     - УБРАНЫ свайпы между вкладками (мешали скроллу).
+     - Pull-to-refresh не работает при фокусе на input.
+     - Память скролла per-tab.
+     - Android back → закрыть модалку или вернуть на Обзор.
+     - Long-press на карточке игрока = копирование ника.
+     - Настройки в localStorage: haptics, ptr.
 
-   Подключать ПОСЛЕ panel-detail.js:
-     <script src="panel-detail.js"></script>
-     <script src="mobile.js"></script>
+   Подключать ПОСЛЕ panel-detail.js.
    ============================================================ */
 (function () {
     'use strict';
@@ -28,27 +24,31 @@
         { key: 'bonus',    icon: '🎁', label: 'Бонусы' }
     ];
 
+    var STORAGE_SCROLL = 'panel_scroll_memory';
+    var STORAGE_HAPTICS = 'panel_haptics';
+    var STORAGE_PTR = 'panel_pull_refresh';
+
     var isMobile = function () {
         return window.matchMedia('(max-width: 768px)').matches;
     };
 
-    var hapticsEnabled = true;
-    try {
-        hapticsEnabled = localStorage.getItem('panel_haptics') !== '0';
-    } catch (e) {}
-
     // ============================================================
     // 1. HAPTIC FEEDBACK
     // ============================================================
+    function hapticsOn() {
+        try { return localStorage.getItem(STORAGE_HAPTICS) !== '0'; }
+        catch (e) { return true; }
+    }
+
     function installHaptics() {
         document.addEventListener('click', function (e) {
-            if (!isMobile()) return;
-            if (!hapticsEnabled) return;
-            var el = e.target.closest('button, .bn-btn, .tab, .nav-btn, .map-btn, .btn, .player-card, .ccm-card, .legend-item, .player-modal-btn');
+            if (!isMobile() || !hapticsOn()) return;
+            var el = e.target.closest(
+                'button, .bn-btn, .tab, .nav-btn, .map-btn, .btn,' +
+                '.player-card, .ccm-card, .legend-item, .player-modal-btn,' +
+                '.modal-close, .map-layers-close, .map-layers-restore');
             if (!el) return;
-            try {
-                if (navigator.vibrate) navigator.vibrate(6);
-            } catch (err) {}
+            try { if (navigator.vibrate) navigator.vibrate(6); } catch (err) {}
         }, { passive: true });
     }
 
@@ -80,21 +80,51 @@
         nav.addEventListener('click', function (e) {
             var btn = e.target.closest('.bn-btn');
             if (!btn) return;
-            var tab = btn.dataset.tab;
-            switchTab(tab);
+            switchTab(btn.dataset.tab);
         });
 
-        // Синхронизируем с основным nav
         syncBottomNavWithTabs();
     }
 
+    /**
+     * v1.1: при переключении вкладки сохраняем scroll текущей,
+     * восстанавливаем scroll новой. Так пользователь возвращается
+     * туда, где был.
+     */
     function switchTab(tabKey) {
-        // Через верхний navbar (там уже вся логика)
+        // Сохраняем scroll текущей вкладки
+        saveCurrentScroll();
+
         var topBtn = document.querySelector('.main-nav .nav-btn[data-tab="' + tabKey + '"]');
         if (topBtn) topBtn.click();
+
         syncBottomNavWithTabs();
-        // Скролл к началу
-        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+
+        // Восстанавливаем scroll новой
+        setTimeout(function () {
+            restoreScrollForTab(tabKey);
+        }, 50);
+    }
+
+    function saveCurrentScroll() {
+        try {
+            var active = document.querySelector('.main-nav .nav-btn.active');
+            if (!active) return;
+            var key = active.dataset.tab;
+            var mem = JSON.parse(sessionStorage.getItem(STORAGE_SCROLL) || '{}');
+            mem[key] = window.scrollY || 0;
+            sessionStorage.setItem(STORAGE_SCROLL, JSON.stringify(mem));
+        } catch (e) {}
+    }
+
+    function restoreScrollForTab(tabKey) {
+        try {
+            var mem = JSON.parse(sessionStorage.getItem(STORAGE_SCROLL) || '{}');
+            var y = mem[tabKey] || 0;
+            window.scrollTo({ top: y, behavior: 'instant' in window ? 'instant' : 'auto' });
+        } catch (e) {
+            window.scrollTo(0, 0);
+        }
     }
 
     function syncBottomNavWithTabs() {
@@ -108,7 +138,6 @@
         }
     }
 
-    // Слушаем клики по верхнему nav (например, из других скриптов)
     function watchTopNav() {
         var topNav = document.querySelector('.main-nav');
         if (!topNav) return;
@@ -119,66 +148,21 @@
     }
 
     // ============================================================
-    // 3. СВАЙПЫ МЕЖДУ ВКЛАДКАМИ
+    // 3. PULL-TO-REFRESH
     // ============================================================
-    function installSwipes() {
-        var startX = 0;
-        var startY = 0;
-        var startTime = 0;
-        var tracking = false;
-
-        document.addEventListener('touchstart', function (e) {
-            if (!isMobile()) return;
-            // Не свайпаем внутри карты, слайдера, скролл-зон
-            if (e.target.closest('#map-viewport, input, textarea, select')) return;
-            if (e.touches.length !== 1) return;
-            var t = e.touches[0];
-            startX = t.clientX;
-            startY = t.clientY;
-            startTime = Date.now();
-            tracking = true;
-        }, { passive: true });
-
-        document.addEventListener('touchend', function (e) {
-            if (!tracking) return;
-            tracking = false;
-            if (!isMobile()) return;
-            var t = e.changedTouches[0];
-            var dx = t.clientX - startX;
-            var dy = t.clientY - startY;
-            var dt = Date.now() - startTime;
-
-            // Свайп: быстрый (≤600ms), горизонтальный (>60px), не слишком вертикальный
-            if (dt > 600) return;
-            if (Math.abs(dx) < 60) return;
-            if (Math.abs(dy) > Math.abs(dx) * 0.7) return;
-
-            var active = document.querySelector('.main-nav .nav-btn.active');
-            if (!active) return;
-            var currentIdx = -1;
-            for (var i = 0; i < TABS.length; i++) {
-                if (TABS[i].key === active.dataset.tab) { currentIdx = i; break; }
-            }
-            if (currentIdx === -1) return;
-
-            var newIdx = dx > 0 ? currentIdx - 1 : currentIdx + 1;
-            if (newIdx < 0 || newIdx >= TABS.length) return;
-            switchTab(TABS[newIdx].key);
-
-            try { if (navigator.vibrate) navigator.vibrate(8); } catch (err) {}
-        }, { passive: true });
+    function ptrOn() {
+        try { return localStorage.getItem(STORAGE_PTR) !== '0'; }
+        catch (e) { return true; }
     }
 
-    // ============================================================
-    // 4. PULL-TO-REFRESH
-    // ============================================================
     function installPullToRefresh() {
         if (!isMobile()) return;
 
         var indicator = document.createElement('div');
         indicator.className = 'ptr-indicator';
         indicator.innerHTML =
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+                 'stroke-linecap="round" stroke-linejoin="round">' +
                 '<path d="M21 12a9 9 0 1 1-3-6.7"/>' +
                 '<path d="M21 3v6h-6"/>' +
             '</svg>';
@@ -190,9 +174,17 @@
         var triggered = false;
         var THRESHOLD = 90;
 
+        function isInputFocused() {
+            var el = document.activeElement;
+            if (!el) return false;
+            var tag = el.tagName;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+        }
+
         document.addEventListener('touchstart', function (e) {
-            if (!isMobile()) return;
+            if (!isMobile() || !ptrOn()) return;
             if (window.scrollY > 4) return;
+            if (isInputFocused()) return;
             if (e.target.closest('#map-viewport, input, textarea, select')) return;
             if (e.touches.length !== 1) return;
             startY = e.touches[0].clientY;
@@ -202,6 +194,8 @@
 
         document.addEventListener('touchmove', function (e) {
             if (!pulling) return;
+            // v1.1: если пользователь сфокусировался на input в процессе
+            if (isInputFocused()) { pulling = false; indicator.classList.remove('visible'); return; }
             currentY = e.touches[0].clientY;
             var dy = currentY - startY;
             if (dy < 10) return;
@@ -223,7 +217,6 @@
                 indicator.style.transform = 'translate(-50%, 16px) scale(1)';
                 try { if (navigator.vibrate) navigator.vibrate([10, 20, 10]); } catch (e) {}
 
-                // Триггерим перезагрузку данных
                 try {
                     if (typeof window.loadData === 'function') window.loadData();
                     if (typeof window.loadMap === 'function') window.loadMap();
@@ -244,15 +237,9 @@
     }
 
     // ============================================================
-    // 5. КАРТОЧКИ СТРАН (mobile only)
+    // 4. КАРТОЧКИ СТРАН (mobile only)
     // ============================================================
-
-    /**
-     * Хук в renderCountries: после дефолтного рендера (в таблицу)
-     * дополнительно строим мобильные карточки в отдельный контейнер.
-     */
     function installCountryCardsHook() {
-        // Создаём контейнер под карточки
         var tbody = document.getElementById('countries-body');
         if (!tbody) return;
         var wrap = tbody.closest('.table-wrap');
@@ -264,7 +251,6 @@
         container.className = 'country-cards-mobile';
         wrap.parentNode.insertBefore(container, wrap.nextSibling);
 
-        // Wrapping renderCountries
         if (typeof window.renderCountries === 'function' && !window.__mobileCardsHooked) {
             window.__mobileCardsHooked = true;
             var prevRender = window.renderCountries;
@@ -303,7 +289,6 @@
         }
         container.innerHTML = html;
 
-        // Обновляем аватарки, если PanelAvatars доступен
         if (window.PanelAvatars && window.PanelAvatars.refresh) {
             setTimeout(window.PanelAvatars.refresh, 100);
         }
@@ -317,19 +302,17 @@
         var owner = c.owner || '?';
         var ownerName = String(owner);
 
-        // Аватарка
         var avatarSrc;
         if (window.PanelAvatars && window.PanelAvatars.get) {
             avatarSrc = window.PanelAvatars.get(ownerName, 32);
         } else {
-            // Простой fallback
             var letter = ownerName.charAt(0).toUpperCase();
             avatarSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
                     '<rect width="32" height="32" rx="4" fill="#6366f1"/>' +
-                    '<text x="16" y="22" text-anchor="middle" font-family="Georgia" font-size="17" font-weight="800" fill="white">' +
-                    letter +
-                    '</text></svg>');
+                    '<text x="16" y="22" text-anchor="middle" font-family="Georgia" ' +
+                           'font-size="17" font-weight="800" fill="white">' +
+                    letter + '</text></svg>');
         }
 
         var claims = (c.claims || 0);
@@ -401,7 +384,7 @@
     }
 
     // ============================================================
-    // 6. PINCH-ZOOM ДЛЯ КАРТЫ (touch)
+    // 5. PINCH-ZOOM ДЛЯ КАРТЫ
     // ============================================================
     function installMapPinchZoom() {
         if (!isMobile()) return;
@@ -443,7 +426,6 @@
                 var cx = pinchMidX - rect.left;
                 var cy = pinchMidY - rect.top;
 
-                // Сохраняем точку под пальцами
                 var oldZoom = window.mapZoom || 1;
                 var ix = (cx - (window.mapOffsetX || 0)) / oldZoom;
                 var iy = (cy - (window.mapOffsetY || 0)) / oldZoom;
@@ -464,7 +446,116 @@
     }
 
     // ============================================================
-    // 7. TICK — поддержка мобильных карточек при обновлении
+    // 6. ANDROID BACK-BUTTON
+    // ============================================================
+    function installAndroidBack() {
+        if (!isMobile()) return;
+
+        // Ставим фейковый стейт при загрузке, чтобы поймать back
+        try {
+            history.replaceState({ panel: 'home' }, '');
+            history.pushState({ panel: 'nav' }, '');
+        } catch (e) {}
+
+        window.addEventListener('popstate', function (e) {
+            // 1. Открыта модалка — закрываем
+            var modal = document.querySelector('.modal.show');
+            if (modal) {
+                if (typeof window.closePlayerModal === 'function') window.closePlayerModal();
+                // Восстанавливаем стек
+                try { history.pushState({ panel: 'nav' }, ''); } catch (err) {}
+                return;
+            }
+
+            // 2. Не на Обзоре — переходим на Обзор
+            var active = document.querySelector('.main-nav .nav-btn.active');
+            if (active && active.dataset.tab !== 'overview') {
+                switchTab('overview');
+                try { history.pushState({ panel: 'nav' }, ''); } catch (err) {}
+                return;
+            }
+
+            // 3. На Обзоре — позволяем выйти
+            try { history.back(); } catch (err) {}
+        });
+    }
+
+    // ============================================================
+    // 7. LONG-PRESS НА КАРТОЧКЕ ИГРОКА
+    // ============================================================
+    function installLongPressCopy() {
+        if (!isMobile()) return;
+
+        var pressTimer = null;
+        var pressedCard = null;
+        var LONG_PRESS_MS = 500;
+
+        function startPress(e) {
+            var card = e.target.closest('.player-card');
+            if (!card) return;
+            pressedCard = card;
+            pressTimer = setTimeout(function () {
+                var nameEl = card.querySelector('.player-card-name');
+                if (!nameEl) return;
+                var name = nameEl.textContent.trim();
+                if (!name) return;
+                card.classList.add('pressing');
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(name);
+                    } else {
+                        var ta = document.createElement('textarea');
+                        ta.value = name;
+                        ta.style.position = 'fixed';
+                        ta.style.opacity = '0';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('✓ Скопировано: ' + name);
+                    }
+                } catch (err) {}
+                setTimeout(function () {
+                    card.classList.remove('pressing');
+                }, 700);
+                pressTimer = null;
+                pressedCard = null;
+            }, LONG_PRESS_MS);
+        }
+
+        function cancelPress() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (pressedCard) {
+                pressedCard.classList.remove('pressing');
+                pressedCard = null;
+            }
+        }
+
+        document.addEventListener('touchstart', startPress, { passive: true });
+        document.addEventListener('touchend', cancelPress, { passive: true });
+        document.addEventListener('touchcancel', cancelPress, { passive: true });
+        document.addEventListener('touchmove', cancelPress, { passive: true });
+    }
+
+    // ============================================================
+    // 8. SCROLL MEMORY — сохраняем при уходе со страницы
+    // ============================================================
+    function installScrollMemory() {
+        window.addEventListener('beforeunload', saveCurrentScroll);
+        // И при visibility-change (мобилки часто сворачивают таб)
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) saveCurrentScroll();
+        });
+    }
+
+    // ============================================================
+    // 9. TICK
     // ============================================================
     var lastUpdatedAt = 0;
 
@@ -475,29 +566,28 @@
                 lastUpdatedAt = data.updated_at;
                 setTimeout(renderCountryCards, 400);
             }
-            // Синхронизация bottom-nav каждый тик
             syncBottomNavWithTabs();
         } catch (e) {}
         setTimeout(tick, 1200);
     }
 
     // ============================================================
-    // 8. BOOT
+    // 10. BOOT
     // ============================================================
     function boot() {
         installHaptics();
         installBottomNav();
         watchTopNav();
-        installSwipes();
         installPullToRefresh();
         installCountryCardsHook();
         installMapPinchZoom();
+        installAndroidBack();
+        installLongPressCopy();
+        installScrollMemory();
 
-        // Первый прогон карточек
         setTimeout(renderCountryCards, 700);
         tick();
 
-        // Пересборка при resize
         var resizeTimer = null;
         window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
@@ -511,7 +601,7 @@
             }, 250);
         });
 
-        console.log('[Mobile] v1.0 ready (' + (isMobile() ? 'mobile' : 'desktop') + ')');
+        console.log('[Mobile] v1.1 ready (' + (isMobile() ? 'mobile' : 'desktop') + ')');
     }
 
     if (document.readyState === 'loading') {
@@ -525,6 +615,12 @@
         refresh: function () {
             renderCountryCards();
             syncBottomNavWithTabs();
+        },
+        setHaptics: function (on) {
+            try { localStorage.setItem(STORAGE_HAPTICS, on ? '1' : '0'); } catch (e) {}
+        },
+        setPullToRefresh: function (on) {
+            try { localStorage.setItem(STORAGE_PTR, on ? '1' : '0'); } catch (e) {}
         }
     };
 })();
