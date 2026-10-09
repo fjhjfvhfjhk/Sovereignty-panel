@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="legend.css?v=1.0">
     <link rel="stylesheet" href="panel-animations.css?v=1.0">
     <link rel="stylesheet" href="panel-loading.css?v=1.0">
-    <link rel="stylesheet" href="panel-detail.css?v=1.1">
+    <link rel="stylesheet" href="panel-detail.css?v=1.2">
     <link rel="stylesheet" href="map-enhance.css?v=1.0">
     <meta name="theme-color" content="#6366f1">
 </head>
@@ -81,6 +81,16 @@
                         </div>
                         <div class="table-wrap">
                             <table id="countries-table">
+                                <colgroup>
+                                    <col class="col-rank">
+                                    <col class="col-country">
+                                    <col class="col-owner">
+                                    <col class="col-claims">
+                                    <col class="col-bank">
+                                    <col class="col-energy">
+                                    <col class="col-activity">
+                                    <col class="col-pacts">
+                                </colgroup>
                                 <thead><tr><th>#</th><th>Страна</th><th>Лидер</th><th>Чанков</th><th>Казна</th><th>Энергия</th><th>Активность</th><th>Пакты</th></tr></thead>
                                 <tbody id="countries-body"><tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr></tbody>
                             </table>
@@ -164,7 +174,7 @@
                                 <div class="msl-icon"><div class="msl-territory"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Границы стран</div>
-                                    <div class="msl-desc">Цвет = страна. Свечение + тёмная тень вокруг.</div>
+                                    <div class="msl-desc">Цвет = страна.</div>
                                 </div>
                             </div>
 
@@ -172,7 +182,7 @@
                                 <div class="msl-icon"><span class="msl-capital">🏛️</span></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Столица</div>
-                                    <div class="msl-desc">Щит с золотой короной в цвете страны. Захват = капитуляция.</div>
+                                    <div class="msl-desc">Щит с короной. Захват = капитуляция.</div>
                                 </div>
                             </div>
 
@@ -180,7 +190,7 @@
                                 <div class="msl-icon"><div class="msl-player"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Игрок онлайн</div>
-                                    <div class="msl-desc">Голова с <span style="color:#22c55e;">зелёной рамкой</span>. Пульсирует. Наведи — детали.</div>
+                                    <div class="msl-desc">Зелёная рамка, пульсирует. Наведи — детали.</div>
                                 </div>
                             </div>
 
@@ -188,23 +198,23 @@
                                 <div class="msl-icon"><div class="msl-battle"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Недавняя битва</div>
-                                    <div class="msl-desc">PvP-смерть за 24 часа. Свежие — ярче и крупнее.</div>
+                                    <div class="msl-desc">PvP-смерть за 24 часа.</div>
                                 </div>
                             </div>
 
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-light"></div></div>
                                 <div class="msl-text">
-                                    <div class="msl-label">Источник света (ночью)</div>
-                                    <div class="msl-desc">Факелы, фонари, glowstone. Маска 5×5 — крыша не закрывает всё пятно.</div>
+                                    <div class="msl-label">Источник света</div>
+                                    <div class="msl-desc">Ночью. Факелы, фонари, glowstone.</div>
                                 </div>
                             </div>
 
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-contour"></div></div>
                                 <div class="msl-text">
-                                    <div class="msl-label">Топографические контуры</div>
-                                    <div class="msl-desc">Коричневые линии каждые 10 блоков высоты. Частые = крутой склон.</div>
+                                    <div class="msl-label">Контуры рельефа</div>
+                                    <div class="msl-desc">Каждые 10 блоков высоты.</div>
                                 </div>
                             </div>
 
@@ -212,7 +222,7 @@
                                 <div class="msl-icon"><div class="msl-fog"></div></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Туман войны</div>
-                                    <div class="msl-desc">Пергаментная дымка — неисследованные земли.</div>
+                                    <div class="msl-desc">Неисследованные земли.</div>
                                 </div>
                             </div>
 
@@ -220,29 +230,7 @@
                                 <div class="msl-icon"><span class="msl-compass">🧭</span></div>
                                 <div class="msl-text">
                                     <div class="msl-label">Компас-роза</div>
-                                    <div class="msl-desc">В правом верхнем углу. N — север, E — восток.</div>
-                                </div>
-                            </div>
-
-                            <div class="msl-item msl-wide">
-                                <div class="msl-icon">
-                                    <div class="msl-pact-stack">
-                                        <div class="msl-line msl-line-ally"></div>
-                                        <div class="msl-line msl-line-mil"></div>
-                                        <div class="msl-line msl-line-trade"></div>
-                                        <div class="msl-line msl-line-def"></div>
-                                        <div class="msl-line msl-line-nonag"></div>
-                                    </div>
-                                </div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Дороги дипломатии</div>
-                                    <div class="msl-desc">
-                                        <b style="color:#f0e6c8;">кремовая</b> — союз ·
-                                        <b style="color:#b03c2d;">красный</b> — военный пакт ·
-                                        <b style="color:#dcb446;">золотой</b> — торговый ·
-                                        <b style="color:#5a8cb4;">синий</b> — оборонительный ·
-                                        <b style="color:#8c8278;">серый</b> — ненападение.
-                                    </div>
+                                    <div class="msl-desc">В правом верхнем углу.</div>
                                 </div>
                             </div>
 
@@ -355,7 +343,7 @@
     <script src="sparkline.js?v=1.0"></script>
     <script src="panel-ambient.js?v=1.0"></script>
     <script src="panel-loading.js?v=1.0"></script>
-    <script src="panel-detail.js?v=1.1"></script>
+    <script src="panel-detail.js?v=1.2"></script>
     <script src="map-enhance.js?v=1.0"></script>
 </body>
 </html>

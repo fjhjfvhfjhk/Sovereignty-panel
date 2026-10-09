@@ -1,16 +1,176 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-DETAIL.JS v1.1
+   SOVEREIGNTY PANEL · PANEL-DETAIL.JS v1.2
    ============================================================
-   Фаза 3 (детализация GUI). Фикс v1.1:
-     - Аватарки лидеров используют getHeadAvatar (SVG fallback).
-     - Правильный escape ников в SVG-подобных URL.
-     - Компактнее delta-бейдж.
+   Фаза 3 (детализация GUI). ФИКС v1.2:
+
+     - Перехватываем window.renderCountries и window.renderPlayers
+       у app.js. Наш рендер — финальный, без гонок.
+     - Аватарки — всегда наш SVG (никогда внешние сервисы).
+     - Дельта-бейдж всегда виден, включая "0".
+     - Локальные скины из data/skins/{ник}.png (если есть).
+     - Никаких MutationObserver-таймингов.
+
+   ПОДКЛЮЧАТЬ ПОСЛЕ app.js и avatars.js:
+     <script src="app.js"></script>
+     <script src="avatars.js"></script>
+     <script src="panel-detail.js"></script>
    ============================================================ */
 (function () {
     'use strict';
 
     // ============================================================
-    // 1. STAT-CARDS — SVG-иконки
+    // 1. SVG-АВАТАРКИ — синхронная генерация, без внешних сервисов
+    // ============================================================
+
+    var FALLBACK_COLORS = [
+        '#6366f1', '#818cf8', '#a78bfa', '#c084fc',
+        '#e879f9', '#f472b6', '#fb7185', '#f97316',
+        '#fbbf24', '#84cc16', '#22c55e', '#14b8a6',
+        '#06b6d4', '#0ea5e9', '#3b82f6'
+    ];
+
+    function hashName(name) {
+        var h = 0;
+        for (var i = 0; i < name.length; i++) {
+            h = ((h << 5) - h) + name.charCodeAt(i);
+            h |= 0;
+        }
+        return Math.abs(h);
+    }
+
+    function makeSvgAvatar(name) {
+        name = String(name || '?');
+        var letter = name.charAt(0).toUpperCase();
+        var color = FALLBACK_COLORS[hashName(name) % FALLBACK_COLORS.length];
+        var darker = shadeColor(color, -30);
+        var svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+                '<defs>' +
+                    '<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">' +
+                        '<stop offset="0%" stop-color="' + color + '"/>' +
+                        '<stop offset="100%" stop-color="' + darker + '"/>' +
+                    '</linearGradient>' +
+                '</defs>' +
+                '<rect width="64" height="64" rx="6" fill="url(#g)"/>' +
+                '<text x="32" y="44" text-anchor="middle" ' +
+                       'font-family="Georgia, serif" font-size="34" font-weight="800" ' +
+                       'fill="rgba(255,255,255,0.95)">' +
+                    escapeXml(letter) +
+                '</text>' +
+            '</svg>';
+        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    function shadeColor(hex, percent) {
+        var num = parseInt(hex.replace('#', ''), 16);
+        var r = Math.max(0, Math.min(255, (num >> 16) + percent));
+        var g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + percent));
+        var b = Math.max(0, Math.min(255, (num & 0xff) + percent));
+        return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+    }
+
+    function escapeXml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
+    // ------------------------------------------------------------
+    // Локальные скины
+    // ------------------------------------------------------------
+    var LOCAL_SKIN_DIR = 'data/skins/';
+    var localSkinCache = new Map();   // name → dataURL | 'fail'
+    var pendingSkins = new Map();
+
+    function tryLoadLocalSkin(name) {
+        if (localSkinCache.has(name)) return Promise.resolve(localSkinCache.get(name));
+        if (pendingSkins.has(name)) return pendingSkins.get(name);
+
+        var url = LOCAL_SKIN_DIR + encodeURIComponent(name) + '.png';
+        var promise = new Promise(function (resolve) {
+            var img = new Image();
+            var done = false;
+            var timer = setTimeout(function () {
+                if (done) return;
+                done = true;
+                localSkinCache.set(name, 'fail');
+                resolve('fail');
+            }, 2000);
+            img.onload = function () {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                if (img.width < 32 || img.height < 32) {
+                    localSkinCache.set(name, 'fail');
+                    resolve('fail');
+                    return;
+                }
+                try {
+                    var headUrl = headFromSkin(img);
+                    localSkinCache.set(name, headUrl);
+                    resolve(headUrl);
+                } catch (e) {
+                    localSkinCache.set(name, 'fail');
+                    resolve('fail');
+                }
+            };
+            img.onerror = function () {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                localSkinCache.set(name, 'fail');
+                resolve('fail');
+            };
+            img.src = url;
+        });
+        pendingSkins.set(name, promise);
+        return promise;
+    }
+
+    function headFromSkin(skinImg) {
+        var c = document.createElement('canvas');
+        c.width = 8;
+        c.height = 8;
+        var ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(skinImg, 8, 8, 8, 8, 0, 0, 8, 8);
+        if (skinImg.width >= 64 && skinImg.height >= 64) {
+            ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 8, 8);
+        }
+        return c.toDataURL('image/png');
+    }
+
+    /**
+     * Синхронно возвращает URL для аватарки.
+     * Если локальный скин уже загружен — dataURL.
+     * Иначе — SVG. Параллельно пытается загрузить локальный скин,
+     * если он ещё не проверялся, и по успеху обновит все <img>.
+     */
+    function avatarUrl(name) {
+        name = String(name || '?');
+        var cached = localSkinCache.get(name);
+        if (cached && cached !== 'fail') return cached;
+
+        if (!localSkinCache.has(name)) {
+            tryLoadLocalSkin(name).then(function (result) {
+                if (result === 'fail') return;
+                var imgs = document.querySelectorAll('img[data-avatar-name="' + cssEsc(name) + '"]');
+                for (var i = 0; i < imgs.length; i++) imgs[i].src = result;
+            });
+        }
+
+        return makeSvgAvatar(name);
+    }
+
+    function cssEsc(s) {
+        return String(s).replace(/["\\]/g, '\\$&');
+    }
+
+    // ============================================================
+    // 2. СТАТ-КАРТОЧКИ
     // ============================================================
     var STAT_ICONS = {
         'countries-count': '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 L3 10 L8 5 L13 10 L13 21 Z"/><path d="M13 21 L13 14 L18 9 L21 11 L21 21 Z"/><path d="M6 12 L6 13 M6 16 L6 17 M16 15 L16 16"/></svg>',
@@ -39,9 +199,7 @@
             var cur = el.textContent;
             var prev = prevStatValues[id];
             prevStatValues[id] = cur;
-
-            if (prev === undefined) return;
-            if (prev === cur) return;
+            if (prev === undefined || prev === cur) return;
 
             var oldVal = parseStatNumber(prev);
             var newVal = parseStatNumber(cur);
@@ -92,101 +250,218 @@
         if (!data || !data.updated_at) return;
         var isFresh = (Date.now() - data.updated_at) < 60 * 1000;
         var cards = document.querySelectorAll('.stat-card');
-        for (var i = 0; i < cards.length; i++) {
-            cards[i].classList.toggle('is-live', isFresh);
-        }
+        for (var i = 0; i < cards.length; i++) cards[i].classList.toggle('is-live', isFresh);
     }
 
     // ============================================================
-    // 2. ТАБЛИЦА СТРАН
+    // 3. ПОЛНАЯ ЗАМЕНА renderCountries
     // ============================================================
 
-    function enhanceCountryRows() {
+    /**
+     * Заменяет app.js:renderCountries нашей версией.
+     * Вызывается как window.renderCountries().
+     */
+    function renderCountriesCustom() {
+        if (!window.currentData) return;
+        var countries = (window.currentData.countries || []).slice();
+        var sortMode = window.currentSort || 'claims';
+        countries.sort(function (a, b) {
+            if (sortMode === 'bank') return (b.bank || 0) - (a.bank || 0);
+            if (sortMode === 'energy') return (b.energy || 0) - (a.energy || 0);
+            if (sortMode === 'allies') return (b.allies || 0) - (a.allies || 0);
+            if (sortMode === 'activity') return (b.activity || 0) - (a.activity || 0);
+            return (b.claims || 0) - (a.claims || 0);
+        });
+
         var tbody = document.getElementById('countries-body');
         if (!tbody) return;
-        var rows = tbody.querySelectorAll('tr');
-        for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            if (row.dataset.enhanced === '1') continue;
-            row.dataset.enhanced = '1';
 
-            var dot = row.querySelector('.country-dot');
-            if (dot) {
-                var color = dot.style.background || '';
-                if (color) row.style.setProperty('--row-color', color);
-            }
-
-            enhanceOwnerCell(row);
-            enhanceDeltaCell(row);
-        }
-    }
-
-    /** v1.1: аватарка через getHeadAvatar — с SVG fallback, без внешних сервисов. */
-    function enhanceOwnerCell(row) {
-        var cells = row.querySelectorAll('td');
-        if (cells.length < 3) return;
-        var cell = cells[2];
-        if (cell.dataset.enhanced === '1') return;
-        var name = cell.textContent.trim();
-        if (!name || name === '?') return;
-
-        cell.dataset.enhanced = '1';
-
-        // v1.1: используем window.PanelAvatars.get если есть
-        var url;
-        if (window.PanelAvatars && window.PanelAvatars.get) {
-            url = window.PanelAvatars.get(name, 32);
-        } else {
-            url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="#6366f1"/><text x="16" y="22" text-anchor="middle" font-family="Georgia" font-size="17" font-weight="800" fill="white">' +
-                escapeHtml(name.charAt(0).toUpperCase()) + '</text></svg>');
-        }
-
-        cell.innerHTML =
-            '<span class="cell-owner">' +
-                '<img class="cell-owner-img" src="' + escapeAttr(url) + '" ' +
-                     'data-pname="' + escapeAttr(name) + '" ' +
-                     'alt="" onerror="if(this.dataset.avatarFixed!==\'1\'){this.dataset.avatarFixed=\'1\';this.src=window.PanelAvatars?window.PanelAvatars.svg(\'' + escapeAttr(name) + '\',32):this.src;}">' +
-                '<span class="cell-owner-name">' + escapeHtml(name) + '</span>' +
-            '</span>';
-    }
-
-    /** v1.1: отступы и компактность для delta-бейджа. */
-    function enhanceDeltaCell(row) {
-        var cells = row.querySelectorAll('td');
-        if (cells.length < 4) return;
-        var cell = cells[3];
-        if (cell.dataset.enhanced === '1') return;
-
-        var deltaSpan = cell.querySelector('.delta');
-        if (!deltaSpan) return;
-
-        var txt = deltaSpan.textContent;
-        var m = txt.match(/\(([+-]?\d+)\)/);
-        if (!m) return;
-        var delta = parseInt(m[1], 10);
-        if (isNaN(delta) || delta === 0) {
-            cell.dataset.enhanced = '1';
-            // Оставляем как есть
+        if (countries.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="loading">Пока нет стран.</td></tr>';
             return;
         }
 
-        cell.dataset.enhanced = '1';
+        var html = '';
+        for (var i = 0; i < countries.length; i++) {
+            var c = countries[i];
+            html += buildCountryRow(c, i);
+        }
+        tbody.innerHTML = html;
+    }
 
-        var mainTxt = (cell.childNodes[0].nodeValue || '').trim();
-        var badgeClass = delta > 0 ? 'up' : 'down';
-        var arrow = delta > 0 ? '▲' : '▼';
-        var sign = delta > 0 ? '+' : '−';
+    function buildCountryRow(c, idx) {
+        var rank = idx + 1;
+        var rankCls = idx === 0 ? 'top-1' : idx === 1 ? 'top-2' : idx === 2 ? 'top-3' : '';
+        var color = c.color || '#6366f1';
 
-        cell.innerHTML =
-            escapeHtml(mainTxt) +
-            ' <span class="delta-badge ' + badgeClass + '">' +
-                arrow + ' ' + sign + Math.abs(delta) +
-            '</span>';
+        var owner = c.owner || '?';
+        var ownerName = String(owner);
+        var avatarSrc = avatarUrl(ownerName);
+
+        var claims = (c.claims || 0);
+        var maxClaims = c.max_claims != null ? c.max_claims : '?';
+        var delta = c.claims_delta_7d || 0;
+
+        var deltaBadge;
+        if (delta > 0) deltaBadge = '<span class="delta-badge up">▲ +' + delta + '</span>';
+        else if (delta < 0) deltaBadge = '<span class="delta-badge down">▼ −' + Math.abs(delta) + '</span>';
+        else deltaBadge = '<span class="delta-badge flat">0</span>';
+
+        var capIcon = c.capital ? ' 🏛️' : '';
+
+        return '<tr class="' + rankCls + '" style="--row-color:' + escapeAttr(color) + ';" ' +
+                    'onclick="if(typeof showDetails===\'function\')showDetails(\'' + escapeAttr(c.name) + '\')">' +
+                '<td class="rank">#' + rank + '</td>' +
+                '<td class="name">' +
+                    '<span class="country-dot" style="background:' + escapeAttr(color) + ';"></span> ' +
+                    escapeHtml(c.name || '?') + capIcon +
+                '</td>' +
+                '<td>' +
+                    '<span class="cell-owner">' +
+                        '<img class="cell-owner-img" src="' + escapeAttr(avatarSrc) + '" ' +
+                             'data-avatar-name="' + escapeAttr(ownerName) + '" alt="">' +
+                        '<span class="cell-owner-name">' + escapeHtml(ownerName) + '</span>' +
+                    '</span>' +
+                '</td>' +
+                '<td>' + claims + ' / ' + maxClaims + ' ' + deltaBadge + '</td>' +
+                '<td class="money">' + formatMoney(c.bank || 0) + '</td>' +
+                '<td class="energy">' + (c.energy || 0).toFixed(1) + '</td>' +
+                '<td>' + (c.activity || 0) + '</td>' +
+                '<td>' + (c.pacts || 0) + '</td>' +
+            '</tr>';
     }
 
     // ============================================================
-    // 3. ЛЕНТА СОБЫТИЙ
+    // 4. ПОЛНАЯ ЗАМЕНА renderPlayers
+    // ============================================================
+
+    function renderPlayersCustom() {
+        var grid = document.getElementById('players-grid');
+        var empty = document.getElementById('players-empty');
+        if (!grid || !empty) return;
+
+        var players = (window.currentData && window.currentData.players) || null;
+        if (!players || players.length === 0) {
+            grid.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+
+        var q = (document.getElementById('player-search').value || '').trim().toLowerCase();
+        var onlineOnly = document.getElementById('player-online-only').checked || false;
+
+        var filtered = players.slice();
+        if (q) filtered = filtered.filter(function (p) {
+            return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
+                   (p.country || '').toLowerCase().indexOf(q) !== -1;
+        });
+        if (onlineOnly) filtered = filtered.filter(function (p) { return p.online; });
+
+        filtered.sort(function (a, b) {
+            if (!!b.online !== !!a.online) return b.online ? 1 : -1;
+            return (b.playtime_seconds || 0) - (a.playtime_seconds || 0);
+        });
+
+        if (filtered.length === 0) {
+            grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;">Ничего не найдено.</div>';
+            return;
+        }
+
+        var html = '';
+        for (var i = 0; i < filtered.length; i++) {
+            html += buildPlayerCard(filtered[i]);
+        }
+        grid.innerHTML = html;
+    }
+
+    function buildPlayerCard(p) {
+        var name = p.name || '?';
+        var avatar = avatarUrl(name);
+        var badge = '';
+        if (p.country_role === 'leader') badge = '<div class="player-card-badge leader">Лидер</div>';
+        else if (p.country_role === 'co_ruler') badge = '<div class="player-card-badge co-ruler">Co</div>';
+
+        var pt = formatPlaytime(p.playtime_seconds);
+        var money = p.balance != null ? formatMoney(p.balance) : null;
+        var countryColor = p.country_color || '#8b91a6';
+
+        return '<div class="player-card" onclick="if(typeof openPlayer===\'function\')openPlayer(\'' + escapeAttr(name) + '\')">' + badge +
+            '<div class="player-card-avatar">' +
+                '<img src="' + escapeAttr(avatar) + '" data-avatar-name="' + escapeAttr(name) + '" alt="">' +
+                '<div class="status-dot ' + (p.online ? 'online' : 'offline') + '"></div>' +
+            '</div>' +
+            '<div class="player-card-info">' +
+                '<div class="player-card-name">' + escapeHtml(name) + '</div>' +
+                '<div class="player-card-country">' +
+                    (p.country
+                        ? '<span class="country-tag" style="color:' + escapeAttr(countryColor) + ';">🏛️ ' + escapeHtml(p.country) + '</span>'
+                        : '<span class="no-country">Без страны</span>') +
+                '</div>' +
+                '<div class="player-card-meta">' +
+                    (money != null ? '<span class="money">💰 ' + money + '</span>' : '') +
+                    (pt ? '<span>⏱ ' + pt + '</span>' : '') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // ============================================================
+    // 5. ГЛОБАЛЬНЫЕ ПЕРЕОПРЕДЕЛЕНИЯ
+    // ============================================================
+
+    function installOverrides() {
+        // renderCountries
+        if (typeof window.renderCountries === 'function' && !window.__rcOverridden) {
+            window.__rcOverridden = true;
+            window.renderCountries = renderCountriesCustom;
+        }
+
+        // renderPlayers
+        if (typeof window.renderPlayers === 'function' && !window.__rpOverridden) {
+            window.__rpOverridden = true;
+            window.renderPlayers = renderPlayersCustom;
+        }
+    }
+
+    // Локальные хелперы (дублируют app.js, чтобы не зависеть от порядка)
+    function formatMoney(a) {
+        if (a == null) return '0';
+        var abs = Math.abs(a);
+        if (abs >= 1000000) return (a / 1000000).toFixed(2) + 'M';
+        if (abs >= 1000) return (a / 1000).toFixed(1) + 'k';
+        return Math.round(a).toString();
+    }
+
+    function formatPlaytime(s) {
+        if (s == null || s <= 0) return '';
+        var d = Math.floor(s / 86400);
+        var h = Math.floor((s % 86400) / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        if (d > 0) return h > 0 ? d + 'д ' + h + 'ч' : d + 'д';
+        if (h > 0) return m > 0 ? h + 'ч ' + m + 'м' : h + 'ч';
+        if (m > 0) return m + 'м';
+        return (s % 60) + 'с';
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    function escapeAttr(s) {
+        return s == null ? '' : String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    // ============================================================
+    // 6. Лента событий (дополняем, не заменяем)
     // ============================================================
 
     var NEW_BADGE_WINDOW_MS = 5 * 60 * 1000;
@@ -198,18 +473,17 @@
             var item = items[i];
             if (item.dataset.enhanced === '1') continue;
             item.dataset.enhanced = '1';
-
-            var timeEl = item.querySelector('.event-log-time');
-            var ts = timeEl ? parseTimeAgo(timeEl.textContent) : null;
-
-            if (ts !== null && (now - ts) < NEW_BADGE_WINDOW_MS && i < 3) {
-                var msg = item.querySelector('.event-log-msg');
-                if (msg && !msg.querySelector('.event-new-badge')) {
-                    msg.insertAdjacentHTML('beforeend', '<span class="event-new-badge">NEW</span>');
+            try {
+                var timeEl = item.querySelector('.event-log-time');
+                var ts = timeEl ? parseTimeAgo(timeEl.textContent) : null;
+                if (ts !== null && (now - ts) < NEW_BADGE_WINDOW_MS && i < 3) {
+                    var msg = item.querySelector('.event-log-msg');
+                    if (msg && !msg.querySelector('.event-new-badge')) {
+                        msg.insertAdjacentHTML('beforeend', '<span class="event-new-badge">NEW</span>');
+                    }
                 }
-            }
-
-            makeCountryLinks(item);
+                makeCountryLinks(item);
+            } catch (e) {}
         }
     }
 
@@ -246,77 +520,59 @@
             var safeRe = escaped.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             var re = new RegExp('(^|[^\\wа-яА-ЯёЁ])' + safeRe + '($|[^\\wа-яА-ЯёЁ])', 'g');
             html = html.replace(re,
-                '$1<span class="country-link" onclick="highlightCountryFromEvent(\'' +
+                '$1<span class="country-link" onclick="if(typeof gotoCountry===\'function\')gotoCountry(\'' +
                 escapeAttr(name) + '\');event.stopPropagation();">' + escaped + '</span>$2');
         }
         msg.innerHTML = html;
     }
 
-    window.highlightCountryFromEvent = function (countryName) {
-        try {
-            if (typeof window.gotoCountry === 'function') {
-                window.gotoCountry(countryName);
-                return;
-            }
-        } catch (e) {}
-    };
-
     // ============================================================
-    // 4. Утилиты
+    // 7. Boot
     // ============================================================
-    function escapeHtml(s) {
-        if (s == null) return '';
-        var d = document.createElement('div');
-        d.textContent = String(s);
-        return d.innerHTML;
-    }
 
-    function escapeAttr(s) {
-        return s == null ? '' : String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-    }
-
-    // ============================================================
-    // 5. Tick
-    // ============================================================
-    var lastUpdatedAt = 0;
-
-    function tick() {
-        try {
-            var data = window.currentData;
-            if (data) {
-                var newUpdatedAt = data.updated_at;
-                enhanceStatCards();
-                markLiveStatCards();
-
-                if (newUpdatedAt !== lastUpdatedAt) {
-                    lastUpdatedAt = newUpdatedAt;
-                    setTimeout(function () {
-                        enhanceCountryRows();
-                        enhanceEventLog();
-                        if (window.PanelAvatars) window.PanelAvatars.refresh();
-                    }, 250);
-                }
-            }
-        } catch (e) {
-            console.error('[PanelDetail]', e);
-        }
-        setTimeout(tick, 900);
+    // Многократная попытка перехвата — app.js мог ещё не загрузиться
+    var tries = 0;
+    function tryInstall() {
+        tries++;
+        installOverrides();
+        // Если оба перехвата удались — прекращаем
+        if (window.__rcOverridden && window.__rpOverridden) return;
+        if (tries < 30) setTimeout(tryInstall, 100);
     }
 
     function boot() {
+        tryInstall();
+
+        // Первичная отрисовка через 400мс
         setTimeout(function () {
             enhanceStatCards();
-            enhanceCountryRows();
-            enhanceEventLog();
             markLiveStatCards();
-        }, 500);
-        tick();
-        console.log('[PanelDetail] v1.1 ready');
+            // Принудительный ре-рендер
+            if (window.__rcOverridden && window.renderCountries) window.renderCountries();
+            if (window.__rpOverridden && window.renderPlayers) window.renderPlayers();
+            enhanceEventLog();
+        }, 400);
+
+        // Tick на изменения
+        var lastUpdatedAt = 0;
+        setInterval(function () {
+            try {
+                var data = window.currentData;
+                if (data && data.updated_at !== lastUpdatedAt) {
+                    lastUpdatedAt = data.updated_at;
+                    setTimeout(function () {
+                        // app.js уже вызвал renderCountries — но если
+                        // перехват удался, был вызван наш. Всё равно
+                        // перерисуем для надёжности.
+                        enhanceStatCards();
+                        markLiveStatCards();
+                        enhanceEventLog();
+                    }, 300);
+                }
+            } catch (e) {}
+        }, 800);
+
+        console.log('[PanelDetail] v1.2 ready (override render)');
     }
 
     if (document.readyState === 'loading') {
@@ -328,7 +584,8 @@
     window.PanelDetail = {
         refresh: function () {
             enhanceStatCards();
-            enhanceCountryRows();
+            if (window.__rcOverridden) renderCountriesCustom();
+            if (window.__rpOverridden) renderPlayersCustom();
             enhanceEventLog();
         }
     };

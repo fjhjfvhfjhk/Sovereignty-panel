@@ -1,12 +1,14 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.1
+   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.2
    ============================================================
-   Фаза 3 (детализация GUI). Фикс v1.1:
-     - Table row position:relative (полоски больше не вылезают).
-     - Убраны дубли-эмодзи в колонках money/energy.
-     - Аватарки в таблице уменьшены до 18px.
-     - Delta-бейдж компактнее.
-     - Fallback-аватар для битых голов.
+   Фаза 3 (детализация). ФИКС v1.2:
+
+     - Убрана горизонтальная прокрутка таблицы (компактные ячейки).
+     - Уменьшен аватар (16px).
+     - Дельта-бейдж всегда виден, включая "0".
+     - Цветная полоска стран НЕ режет первый столбец.
+     - Убраны все внешние источники аватарок — только SVG или локальный
+       скин.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -101,8 +103,28 @@
 }
 
 /* ------------------------------------------------------------
-   2. ТОП СТРАН — FIX v1.1
+   2. ТОП СТРАН — компактная таблица, БЕЗ горизонтального скролла
    ------------------------------------------------------------ */
+#countries-table {
+    table-layout: fixed;
+    width: 100%;
+}
+#countries-table th,
+#countries-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 12px 10px;
+}
+#countries-table col.col-rank    { width: 44px; }
+#countries-table col.col-country { width: 130px; }
+#countries-table col.col-owner   { width: 150px; }
+#countries-table col.col-claims  { width: 100px; }
+#countries-table col.col-bank    { width: 90px; }
+#countries-table col.col-energy  { width: 76px; }
+#countries-table col.col-activity{ width: 92px; }
+#countries-table col.col-pacts   { width: 64px; }
+
 #countries-table tbody tr {
     position: relative;
 }
@@ -114,38 +136,37 @@
     bottom: 0;
     width: 3px;
     background: var(--row-color, transparent);
-    transition: width .15s;
     pointer-events: none;
 }
-#countries-table tbody tr:hover::before {
-    width: 5px;
-}
-#countries-table tbody tr td:first-child {
-    padding-left: 12px;
-}
 
-/* Ячейка лидера — компактная */
+/* Ячейка лидера */
 .cell-owner {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     max-width: 100%;
+    vertical-align: middle;
 }
 .cell-owner-img {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 3px;
     image-rendering: pixelated;
     background: var(--bg-code);
     flex-shrink: 0;
     object-fit: cover;
+    display: block;
 }
 .cell-owner-name {
     font-weight: 500;
     font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
-/* Дельта — компактный бейдж */
+/* Дельта — компактный бейдж, всегда видим */
 .delta-badge {
     display: inline-flex;
     align-items: center;
@@ -166,6 +187,10 @@
 .delta-badge.down {
     background: rgba(239, 68, 68, .14);
     color: #fca5a5;
+}
+.delta-badge.flat {
+    background: rgba(139, 145, 166, .12);
+    color: var(--text-dim);
 }
 
 /* ------------------------------------------------------------
@@ -208,7 +233,6 @@
     color: #fff;
     text-decoration: underline;
 }
-
 .event-new-badge {
     font-size: 9px;
     font-weight: 800;
@@ -220,23 +244,6 @@
     border: 1px solid rgba(99, 102, 241, .4);
     margin-left: 6px;
     vertical-align: middle;
-}
-
-.event-log-item.event-type-war_declared .event-log-icon,
-.event-log-item.event-type-capital_captured .event-log-icon {
-    background: rgba(239, 68, 68, .16);
-}
-.event-log-item.event-type-country_created .event-log-icon,
-.event-log-item.event-type-pact_signed .event-log-icon,
-.event-log-item.event-type-war_ended .event-log-icon {
-    background: rgba(16, 185, 129, .16);
-}
-.event-log-item.event-type-jackpot_won .event-log-icon,
-.event-log-item.event-type-big_win .event-log-icon {
-    background: rgba(236, 72, 153, .16);
-}
-.event-log-item.event-type-capital_set .event-log-icon {
-    background: rgba(251, 191, 36, .16);
 }
 
 /* ------------------------------------------------------------
@@ -259,9 +266,7 @@
 .player-card:hover .player-card-avatar img {
     border-color: var(--accent);
 }
-.player-card-name {
-    font-size: 15px;
-}
+.player-card-name { font-size: 15px; }
 .player-card-meta {
     gap: 8px;
     flex-wrap: wrap;
@@ -300,11 +305,9 @@
 }
 
 /* ------------------------------------------------------------
-   6. ГРАФИК ОНЛАЙНА — панель header
+   6. ГРАФИК ОНЛАЙНА — header
    ------------------------------------------------------------ */
-#panel-online-chart .chart-stats {
-    gap: 10px;
-}
+#panel-online-chart .chart-stats { gap: 10px; }
 .chart-stat {
     padding: 5px 12px;
     font-size: 12px;
@@ -317,27 +320,15 @@
 .chart-stat:nth-child(3)::before { content: "🔺"; font-size: 10px; }
 
 /* ------------------------------------------------------------
-   7. TABLE COLUMNS — стабилизация ширины
-   ------------------------------------------------------------ */
-#countries-table {
-    table-layout: auto;
-}
-#countries-table th,
-#countries-table td {
-    white-space: nowrap;
-}
-#countries-table td.name {
-    min-width: 120px;
-}
-
-/* ------------------------------------------------------------
-   8. RESPONSIVE
+   7. RESPONSIVE
    ------------------------------------------------------------ */
 @media (max-width: 1024px) {
     .stat-value { font-size: 26px; }
     .stat-card { padding: 16px 14px 14px; }
     .stat-icon { width: 36px; height: 36px; font-size: 19px; }
     .player-card-avatar img { width: 48px; height: 48px; }
+    #countries-table col.col-country { width: 110px; }
+    #countries-table col.col-owner   { width: 120px; }
 }
 
 @media (max-width: 640px) {
@@ -345,5 +336,6 @@
     .stat-card .stat-value { font-size: 24px; }
     .stat-trend { top: 12px; right: 12px; font-size: 10px; padding: 2px 6px; }
     .event-log-icon { width: 30px; height: 30px; font-size: 15px; }
-    .cell-owner-img { width: 16px; height: 16px; }
+    .cell-owner-img { width: 14px; height: 14px; }
+    #countries-table th, #countries-table td { padding: 10px 6px; font-size: 12px; }
 }
