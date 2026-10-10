@@ -298,16 +298,80 @@
         <p class="guide-note">💡 На панели есть свой 3D-просмотрщик — клик по игроку в разделе <b>Игроки</b>.</p>
     </article>
 
+    <article class="guide-section" id="guide-panel-skins">
+        <h2 data-guide-title>🖼️ Скины на панели (admin)</h2>
+        <p>В offline-mode панель раньше показывала всем игрокам одинаковые «серые головы Steve», потому что внешние сервисы (mc-heads, crafatar) не знают пиратских ников. Теперь Sovereignty <b>сам выгружает настоящие PNG-скины</b> из SkinsRestorer на GitHub в <code>data/skins/{ник}.png</code>, а панель их подхватывает.</p>
+
+        <h3>⚙️ Как работает</h3>
+        <ol class="guide-steps">
+            <li>Игрок заходит на сервер.</li>
+            <li>Через 3 секунды Sovereignty проверяет, есть ли у него скин в SkinsRestorer.</li>
+            <li>Если скин есть и его hash не менялся последние 24 часа — пропуск.</li>
+            <li>Если скин новый — скачивается PNG, выгружается на GitHub в репо панели.</li>
+            <li>Панель при следующей загрузке видит <code>data/skins/{ник}.png</code> и рисует голову игрока.</li>
+        </ol>
+
+        <h3>🔧 Админ-команды</h3>
+        <div class="cmd-grid">
+            <div class="cmd-row">
+                <code data-copy="/c panel skins upload Steve">/c panel skins upload &lt;ник&gt;</code>
+                <span>Принудительно выгрузить скин игрока (игнорирует кэш)</span>
+            </div>
+            <div class="cmd-row">
+                <code data-copy="/c panel skins upload-all">/c panel skins upload-all</code>
+                <span>Добавить в очередь всех онлайн-игроков</span>
+            </div>
+            <div class="cmd-row">
+                <code data-copy="/c panel skins status">/c panel skins status</code>
+                <span>Показать размер кэша и статус SkinsRestorer</span>
+            </div>
+            <div class="cmd-row">
+                <code data-copy="/c panel skins clear">/c panel skins clear</code>
+                <span>Очистить локальный кэш — следующий join перезагрузит все скины</span>
+            </div>
+        </div>
+
+        <h3>⚙️ Настройки</h3>
+        <p>В <code>plugins/Sovereignty/config.yml</code>:</p>
+        <div class="cmd-grid">
+            <div class="cmd-row">
+                <code data-copy="skins.enabled: true">skins.enabled</code>
+                <span>Включить/выключить сервис</span>
+            </div>
+            <div class="cmd-row">
+                <code data-copy="skins.auto-upload-on-join: true">skins.auto-upload-on-join</code>
+                <span>Автоматически выгружать при входе игрока</span>
+            </div>
+            <div class="cmd-row">
+                <code data-copy="skins.recheck-interval-hours: 24">skins.recheck-interval-hours</code>
+                <span>Как часто перепроверять скины (часы)</span>
+            </div>
+            <div class="cmd-row">
+                <code data-copy="skins.skip-default-skins: true">skins.skip-default-skins</code>
+                <span>Не выгружать дефолтные скины (Steve/Alex)</span>
+            </div>
+        </div>
+
+        <p class="guide-note">📁 Все скины складываются в репозиторий панели: <code>data/skins/{ник}.png</code>. Ник должен совпадать с ником игрока. Если ник содержит <code>:</code> или <code>/</code> — заменяются на <code>_</code>.</p>
+    </article>
+
     <article class="guide-section" id="guide-changelog">
         <h2 data-guide-title>📋 Что нового</h2>
+
+        <h3>10.10.2026</h3>
+        <ul class="guide-list">
+            <li>🖼️ <b>Панель — скины</b>: Sovereignty выгружает PNG-скины игроков из SkinsRestorer в <code>data/skins/</code>.</li>
+            <li>🔧 <b>Новые админ-команды</b>: <code>/c panel skins upload|upload-all|status|clear</code>.</li>
+            <li>📝 <b>UX</b>: BankGUI, ChatInputManager для создания/переименования страны.</li>
+        </ul>
 
         <h3>17.09.2026</h3>
         <ul class="guide-list">
             <li>🔨 <b>AuctionHouse v2.0</b> — категории, buyout, ставки предметами, anti-snipe, авто-обновление GUI.</li>
             <li>💀 <b>Bounty v1.2</b> — награды теперь складываются от нескольких игроков.</li>
             <li>🏪 <b>MarketGUI v1.2</b> — отложенные платежи переживают рестарт.</li>
-            <li>🎰 <b>RollGame</b> — окна Chance/Лестница/Crash больше не закрываются сами; авто-выдача наград при disconnect.</li>
-            <li>🏛️ <b>Sovereignty</b> — повторный claim своего чанка не тратит энергию; рефакторинг CountryCommand (17 подкоманд).</li>
+            <li>🎰 <b>RollGame</b> — окна Chance/Лестница/Crash больше не закрываются сами.</li>
+            <li>🏛️ <b>Sovereignty</b> — повторный claim своего чанка не тратит энергию.</li>
         </ul>
 
         <h3>14.09.2026</h3>
@@ -389,7 +453,7 @@
 
         <details class="faq-item">
             <summary>Как переименовать страну?</summary>
-            <p><code>/c rename НовоеНазвание</code>. Только лидер.</p>
+            <p>Через GUI: <code>/c</code> → «Управление страной» → «Переименовать». Напиши новое имя в чат — готово.</p>
         </details>
 
         <details class="faq-item">
@@ -399,3 +463,4 @@
     </article>
 
 </div>
+
