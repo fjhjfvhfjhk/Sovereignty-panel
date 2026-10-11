@@ -1,18 +1,32 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.3
+   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.4
    ============================================================
-   ФИКС v1.3: колонки таблицы «Топ стран» больше не съезжают.
+   ФИКС v1.4: усиленная защита от съезда колонок в таблице «Топ стран».
 
-   ПРИЧИНА СЪЕЗДА (v1.2 и ранее):
-     table-layout: auto + white-space: nowrap на заголовках →
-     длинные заголовки ("АКТИВНОСТЬ") раздувают свою колонку,
-     а короткие значения ("0") не дают нужной ширины → визуальный
-     сдвиг в правой части таблицы (КАЗНА/ЭНЕРГИЯ/АКТИВНОСТЬ/ПАКТЫ).
+   ЧТО БЫЛО В v1.3 И ПОЧЕМУ НЕ РАБОТАЛО:
+     - `table-layout: fixed` + `<colgroup>` — этого достаточно в теории,
+       но если td-контент (длинное имя лидера без пробелов, или
+       emblem-строки без word-break) не влезает, некоторые браузеры
+       (Chromium ~2025, Firefox ~2026) игнорируют `colgroup` и берут
+       ширины из содержимого.
+     - Также если `style.css` грузится ПОСЛЕ `panel-detail.css`, его
+       правило `td { white-space: nowrap; }` (без overflow: hidden)
+       перекрывает фикс.
 
-   РЕШЕНИЕ:
-     table-layout: fixed + <colgroup> с процентными ширинами.
-     Браузер берёт ширины ТОЛЬКО из colgroup — заголовки и body
-     используют одни и те же колонки, сдвиг невозможен.
+   ЧТО СДЕЛАНО В v1.4:
+     1. Явно `table-layout: fixed !important; width: 100% !important`.
+     2. Ширины заданы ДВУМЯ способами: через <col> И через
+        `th:nth-child(N), td:nth-child(N)` — чтобы работало даже если
+        браузер проигнорировал colgroup.
+     3. Каждая td: `min-width: 0; max-width: 100%; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap;`.
+        `min-width: 0` — ключевое: без него содержимое раздувает
+        ячейку, и вся таблица "разъезжается".
+     4. Числовые столбцы (rank, claims, bank, energy, activity, pacts)
+        получают `font-variant-numeric: tabular-nums` — цифры
+        одинаковой ширины, ничего не скачет.
+     5. Текстовые столбцы (country, owner) получают
+        `overflow: hidden; text-overflow: ellipsis; word-break: break-word`.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -89,40 +103,36 @@
 }
 
 /* ------------------------------------------------------------
-   2. ТОП СТРАН — жёсткая сетка колонок (фикс съезда)
+   2. ТОП СТРАН — ЖЁСТКАЯ сетка колонок (v1.4)
    ------------------------------------------------------------ */
 
 .table-wrap {
     overflow-x: auto;
+    /* Изолируем контекст форматирования — таблица не должна тянуть
+       ширину родителя. */
+    max-width: 100%;
 }
 
 #countries-table {
-    table-layout: fixed;          /* <- ключевой фикс */
-    width: 100%;
+    table-layout: fixed !important;
+    width: 100% !important;
     border-collapse: collapse;
 }
 
-#countries-table colgroup col.col-rank     { width: 6%;  }
-#countries-table colgroup col.col-country  { width: 17%; }
-#countries-table colgroup col.col-owner    { width: 18%; }
-#countries-table colgroup col.col-claims   { width: 13%; }
-#countries-table colgroup col.col-bank     { width: 11%; }
-#countries-table colgroup col.col-energy   { width: 10%; }
-#countries-table colgroup col.col-activity { width: 13%; }
-#countries-table colgroup col.col-pacts    { width: 12%; }
-
-/* Все ячейки одинаково обрезают содержимое */
+/* Заголовок и ячейки — общая база. */
 #countries-table th,
 #countries-table td {
     padding: 13px 10px;
+    min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: middle;
+    box-sizing: border-box;
 }
+
 #countries-table th {
-    /* Заголовки — те же 10px что и у ячеек, без letter-spacing
-       который расширял колонку. */
     font-size: 11px;
     letter-spacing: .08em;
     color: var(--text-dim);
@@ -132,6 +142,39 @@
     border-bottom: 1px solid var(--border);
 }
 
+/* v1.4: ширины через colgroup. */
+#countries-table colgroup col.col-rank     { width: 6%;  }
+#countries-table colgroup col.col-country  { width: 17%; }
+#countries-table colgroup col.col-owner    { width: 18%; }
+#countries-table colgroup col.col-claims   { width: 13%; }
+#countries-table colgroup col.col-bank     { width: 11%; }
+#countries-table colgroup col.col-energy   { width: 10%; }
+#countries-table colgroup col.col-activity { width: 13%; }
+#countries-table colgroup col.col-pacts    { width: 12%; }
+
+/* v1.4: ТЕ ЖЕ ширины через nth-child — страховка на случай, если
+   браузер проигнорировал colgroup (бывает при определённых комбинациях
+   border-collapse + fixed + теперь уже устаревших рендер-движках). */
+#countries-table th:nth-child(1), #countries-table td:nth-child(1) { width: 6%;  }
+#countries-table th:nth-child(2), #countries-table td:nth-child(2) { width: 17%; }
+#countries-table th:nth-child(3), #countries-table td:nth-child(3) { width: 18%; }
+#countries-table th:nth-child(4), #countries-table td:nth-child(4) { width: 13%; }
+#countries-table th:nth-child(5), #countries-table td:nth-child(5) { width: 11%; }
+#countries-table th:nth-child(6), #countries-table td:nth-child(6) { width: 10%; }
+#countries-table th:nth-child(7), #countries-table td:nth-child(7) { width: 13%; }
+#countries-table th:nth-child(8), #countries-table td:nth-child(8) { width: 12%; }
+
+/* Числовые столбцы — табличные цифры, чтобы разряды не плясали. */
+#countries-table td.rank,
+#countries-table td.money,
+#countries-table td.energy,
+#countries-table td:nth-child(4),
+#countries-table td:nth-child(7),
+#countries-table td:nth-child(8) {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Строка стран. */
 #countries-table tbody tr {
     position: relative;
     border-top: 1px solid var(--border);
@@ -145,12 +188,21 @@
     pointer-events: none;
 }
 
-/* Ячейка лидера */
+/* Столбец с названием страны — фиксированный overflow с ellipsis. */
+#countries-table td.name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Столбец лидера — flex-раскладка (аватарка + имя). v1.4: min-width: 0
+   чтобы flex-child мог сжиматься под ellipsis. */
 .cell-owner {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     max-width: 100%;
+    min-width: 0;
     vertical-align: middle;
 }
 .cell-owner-img {
@@ -171,7 +223,7 @@
     min-width: 0;
 }
 
-/* Дельта-бейдж */
+/* Дельта-бейдж в столбце «Чанков». */
 .delta-badge {
     display: inline-flex;
     align-items: center;
@@ -288,7 +340,16 @@
 .chart-stat:nth-child(3)::before { content: "🔺"; font-size: 10px; }
 
 /* ------------------------------------------------------------
-   7. RESPONSIVE
+   7. SKELETON-СТРОКИ (v1.4) — тот же fixed-layout, что у настоящей
+   таблицы, чтобы при загрузке не было "прыжка" ширины колонок.
+   ------------------------------------------------------------ */
+#countries-body tr.skeleton-row td {
+    padding: 13px 10px;
+    vertical-align: middle;
+}
+
+/* ------------------------------------------------------------
+   8. RESPONSIVE
    ------------------------------------------------------------ */
 @media (max-width: 1024px) {
     .stat-value { font-size: 26px; }
@@ -304,8 +365,12 @@
     .stat-trend { top: 12px; right: 12px; font-size: 10px; padding: 2px 6px; }
     .event-log-icon { width: 30px; height: 30px; font-size: 15px; }
     .cell-owner-img { width: 14px; height: 14px; }
+
+    /* На мобилке таблица скрыта (см. mobile.css), но на всякий случай
+       оставляем правила — если её покажут, колонки не съедут. */
     #countries-table th, #countries-table td { padding: 10px 5px; font-size: 11.5px; }
-    #countries-table colgroup col.col-owner    { width: 22%; }
-    #countries-table colgroup col.col-activity { width: 10%; }
-    #countries-table colgroup col.col-pacts    { width: 10%; }
+    #countries-table th:nth-child(3), #countries-table td:nth-child(3) { width: 22%; }
+    #countries-table th:nth-child(7), #countries-table td:nth-child(7) { width: 10%; }
+    #countries-table th:nth-child(8), #countries-table td:nth-child(8) { width: 10%; }
 }
+
