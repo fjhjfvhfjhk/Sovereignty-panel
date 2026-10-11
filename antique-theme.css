@@ -1,0 +1,1074 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · ANTIQUE-THEME.CSS v1.0
+   ============================================================
+   Полная стилизация панели под стиль «старинный атлас / антиквариат».
+
+   ПОДКЛЮЧЕНИЕ: САМЫМ ПОСЛЕДНИМ в <head>, после mobile.css.
+     <link rel="stylesheet" href="antique-theme.css?v=1.0">
+
+   ОТКАТ: убрать одну строку из index.html.
+
+   ПАЛИТРА:
+     Пергамент:   #F4EBD3 → #EADFC2 → #DCCBA8 → #C9B58A → #B09B6E
+     Чернила:     #2A1A0F (основной) / #4A3520 / #6B5138 / #8A7558
+     Латунь:      #A88A48 / #C9A860 (светлый) / #6E5828 (тёмный)
+     Сургуч:      #8B2020 / #A83030 (светлый)
+     Олива:       #52682A
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+/* ------------------------------------------------------------
+   1. ПЕРЕОПРЕДЕЛЕНИЕ ПАЛИТРЫ
+   ------------------------------------------------------------ */
+:root {
+    /* Пергамент */
+    --parch-1: #F4EBD3;
+    --parch-2: #EADFC2;
+    --parch-3: #DCCBA8;
+    --parch-4: #C9B58A;
+    --parch-5: #B09B6E;
+
+    /* Чернила */
+    --ink: #2A1A0F;
+    --ink-soft: #4A3520;
+    --ink-faded: #6B5138;
+    --ink-pale: #8A7558;
+
+    /* Акценты */
+    --wax: #8B2020;
+    --wax-light: #A83030;
+    --brass: #A88A48;
+    --brass-light: #C9A860;
+    --brass-dark: #6E5828;
+    --olive: #52682A;
+    --amber: #B87320;
+
+    /* Переопределение переменных style.css */
+    --bg: var(--parch-2);
+    --bg-card: var(--parch-1);
+    --bg-hover: var(--parch-3);
+    --bg-code: #EFE4C6;
+    --text: var(--ink);
+    --text-dim: var(--ink-faded);
+    --accent: var(--wax);
+    --accent-light: var(--wax-light);
+    --border: var(--parch-4);
+    --success: var(--olive);
+    --warning: var(--amber);
+    --danger: var(--wax);
+    --gold: var(--brass-light);
+    --online: var(--olive);
+}
+
+/* Ambient glow — тёплый янтарь вместо холодного индиго */
+body {
+    --amb-r: 168;
+    --amb-g: 138;
+    --amb-b: 74;
+}
+body[data-state="war"]   { --amb-r: 152; --amb-g: 40;  --amb-b: 32; }
+body[data-state="peace"] { --amb-r: 90;  --amb-g: 106; --amb-b: 40; }
+body[data-state="event"] { --amb-r: 152; --amb-g: 90;  --amb-b: 40; }
+
+/* ------------------------------------------------------------
+   2. ФОН СТРАНИЦЫ — ПЕРГАМЕНТ
+   ------------------------------------------------------------ */
+body {
+    font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+    color: var(--ink);
+    background-color: var(--parch-2);
+    background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(120, 90, 50, .10), transparent 55%),
+        radial-gradient(ellipse at 85% 90%, rgba(120, 90, 50, .08), transparent 55%),
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
+    background-attachment: fixed;
+}
+
+/* Виньетка по краям — «состаренность» всего полотна */
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 900;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(74, 53, 32, 0.16) 100%);
+    mix-blend-mode: multiply;
+}
+
+/* Заголовки — гравюрный шрифт */
+h1, h2, h3, h4, h5, h6,
+.panel h2, .stat-label, .chart-stat,
+th, .guide-nav-title,
+.map-layers-title, .player-panel-title,
+.jackpot-hint, .guide-section h2, .guide-section h3 {
+    font-family: 'IM Fell English', Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+    letter-spacing: .03em;
+}
+
+/* Заголовок панели с флероном ❦ под чертой */
+.panel h2 {
+    font-size: 22px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--brass);
+    padding-bottom: 12px;
+    position: relative;
+}
+.panel h2::after {
+    content: "❦";
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    transform: translateX(-50%);
+    background: var(--parch-1);
+    color: var(--brass);
+    font-size: 14px;
+    padding: 0 8px;
+    line-height: 1;
+}
+
+/* ------------------------------------------------------------
+   3. HEADER — КОЖАНАЯ ОБЛОЖКА СТАРОЙ КНИГИ
+   ------------------------------------------------------------ */
+header {
+    background:
+        linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 100%),
+        linear-gradient(180deg, #7A5A34 0%, #5E4224 100%);
+    border-bottom: 3px double var(--brass);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 235, 190, 0.15),
+        0 2px 8px rgba(42, 26, 15, 0.30);
+    backdrop-filter: none;
+}
+
+#server-name {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: .08em;
+    background: linear-gradient(180deg, #F4D990 0%, #C9A860 55%, #8A6E30 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    text-shadow: none;
+    animation: none !important;
+}
+
+.main-nav {
+    background: rgba(42, 26, 15, 0.35);
+    border: 1px solid rgba(201, 168, 96, 0.4);
+    border-radius: 3px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+    padding: 4px;
+}
+.nav-btn {
+    color: rgba(244, 231, 211, 0.75);
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: .04em;
+    border-radius: 2px;
+    background: transparent;
+}
+.nav-btn:hover {
+    color: #F4D990;
+    background: rgba(201, 168, 96, 0.15);
+}
+.nav-btn.active {
+    background: linear-gradient(180deg, #C9A860 0%, #8A6E30 100%);
+    color: #2A1A0F;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.3),
+        0 2px 4px rgba(0,0,0,0.4);
+    font-weight: 400;
+}
+
+.header-meta .badge {
+    background: linear-gradient(180deg, rgba(201, 168, 96, 0.35), rgba(139, 117, 88, 0.25));
+    border: 1px solid rgba(201, 168, 96, 0.55);
+    color: #F4EBD3;
+    border-radius: 2px;
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: .05em;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.15),
+        0 1px 2px rgba(0,0,0,0.3);
+}
+.header-meta .btn-badge {
+    cursor: pointer;
+    font-family: inherit;
+}
+.header-meta .btn-badge:hover {
+    background: linear-gradient(180deg, #C9A860 0%, #A88A48 100%);
+    color: var(--ink);
+    border-color: var(--brass-light);
+}
+
+/* ------------------------------------------------------------
+   4. ПАНЕЛИ — ЛИСТЫ ПЕРГАМЕНТА С ДВОЙНОЙ РАМКОЙ
+   ------------------------------------------------------------ */
+.panel {
+    background-color: var(--parch-1);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='pp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23pp)'/></svg>");
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 3px var(--parch-1),
+        0 0 0 4px var(--brass),
+        0 4px 12px rgba(42, 26, 15, 0.14),
+        inset 0 0 40px rgba(168, 138, 72, 0.06);
+    color: var(--ink);
+    position: relative;
+}
+
+/* Уголки-орнаменты — только у самых крупных боковых панелей */
+#panel-online-chart::before,
+#panel-online-chart::after,
+#panel-event-log::before,
+#panel-event-log::after {
+    content: "❧";
+    position: absolute;
+    color: var(--brass);
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0.85;
+    pointer-events: none;
+}
+#panel-online-chart::before { top: 8px; left: 10px; }
+#panel-online-chart::after  { top: 8px; right: 10px; transform: scaleX(-1); }
+#panel-event-log::before    { top: 8px; left: 10px; }
+#panel-event-log::after     { top: 8px; right: 10px; transform: scaleX(-1); }
+
+/* ------------------------------------------------------------
+   5. STAT-CARDS — СТАРЫЕ МОНЕТЫ/МЕДАЛЬОНЫ
+   ------------------------------------------------------------ */
+.stat-card {
+    background: radial-gradient(ellipse at 30% 30%, var(--parch-1) 0%, var(--parch-2) 70%, var(--parch-3) 100%);
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 240, 200, 0.6),
+        inset 0 -1px 2px rgba(110, 88, 40, 0.15),
+        0 3px 8px rgba(42, 26, 15, 0.15);
+}
+.stat-card:hover {
+    border-color: var(--brass-dark);
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 240, 200, 0.6),
+        0 6px 18px rgba(42, 26, 15, 0.22);
+}
+.stat-card .stat-icon {
+    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%, var(--brass-dark));
+    border: 1px solid var(--brass-dark);
+    color: #FFF6D8;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.35),
+        inset 0 -2px 3px rgba(0,0,0,0.25);
+}
+.stat-card .stat-value {
+    font-family: 'IM Fell English', Georgia, serif;
+    color: var(--ink);
+}
+.stat-card .stat-label {
+    color: var(--ink-faded);
+    letter-spacing: .12em;
+}
+.stat-trend.up {
+    background: rgba(82, 104, 42, 0.18);
+    color: #3E5218;
+    border-color: rgba(82, 104, 42, 0.4);
+}
+.stat-trend.down {
+    background: rgba(139, 32, 32, 0.15);
+    color: #6E1010;
+    border-color: rgba(139, 32, 32, 0.35);
+}
+.stat-card.is-live::before {
+    background: var(--olive);
+    box-shadow: 0 0 0 0 rgba(82, 104, 42, 0.6);
+}
+@keyframes panelLivePulse {
+    0%   { box-shadow: 0 0 0 0 rgba(82, 104, 42, 0.6); }
+    100% { box-shadow: 0 0 0 12px rgba(82, 104, 42, 0); }
+}
+
+/* ------------------------------------------------------------
+   6. ТАБЫ — ЯРЛЫКИ В СТАРОМ АРХИВЕ
+   ------------------------------------------------------------ */
+.tabs { gap: 0; }
+.tab {
+    background: var(--parch-3);
+    border: 1px solid var(--brass);
+    border-bottom: none;
+    border-radius: 3px 3px 0 0;
+    color: var(--ink-soft);
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: .04em;
+    padding: 9px 18px;
+    margin-right: -1px;
+    position: relative;
+    top: 1px;
+}
+.tab:hover {
+    background: var(--parch-2);
+    color: var(--ink);
+    border-color: var(--brass-dark);
+}
+.tab.active {
+    background: var(--parch-1);
+    color: var(--ink);
+    border-color: var(--brass-dark);
+    border-bottom: 1px solid var(--parch-1);
+    box-shadow: inset 0 2px 0 var(--brass);
+    font-weight: 400;
+}
+
+/* ------------------------------------------------------------
+   7. ТАБЛИЦА ТОП СТРАН — СТАРЫЙ ГРОССБУХ
+   ------------------------------------------------------------ */
+.table-wrap {
+    border: 1px solid var(--brass-dark);
+    border-radius: 2px;
+    background: var(--parch-1);
+    box-shadow: inset 0 0 20px rgba(168, 138, 72, 0.08);
+}
+#countries-table thead {
+    background: linear-gradient(180deg, var(--parch-3), var(--parch-4));
+}
+#countries-table th {
+    color: var(--ink);
+    border-bottom: 2px solid var(--brass-dark);
+    background: transparent;
+    letter-spacing: .1em;
+    font-size: 12px;
+}
+#countries-table tbody tr {
+    border-top: 1px solid rgba(168, 138, 72, 0.35);
+}
+#countries-table tbody tr:hover {
+    background: rgba(201, 168, 96, 0.12);
+}
+#countries-table td {
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+}
+#countries-table td.rank {
+    color: var(--brass-dark);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-weight: 400;
+}
+#countries-table td.name {
+    color: var(--ink);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 15px;
+}
+#countries-table td.money { color: var(--olive); }
+#countries-table td.energy { color: var(--amber); }
+
+#countries-table tbody tr.top-1 td.rank { color: #B8924A; text-shadow: 0 0 8px rgba(184, 146, 74, 0.5); }
+#countries-table tbody tr.top-2 td.rank { color: #7A7A7A; }
+#countries-table tbody tr.top-3 td.rank { color: #A86820; }
+
+.country-dot {
+    border-radius: 2px !important;
+    box-shadow: 0 0 0 1px rgba(42, 26, 15, 0.4);
+    vertical-align: middle;
+}
+
+.delta-badge { font-family: 'IM Fell English', Georgia, serif; }
+.delta-badge.up   { background: rgba(82, 104, 42, 0.18); color: #3E5218; }
+.delta-badge.down { background: rgba(139, 32, 32, 0.15); color: #6E1010; }
+.delta-badge.flat { background: rgba(139, 117, 88, 0.15); color: var(--ink-faded); }
+
+.cell-owner-img {
+    border: 1px solid var(--brass-dark);
+    border-radius: 1px;
+}
+.cell-owner-name {
+    font-family: 'EB Garamond', Georgia, serif;
+    color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------
+   8. ЛЕНТА СОБЫТИЙ
+   ------------------------------------------------------------ */
+.event-log-list::-webkit-scrollbar-thumb { background: var(--brass); }
+
+.event-log-item {
+    background: rgba(201, 168, 96, 0.08);
+    border-left: 3px solid var(--brass);
+    border-radius: 2px;
+    border-top: 1px solid rgba(168, 138, 72, 0.2);
+    border-right: 1px solid rgba(168, 138, 72, 0.2);
+    border-bottom: 1px solid rgba(168, 138, 72, 0.2);
+}
+.event-log-item:hover { background: rgba(201, 168, 96, 0.16); }
+.event-log-icon {
+    background: rgba(42, 26, 15, 0.08);
+    border: 1px solid rgba(168, 138, 72, 0.35);
+}
+.event-log-msg {
+    color: var(--ink-soft);
+    font-family: 'EB Garamond', Georgia, serif;
+}
+.event-log-msg .country-link { color: var(--wax); }
+.event-log-msg .country-link:hover { color: var(--wax-light); }
+.event-log-time {
+    color: var(--ink-pale);
+    font-style: italic;
+}
+
+.event-type-war_declared,
+.event-type-war_ended,
+.event-type-capitulation,
+.event-type-capital_captured { border-left-color: var(--wax); }
+.event-type-country_created,
+.event-type-pact_signed { border-left-color: var(--olive); }
+.event-type-capital_set { border-left-color: var(--brass); }
+.event-type-jackpot_won,
+.event-type-big_win { border-left-color: #A83060; }
+
+.event-new-badge {
+    background: rgba(168, 138, 72, 0.28);
+    color: #5E4224;
+    border: 1px solid var(--brass);
+    font-family: 'IM Fell English', Georgia, serif;
+}
+
+/* ------------------------------------------------------------
+   9. ГРАФИК ОНЛАЙНА
+   ------------------------------------------------------------ */
+.sparkline-wrap {
+    background: var(--parch-1);
+    border: 1px solid var(--brass);
+    box-shadow: inset 0 0 20px rgba(168, 138, 72, 0.08);
+}
+.chart-stat {
+    background: rgba(201, 168, 96, 0.12);
+    border: 1px solid rgba(168, 138, 72, 0.35);
+    color: var(--ink-soft);
+    border-radius: 2px;
+}
+.chart-stat b { color: var(--wax); }
+
+/* ------------------------------------------------------------
+   10. КАРТОЧКИ ИГРОКОВ
+   ------------------------------------------------------------ */
+.player-card {
+    background: rgba(201, 168, 96, 0.10);
+    border: 1px solid rgba(168, 138, 72, 0.4);
+    border-radius: 3px;
+}
+.player-card:hover {
+    border-color: var(--brass-dark);
+    background: rgba(201, 168, 96, 0.18);
+    transform: translateY(-2px);
+}
+.player-card-avatar img {
+    border: 2px solid var(--brass);
+    border-radius: 2px;
+}
+.player-card-name {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 16px;
+    color: var(--ink);
+    font-weight: 400;
+}
+.player-card-country .country-tag { font-weight: 500; }
+.player-card-country .no-country { color: var(--ink-pale); font-style: italic; }
+.player-card-meta span {
+    background: rgba(42, 26, 15, 0.08);
+    border: 1px solid rgba(168, 138, 72, 0.25);
+    color: var(--ink-faded);
+    border-radius: 2px;
+}
+.player-card-meta .money { color: var(--olive); background: rgba(82, 104, 42, 0.10); }
+
+.player-card-badge.leader {
+    background: rgba(201, 168, 96, 0.35);
+    color: #4A3520;
+    border: 1px solid var(--brass);
+}
+.player-card-badge.co-ruler {
+    background: rgba(139, 32, 32, 0.15);
+    color: var(--wax);
+    border: 1px solid rgba(139, 32, 32, 0.35);
+}
+
+/* ------------------------------------------------------------
+   11. КНОПКИ / ПОЛЯ ВВОДА
+   ------------------------------------------------------------ */
+.btn,
+.map-btn,
+.player-modal-btn,
+.btn-badge,
+.icon-btn {
+    background: linear-gradient(180deg, var(--parch-1) 0%, var(--parch-3) 100%);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+    border-radius: 3px;
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: .03em;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 240, 200, 0.6),
+        0 1px 2px rgba(42, 26, 15, 0.12);
+}
+.btn:hover,
+.map-btn:hover,
+.player-modal-btn:hover,
+.icon-btn:hover {
+    background: linear-gradient(180deg, var(--parch-2) 0%, var(--brass-light) 100%);
+    border-color: var(--brass-dark);
+    color: var(--ink);
+}
+
+.map-btn.btn-capital {
+    background: linear-gradient(180deg, var(--wax-light) 0%, var(--wax) 100%);
+    border-color: var(--wax);
+    color: #F4EBD3;
+}
+.map-btn.btn-capital:hover {
+    background: linear-gradient(180deg, #B03A3A 0%, #6E1818 100%);
+    color: #F4EBD3;
+}
+
+.cmd-search,
+input[type="text"],
+input[type="number"],
+input[type="search"],
+textarea,
+select {
+    background: var(--parch-1);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+    border-radius: 2px;
+    font-family: 'EB Garamond', Georgia, serif;
+    box-shadow: inset 0 1px 2px rgba(168, 138, 72, 0.15);
+}
+.cmd-search::placeholder,
+input::placeholder {
+    color: var(--ink-pale);
+    font-style: italic;
+}
+.cmd-search:focus,
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--brass-dark);
+    box-shadow: 0 0 0 2px rgba(201, 168, 96, 0.35);
+}
+
+/* ------------------------------------------------------------
+   12. МОДАЛКА — СТРАНИЦА ИЗ СТАРОЙ КНИГИ
+   ------------------------------------------------------------ */
+.modal-overlay { background: rgba(42, 26, 15, 0.78); }
+.modal-content {
+    background-color: var(--parch-1);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='mp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23mp)'/></svg>");
+    border: 2px solid var(--brass);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 4px var(--parch-2),
+        0 0 0 5px var(--brass-dark),
+        0 12px 48px rgba(0,0,0,0.55);
+    color: var(--ink);
+}
+.modal-close {
+    background: var(--parch-3);
+    border: 1px solid var(--brass);
+    color: var(--ink-soft);
+}
+.modal-close:hover {
+    background: var(--wax);
+    color: #F4EBD3;
+    border-color: var(--wax);
+}
+
+.player-modal-header {
+    border-bottom: 1px solid var(--brass);
+}
+.player-modal-header h2 {
+    font-family: 'IM Fell English', Georgia, serif;
+    color: var(--ink);
+    background: none;
+    -webkit-text-fill-color: var(--ink);
+    font-size: 30px;
+    font-weight: 400;
+    padding-bottom: 8px;
+}
+.player-modal-status.online {
+    background: rgba(82, 104, 42, 0.15);
+    color: var(--olive);
+    border: 1px solid rgba(82, 104, 42, 0.4);
+    font-family: 'IM Fell English', Georgia, serif;
+}
+.player-modal-status.offline {
+    background: rgba(139, 117, 88, 0.15);
+    color: var(--ink-faded);
+    border: 1px solid var(--brass);
+    font-family: 'IM Fell English', Georgia, serif;
+}
+
+.player-viewer-wrap {
+    background:
+        radial-gradient(circle at 50% 35%, rgba(201, 168, 96, 0.22), transparent 65%),
+        linear-gradient(180deg, var(--parch-2) 0%, var(--parch-3) 100%);
+    border: 1px solid var(--brass);
+    box-shadow: inset 0 0 30px rgba(168, 138, 72, 0.15);
+}
+.player-viewer-hint { color: var(--ink-faded); font-style: italic; }
+.player-viewer-controls { gap: 8px; }
+
+.player-panel {
+    background: rgba(201, 168, 96, 0.10);
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+}
+.player-panel-title {
+    background: var(--parch-1);
+    color: var(--wax);
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: .08em;
+    border-bottom: 1px solid var(--brass);
+    padding-bottom: 6px;
+}
+.player-panel-row {
+    border-bottom: 1px dashed rgba(168, 138, 72, 0.35);
+}
+.player-panel-row:last-child { border-bottom: none; }
+.player-panel-row:hover { background: rgba(201, 168, 96, 0.08); }
+.player-panel-row .row-label {
+    color: var(--ink-faded);
+    font-style: italic;
+    font-family: 'EB Garamond', Georgia, serif;
+}
+.player-panel-row .row-value {
+    font-family: 'EB Garamond', Georgia, serif;
+    color: var(--ink);
+}
+.player-panel-row .row-value.success { color: var(--olive); }
+.player-panel-row .row-value.warning { color: var(--amber); }
+.player-panel-row .row-value.danger  { color: var(--wax); }
+.player-panel-row .row-value.accent  { color: var(--wax); }
+
+.player-copy-btn {
+    color: var(--ink-faded);
+    border: 1px solid transparent;
+}
+.player-copy-btn:hover {
+    color: var(--wax);
+    background: rgba(201, 168, 96, 0.20);
+    border-color: var(--brass);
+}
+.player-modal-actions { border-top: 1px solid var(--brass); }
+
+/* ------------------------------------------------------------
+   13. ГАЙД — СТРАНИЦА ИЗ КНИГИ
+   ------------------------------------------------------------ */
+.guide-nav {
+    background: var(--parch-1);
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+    box-shadow: inset 0 0 30px rgba(168, 138, 72, 0.08);
+}
+.guide-nav-title {
+    color: var(--ink-faded);
+    border-bottom: 1px solid var(--brass);
+    letter-spacing: .1em;
+}
+.guide-nav a {
+    color: var(--ink-soft);
+    font-family: 'EB Garamond', Georgia, serif;
+}
+.guide-nav a:hover {
+    background: rgba(201, 168, 96, 0.15);
+    color: var(--ink);
+}
+.guide-nav a.active {
+    background: rgba(201, 168, 96, 0.25);
+    color: var(--wax);
+    font-weight: 500;
+}
+
+.guide-section {
+    background-color: var(--parch-1);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='gp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23gp)'/></svg>");
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 3px var(--parch-1),
+        0 0 0 4px var(--brass);
+    color: var(--ink);
+}
+.guide-section h2 {
+    color: var(--ink);
+    border-bottom: 1px solid var(--brass);
+    padding-bottom: 12px;
+}
+.guide-section h3 { color: var(--wax); }
+.guide-section b  { color: var(--ink); }
+.guide-section code {
+    background: var(--parch-2);
+    border: 1px solid var(--brass);
+    color: var(--wax);
+    font-family: 'Courier New', 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+}
+.guide-section code[data-copy]:hover {
+    background: var(--wax);
+    border-color: var(--wax);
+    color: #F4EBD3;
+}
+.guide-note {
+    background: rgba(201, 168, 96, 0.15);
+    border-left: 3px solid var(--brass);
+    color: var(--ink-soft);
+    font-style: italic;
+}
+.guide-note b { color: var(--wax); }
+
+.cmd-row {
+    background: rgba(201, 168, 96, 0.10);
+    border-left: 3px solid var(--brass);
+    border-radius: 2px;
+    color: var(--ink);
+}
+.cmd-row:hover { background: rgba(201, 168, 96, 0.20); }
+.cmd-row span  { color: var(--ink-faded); }
+
+.faq-item {
+    background: rgba(201, 168, 96, 0.08);
+    border: 1px solid var(--brass);
+    border-radius: 2px;
+}
+.faq-item[open] { border-color: var(--brass-dark); }
+.faq-item summary { color: var(--ink); font-family: 'IM Fell English', Georgia, serif; }
+.faq-item summary::before { color: var(--wax); }
+.faq-item p,
+.faq-item ul { color: var(--ink-soft); }
+
+/* ------------------------------------------------------------
+   14. КОМАНДЫ (вкладка)
+   ------------------------------------------------------------ */
+.command-item {
+    background: rgba(201, 168, 96, 0.08);
+    border: 1px solid var(--brass);
+    border-radius: 2px;
+}
+.command-item:hover {
+    border-color: var(--brass-dark);
+    background: rgba(201, 168, 96, 0.16);
+}
+.command-item .cmd-desc { color: var(--ink-soft); }
+.command-item .cmd-plugin {
+    color: var(--wax);
+    font-family: 'IM Fell English', Georgia, serif;
+}
+.command-item .cmd-name code { color: var(--wax); }
+
+/* ------------------------------------------------------------
+   15. БОНУСЫ
+   ------------------------------------------------------------ */
+.jackpot-value {
+    background: linear-gradient(180deg, #E0B860 0%, #A87820 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'IM Fell English', Georgia, serif;
+}
+.jackpot-hint { color: var(--ink-faded); font-style: italic; }
+
+.event-item,
+.war-item,
+.bounty-item {
+    background: rgba(201, 168, 96, 0.08);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+}
+.event-item .name,
+.war-item .name,
+.bounty-item .name {
+    color: var(--ink);
+    font-family: 'IM Fell English', Georgia, serif;
+}
+.event-item .desc,
+.war-item .desc,
+.bounty-item .desc {
+    color: var(--ink-faded);
+    font-style: italic;
+}
+
+/* ------------------------------------------------------------
+   16. TOAST
+   ------------------------------------------------------------ */
+.toast {
+    background: var(--wax);
+    color: #F4EBD3;
+    font-family: 'IM Fell English', Georgia, serif;
+    box-shadow: 0 6px 20px rgba(42, 26, 15, 0.4);
+    border: 1px solid var(--brass);
+}
+
+/* ------------------------------------------------------------
+   17. КАРТА
+   ------------------------------------------------------------ */
+.map-viewport {
+    background: #2E2010;
+    border: 2px solid var(--brass);
+    box-shadow:
+        0 0 0 3px var(--parch-1),
+        0 0 0 4px var(--brass-dark),
+        inset 0 0 40px rgba(0,0,0,0.5),
+        0 4px 12px rgba(42, 26, 15, 0.25);
+}
+
+.map-layers-panel {
+    background: rgba(244, 235, 211, 0.96);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+    box-shadow: 0 4px 12px rgba(42, 26, 15, 0.25);
+}
+.map-layers-header { border-bottom: 1px solid var(--brass); }
+.map-layers-title { color: var(--ink-faded); }
+.map-layers-close { color: var(--ink-faded); }
+.map-layers-close:hover { color: var(--wax); }
+.layer-toggle { color: var(--ink-soft); }
+.layer-toggle input { accent-color: var(--wax); }
+.map-layers-timeline {
+    color: var(--ink-faded);
+    border-top: 1px solid var(--brass);
+}
+.map-layers-restore {
+    background: rgba(244, 235, 211, 0.96);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+}
+.map-layers-restore:hover {
+    background: var(--brass);
+    color: var(--ink);
+}
+
+.legend-item {
+    background: rgba(201, 168, 96, 0.12);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+    font-family: 'EB Garamond', Georgia, serif;
+}
+.legend-item:hover { border-color: var(--brass-dark); }
+.legend-item.highlight {
+    border-color: var(--wax);
+    background: rgba(139, 32, 32, 0.10);
+}
+
+.map-fullscreen-hint {
+    background: rgba(244, 235, 211, 0.92);
+    border: 1px solid var(--brass);
+    color: var(--ink-soft);
+}
+
+.map-symbol-legend {
+    background: rgba(201, 168, 96, 0.10);
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+}
+.map-symbol-legend-header { background: rgba(168, 138, 72, 0.12); }
+.map-symbol-legend-header:hover { background: rgba(168, 138, 72, 0.22); }
+.map-symbol-legend-title { color: var(--ink); }
+.map-symbol-legend-hint  { color: var(--ink-faded); }
+.map-symbol-legend-toggle { color: var(--ink-faded); }
+.msl-item { background: rgba(244, 235, 211, 0.55); }
+.msl-item:hover { background: rgba(244, 235, 211, 0.85); }
+.msl-label { color: var(--ink); }
+.msl-desc  { color: var(--ink-faded); }
+
+#country-details {
+    background:
+        linear-gradient(135deg, rgba(201, 168, 96, 0.15) 0%, rgba(168, 138, 72, 0.15) 100%),
+        var(--parch-1);
+    border-color: var(--brass);
+}
+.detail-item {
+    background: var(--parch-1);
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+}
+.detail-item .label {
+    color: var(--ink-faded);
+    font-style: italic;
+    font-family: 'EB Garamond', Georgia, serif;
+}
+.detail-item .value {
+    color: var(--ink);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-weight: 400;
+}
+.detail-item .value.success { color: var(--olive); }
+.detail-item .value.warning { color: var(--amber); }
+.detail-item .value.danger  { color: var(--wax); }
+.detail-item .value.accent  { color: var(--wax); }
+
+/* ------------------------------------------------------------
+   18. FOOTER
+   ------------------------------------------------------------ */
+footer {
+    border-top: 1px solid var(--brass);
+    color: var(--ink-faded);
+    font-style: italic;
+}
+footer strong { color: var(--wax); }
+footer .small  { color: var(--ink-pale); }
+
+/* ------------------------------------------------------------
+   19. MISC — мелкие элементы
+   ------------------------------------------------------------ */
+.empty-hint {
+    color: var(--ink-faded);
+    font-style: italic;
+    font-family: 'EB Garamond', Georgia, serif;
+}
+td.loading {
+    color: var(--ink-faded);
+    font-style: italic;
+}
+.spinner {
+    border: 3px solid rgba(168, 138, 72, 0.25);
+    border-top-color: var(--wax);
+}
+.country-tag { font-weight: 500; }
+.no-country  { color: var(--ink-pale); font-style: italic; }
+
+.panel-skeleton-block {
+    background: linear-gradient(90deg,
+        rgba(168, 138, 72, 0.06) 0%,
+        rgba(168, 138, 72, 0.22) 50%,
+        rgba(168, 138, 72, 0.06) 100%);
+}
+
+/* ------------------------------------------------------------
+   20. RIPPLE — восковой оттиск
+   ------------------------------------------------------------ */
+.panel-ripple { background: rgba(139, 32, 32, 0.35); }
+
+/* ------------------------------------------------------------
+   21. АНИМАЦИИ — ПОД ТЁПЛУЮ ПАЛИТРУ
+   ------------------------------------------------------------ */
+
+/* Shine карточек — теперь янтарный */
+.stat-card::after,
+.player-card::after {
+    background: linear-gradient(105deg,
+        transparent 40%,
+        rgba(201, 168, 96, 0.22) 50%,
+        transparent 60%) !important;
+    background-size: 200% 100% !important;
+    background-position: -150% 0 !important;
+}
+
+/* Flash new — янтарный */
+.event-log-item.flash-new {
+    animation: antiqueEventFlash 1.8s cubic-bezier(.2, 1, .3, 1);
+}
+@keyframes antiqueEventFlash {
+    0%   { background: rgba(201, 168, 96, 0.38); box-shadow: 0 0 22px rgba(201, 168, 96, 0.55); }
+    100% { background: rgba(201, 168, 96, 0.10); box-shadow: none; }
+}
+.event-log-item.flash-new::after {
+    background: radial-gradient(circle at 8% 50%, rgba(201, 168, 96, 0.5) 0%, transparent 55%);
+}
+.event-log-item.flash-new::before {
+    background: var(--brass-light);
+    box-shadow: 0 0 8px var(--brass);
+}
+
+.stat-card.stat-flash {
+    animation: antiqueStatFlash 1.4s cubic-bezier(.2, 1, .3, 1);
+}
+@keyframes antiqueStatFlash {
+    0%   { border-color: var(--brass-light); box-shadow: 0 0 24px rgba(201, 168, 96, 0.55); }
+    100% { border-color: var(--brass); box-shadow: 0 0 0 3px var(--parch-1), 0 0 0 4px var(--brass); }
+}
+
+tr.row-flash-new td {
+    animation: antiqueRowFlash 1.8s cubic-bezier(.2, 1, .3, 1);
+}
+@keyframes antiqueRowFlash {
+    0%   { background-color: rgba(201, 168, 96, 0.30); }
+    100% { background-color: transparent; }
+}
+
+@keyframes panelNumPop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.22); color: var(--wax); }
+    100% { transform: scale(1); }
+}
+
+.badge.pulse-war {
+    background: rgba(139, 32, 32, 0.20);
+    border-color: rgba(139, 32, 32, 0.55);
+    color: #FCA5A5;
+    animation: antiquePulseWar 1.4s ease-in-out infinite;
+}
+@keyframes antiquePulseWar {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139, 32, 32, 0.55); }
+    50%      { box-shadow: 0 0 18px 3px rgba(139, 32, 32, 0.35); }
+}
+.badge.pulse-live {
+    background: rgba(82, 104, 42, 0.20);
+    border-color: rgba(82, 104, 42, 0.5);
+    color: #A3C878;
+    animation: antiquePulseLive 2s ease-in-out infinite;
+}
+@keyframes antiquePulseLive {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(82, 104, 42, 0.45); }
+    50%      { box-shadow: 0 0 14px 2px rgba(82, 104, 42, 0.28); }
+}
+
+/* Skeleton shimmer — тёплый */
+@keyframes panelSkelShimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ------------------------------------------------------------
+   22. МОБИЛЬНАЯ АДАПТАЦИЯ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    header {
+        background:
+            linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 100%),
+            linear-gradient(180deg, #7A5A34 0%, #5E4224 100%);
+    }
+    .bottom-nav {
+        background: linear-gradient(180deg, #5E4224 0%, #3E2C18 100%);
+        border-top: 2px solid var(--brass);
+        backdrop-filter: none;
+    }
+    .bottom-nav .bn-btn { color: rgba(244, 231, 211, 0.65); }
+    .bottom-nav .bn-btn.active {
+        color: #F4D990;
+        background: rgba(201, 168, 96, 0.15);
+    }
+    .bottom-nav .bn-btn.active::after {
+        background: var(--brass-light);
+        box-shadow: 0 0 10px var(--brass);
+    }
+    .ptr-indicator {
+        background: rgba(244, 235, 211, 0.96);
+        border: 1px solid var(--brass);
+        color: var(--wax);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::after { display: none; }
+}
+
+/* ------------------------------------------------------------
+   23. СКРЫТИЕ ШИММЕР-ГРАДИЕНТА НА ЗАГОЛОВКЕ (он теперь золотой)
+   ------------------------------------------------------------ */
+#server-name::after { content: none; }
