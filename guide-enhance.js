@@ -1,23 +1,21 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · GUIDE-ENHANCE.JS v1.1
+   SOVEREIGNTY PANEL · GUIDE-ENHANCE.JS v1.2
    ============================================================
    Улучшения гайда:
      - Поиск по секциям (input в guide-nav).
      - Горизонтальный скролл навигации на мобилке.
      - Кнопка «Наверх» в правом углу.
+     - Динамическая высота sticky-навигации (--guide-header-offset).
 
-   ФИКС v1.1 (12.10.2026):
-     В app.js функция initGuideNav() УДАЛЯЕТ все <a> из guide-nav
-     и создаёт новые — они добавляются напрямую в nav, МИМО
-     нашего .guide-nav-links-wrap. Из-за этого:
-       1) ссылки оказывались вне горизонтального скролла на мобилке,
-       2) порядок нарушался (поиск, потом ссылки стопкой),
-       3) стили flex-column ломали вид ссылок.
-
-     Теперь ensureLayout() вызывается на каждое изменение nav
-     через MutationObserver: он ГАРАНТИРОВАННО возвращает все
-     прямые <a> внутрь wrap и держит поиск на своём месте.
-     Операция идемпотентна — повторный вызов ничего не ломает.
+   ФИКС v1.2 (12.10.2026):
+     1) На мобилке страница гайда уходила за правый край — нижний
+        nav-bar уезжал. Причина: горизонтальный overflow от grid/flex
+        элементов. CSS-фикс применён в guide-enhance.css (min-width:0
+        + overflow-x:hidden), а JS теперь ещё измеряет высоту <header>
+        и выставляет --guide-header-offset, чтобы sticky-nav стоял
+        ровно под шапкой.
+     2) ensureLayout() вызывается на каждое изменение nav (app.js:initGuideNav
+        пересоздаёт ссылки — их надо возвращать в wrap).
    ============================================================ */
 (function () {
     'use strict';
@@ -36,13 +34,30 @@
     }
 
     // ============================================================
-    // 2. Layout — гарантированная структура nav
+    // 2. Динамическая высота шапки
+    // ============================================================
+    function updateHeaderOffset() {
+        try {
+            var header = document.querySelector('header');
+            if (!header) return;
+            var h = header.getBoundingClientRect().height;
+            if (h > 0) {
+                document.documentElement.style.setProperty(
+                    '--guide-header-offset',
+                    Math.ceil(h) + 'px'
+                );
+            }
+        } catch (e) {}
+    }
+
+    // ============================================================
+    // 3. Layout — гарантированная структура nav
     // ============================================================
     function ensureLayout() {
         var nav = document.getElementById('guide-nav');
         if (!nav) return;
 
-        // --- 2.1 Search-wrap всегда после title (или первым, если title нет) ---
+        // --- 3.1 Search-wrap всегда после title (или первым) ---
         var title = nav.querySelector('.guide-nav-title');
         var search = nav.querySelector('.guide-search-wrap');
         if (!search) {
@@ -59,7 +74,7 @@
             nav.insertBefore(search, title.nextSibling);
         }
 
-        // --- 2.2 Wrap существует ---
+        // --- 3.2 Wrap существует ---
         var wrap = nav.querySelector('.guide-nav-links-wrap');
         if (!wrap) {
             wrap = document.createElement('div');
@@ -67,7 +82,7 @@
             nav.appendChild(wrap);
         }
 
-        // --- 2.3 Все ПРЯМЫЕ дети-<a> переехали в wrap ---
+        // --- 3.3 Все ПРЯМЫЕ дети-<a> переехали в wrap ---
         var directLinks = [];
         for (var i = 0; i < nav.children.length; i++) {
             var child = nav.children[i];
@@ -77,13 +92,12 @@
             directLinks.forEach(function (a) { wrap.appendChild(a); });
         }
 
-        // --- 2.4 Search должен быть ПЕРЕД wrap-ом ---
+        // --- 3.4 Search должен быть ПЕРЕД wrap-ом ---
         if (search.nextSibling && search.nextSibling !== wrap) {
-            // Не критично, но желательно чтобы wrap шёл сразу за search-ом
             nav.insertBefore(wrap, search.nextSibling);
         }
 
-        // --- 2.5 Восстанавливаем поиск, если он был активен ---
+        // --- 3.5 Восстанавливаем поиск ---
         var input = nav.querySelector('#guide-search');
         if (input && !input.value && lastSearchQuery) {
             input.value = lastSearchQuery;
@@ -100,7 +114,7 @@
     }
 
     // ============================================================
-    // 3. Построение блока поиска
+    // 4. Построение блока поиска
     // ============================================================
     function buildSearchWrap() {
         var wrap = document.createElement('div');
@@ -138,7 +152,7 @@
     }
 
     // ============================================================
-    // 4. Применение поиска
+    // 5. Поиск
     // ============================================================
     function applySearch(query) {
         var sections = document.querySelectorAll('#tab-guide .guide-section');
@@ -154,10 +168,8 @@
                 visible++;
                 return;
             }
-
             var text = (section.textContent || '').toLowerCase();
             var hit = text.indexOf(q) !== -1;
-
             if (hit) {
                 section.classList.remove('guide-hidden');
                 visible++;
@@ -178,13 +190,9 @@
         }
     }
 
-    // ============================================================
-    // 5. Подсветка совпадений
-    // ============================================================
     function highlight(section, query) {
         removeHits(section);
         if (!query || query.length < 2) return;
-
         var safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         var re = new RegExp('(' + safeQuery + ')', 'gi');
 
@@ -199,7 +207,6 @@
                 return NodeFilter.FILTER_ACCEPT;
             }
         });
-
         var nodes = [];
         var n;
         while ((n = walker.nextNode())) {
@@ -273,28 +280,42 @@
     }
 
     // ============================================================
-    // 7. Наблюдение за nav (главный фикс v1.1)
+    // 7. Наблюдение
     // ============================================================
     function watchNav() {
         var nav = document.getElementById('guide-nav');
         if (!nav) return;
-
-        var mo = new MutationObserver(function () {
-            scheduleLayout();
-        });
+        var mo = new MutationObserver(function () { scheduleLayout(); });
         mo.observe(nav, { childList: true, subtree: false });
+    }
+
+    function watchGuide() {
+        var content = document.getElementById('guide-content');
+        if (!content) return;
+        var mo = new MutationObserver(function () { scheduleLayout(); });
+        mo.observe(content, { childList: true, subtree: false });
     }
 
     // ============================================================
     // 8. Boot
     // ============================================================
     function boot() {
+        updateHeaderOffset();
         installTopButton();
         ensureLayout();
         watchNav();
+        watchGuide();
 
-        // Регулярные ретраи — на случай поздней загрузки гайда
-        // через fetch в app.js:loadGuide()
+        // Слушаем resize — высота шапки меняется при повороте экрана
+        window.addEventListener('resize', function () {
+            updateHeaderOffset();
+        });
+
+        // Ещё раз — если шрифты догрузились и шапка стала выше
+        setTimeout(updateHeaderOffset, 800);
+        setTimeout(updateHeaderOffset, 2000);
+
+        // Регулярные ретраи на случай поздней загрузки guide.html
         var tries = 0;
         var iv = setInterval(function () {
             tries++;
@@ -302,20 +323,24 @@
             if (tries > 40) clearInterval(iv);
         }, 400);
 
-        // И один поздний — если пользователь откроет вкладку гайда не сразу
-        setTimeout(ensureLayout, 3000);
-        setTimeout(ensureLayout, 8000);
+        setTimeout(function () { ensureLayout(); updateHeaderOffset(); }, 3000);
+        setTimeout(function () { ensureLayout(); updateHeaderOffset(); }, 8000);
 
-        // Также при переключении на вкладку «Гайд»
         var guideBtn = document.querySelector('.main-nav .nav-btn[data-tab="guide"]');
         if (guideBtn) {
             guideBtn.addEventListener('click', function () {
-                setTimeout(ensureLayout, 100);
-                setTimeout(ensureLayout, 500);
+                setTimeout(function () {
+                    ensureLayout();
+                    updateHeaderOffset();
+                }, 100);
+                setTimeout(function () {
+                    ensureLayout();
+                    updateHeaderOffset();
+                }, 500);
             });
         }
 
-        console.log('[GuideEnhance] v1.1 ready');
+        console.log('[GuideEnhance] v1.2 ready');
     }
 
     if (document.readyState === 'loading') {
