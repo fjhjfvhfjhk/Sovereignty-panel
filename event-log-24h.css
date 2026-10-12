@@ -1,0 +1,53 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · EVENT-LOG-24H.CSS v1.0
+   ============================================================
+   Ссылка «полная летопись» под лентой событий.
+   ============================================================ */
+
+.event-log-more {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(168, 138, 72, 0.35);
+    text-align: center;
+}
+
+.event-log-more a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(201, 168, 96, 0.14);
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 2px;
+    color: var(--ink, #2A1A0F);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    transition: background .15s, border-color .15s, transform .12s;
+}
+.event-log-more a:hover {
+    background: rgba(201, 168, 96, 0.25);
+    border-color: var(--brass-dark, #6E5828);
+    transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .event-log-more {
+    border-top-color: rgba(201, 168, 96, 0.25);
+}
+:root[data-theme="dark"] .event-log-more a {
+    background: rgba(201, 168, 96, 0.08);
+    border-color: var(--brass);
+    color: var(--ink);
+}
+:root[data-theme="dark"] .event-log-more a:hover {
+    background: rgba(201, 168, 96, 0.18);
+    border-color: var(--brass-light);
+}
+
+.event-log-list .event-log-empty small {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    font-style: italic;
+}

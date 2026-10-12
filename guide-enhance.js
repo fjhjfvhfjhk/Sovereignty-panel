@@ -1,44 +1,108 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · GUIDE-ENHANCE.JS v1.0
+   SOVEREIGNTY PANEL · GUIDE-ENHANCE.JS v1.1
    ============================================================
    Улучшения гайда:
      - Поиск по секциям (input в guide-nav).
-     - Обёртка ссылок навигации для sticky-навигации на мобилке.
+     - Горизонтальный скролл навигации на мобилке.
      - Кнопка «Наверх» в правом углу.
 
-   ПОДКЛЮЧЕНИЕ: последним <script> в index.html.
+   ФИКС v1.1 (12.10.2026):
+     В app.js функция initGuideNav() УДАЛЯЕТ все <a> из guide-nav
+     и создаёт новые — они добавляются напрямую в nav, МИМО
+     нашего .guide-nav-links-wrap. Из-за этого:
+       1) ссылки оказывались вне горизонтального скролла на мобилке,
+       2) порядок нарушался (поиск, потом ссылки стопкой),
+       3) стили flex-column ломали вид ссылок.
+
+     Теперь ensureLayout() вызывается на каждое изменение nav
+     через MutationObserver: он ГАРАНТИРОВАННО возвращает все
+     прямые <a> внутрь wrap и держит поиск на своём месте.
+     Операция идемпотентна — повторный вызов ничего не ломает.
    ============================================================ */
 (function () {
     'use strict';
 
     var lastSearchQuery = '';
+    var layoutScheduled = false;
 
     // ============================================================
-    // 1. Обёртка навигационных ссылок
+    // 1. Утилиты
     // ============================================================
-    function wrapNavLinks() {
-        var nav = document.getElementById('guide-nav');
-        if (!nav) return false;
-        if (nav.querySelector('.guide-nav-links-wrap')) return true;
-
-        var links = Array.from(nav.querySelectorAll('a'));
-        if (links.length === 0) return false;
-
-        var wrap = document.createElement('div');
-        wrap.className = 'guide-nav-links-wrap';
-        links.forEach(function (a) { wrap.appendChild(a); });
-        nav.appendChild(wrap);
-        return true;
+    function escapeHtml(s) {
+        if (s == null) return '';
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
     }
 
     // ============================================================
-    // 2. Поиск по гайду
+    // 2. Layout — гарантированная структура nav
     // ============================================================
-    function installSearch() {
+    function ensureLayout() {
         var nav = document.getElementById('guide-nav');
         if (!nav) return;
-        if (nav.querySelector('.guide-search-wrap')) return;
 
+        // --- 2.1 Search-wrap всегда после title (или первым, если title нет) ---
+        var title = nav.querySelector('.guide-nav-title');
+        var search = nav.querySelector('.guide-search-wrap');
+        if (!search) {
+            search = buildSearchWrap();
+            if (title && title.parentNode === nav && title.nextSibling) {
+                nav.insertBefore(search, title.nextSibling);
+            } else if (title && title.parentNode === nav) {
+                nav.appendChild(search);
+            } else {
+                nav.insertBefore(search, nav.firstChild);
+            }
+            bindSearch(search);
+        } else if (title && title.nextSibling !== search) {
+            nav.insertBefore(search, title.nextSibling);
+        }
+
+        // --- 2.2 Wrap существует ---
+        var wrap = nav.querySelector('.guide-nav-links-wrap');
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.className = 'guide-nav-links-wrap';
+            nav.appendChild(wrap);
+        }
+
+        // --- 2.3 Все ПРЯМЫЕ дети-<a> переехали в wrap ---
+        var directLinks = [];
+        for (var i = 0; i < nav.children.length; i++) {
+            var child = nav.children[i];
+            if (child.tagName === 'A') directLinks.push(child);
+        }
+        if (directLinks.length > 0) {
+            directLinks.forEach(function (a) { wrap.appendChild(a); });
+        }
+
+        // --- 2.4 Search должен быть ПЕРЕД wrap-ом ---
+        if (search.nextSibling && search.nextSibling !== wrap) {
+            // Не критично, но желательно чтобы wrap шёл сразу за search-ом
+            nav.insertBefore(wrap, search.nextSibling);
+        }
+
+        // --- 2.5 Восстанавливаем поиск, если он был активен ---
+        var input = nav.querySelector('#guide-search');
+        if (input && !input.value && lastSearchQuery) {
+            input.value = lastSearchQuery;
+        }
+    }
+
+    function scheduleLayout() {
+        if (layoutScheduled) return;
+        layoutScheduled = true;
+        requestAnimationFrame(function () {
+            layoutScheduled = false;
+            ensureLayout();
+        });
+    }
+
+    // ============================================================
+    // 3. Построение блока поиска
+    // ============================================================
+    function buildSearchWrap() {
         var wrap = document.createElement('div');
         wrap.className = 'guide-search-wrap';
         wrap.innerHTML =
@@ -47,38 +111,34 @@
             '<button class="guide-search-clear" id="guide-search-clear" ' +
                     'type="button" aria-label="Очистить">✕</button>' +
             '<span class="guide-search-count" id="guide-search-count"></span>';
+        return wrap;
+    }
 
-        nav.insertBefore(wrap, nav.firstChild);
-
-        var input = document.getElementById('guide-search');
-        var clear = document.getElementById('guide-search-clear');
-        var count = document.getElementById('guide-search-count');
+    function bindSearch(wrap) {
+        var input = wrap.querySelector('#guide-search');
+        var clear = wrap.querySelector('#guide-search-clear');
+        if (!input) return;
 
         input.addEventListener('input', function () {
             var q = input.value.trim();
             lastSearchQuery = q;
-            clear.classList.toggle('visible', q.length > 0);
+            if (clear) clear.classList.toggle('visible', q.length > 0);
             applySearch(q);
         });
 
-        clear.addEventListener('click', function () {
-            input.value = '';
-            lastSearchQuery = '';
-            clear.classList.remove('visible');
-            applySearch('');
-            input.focus();
-        });
-
-        // Восстановить, если был активный поиск
-        if (lastSearchQuery) {
-            input.value = lastSearchQuery;
-            clear.classList.toggle('visible', true);
-            applySearch(lastSearchQuery);
+        if (clear) {
+            clear.addEventListener('click', function () {
+                input.value = '';
+                lastSearchQuery = '';
+                clear.classList.remove('visible');
+                applySearch('');
+                input.focus();
+            });
         }
     }
 
     // ============================================================
-    // 3. Применение поиска
+    // 4. Применение поиска
     // ============================================================
     function applySearch(query) {
         var sections = document.querySelectorAll('#tab-guide .guide-section');
@@ -90,7 +150,6 @@
         sections.forEach(function (section) {
             if (!q) {
                 section.classList.remove('guide-hidden');
-                // Убрать подсветку
                 removeHits(section);
                 visible++;
                 return;
@@ -120,37 +179,40 @@
     }
 
     // ============================================================
-    // 4. Подсветка совпадений
+    // 5. Подсветка совпадений
     // ============================================================
     function highlight(section, query) {
         removeHits(section);
         if (!query || query.length < 2) return;
-        // Простая подсветка через innerHTML: используем regex-экранирование
+
         var safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         var re = new RegExp('(' + safeQuery + ')', 'gi');
-        // Итерируем по текстовым узлам, оборачиваем совпадения в <mark>
+
         var walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT, {
             acceptNode: function (node) {
-                if (node.parentNode.tagName === 'SCRIPT' || node.parentNode.tagName === 'STYLE') {
+                var p = node.parentNode;
+                if (!p) return NodeFilter.FILTER_REJECT;
+                var tag = p.tagName;
+                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'MARK') {
                     return NodeFilter.FILTER_REJECT;
                 }
                 return NodeFilter.FILTER_ACCEPT;
             }
         });
+
         var nodes = [];
         var n;
         while ((n = walker.nextNode())) {
-            if (re.test(n.nodeValue)) {
-                nodes.push(n);
-                re.lastIndex = 0;
-            }
-        }
-        nodes.forEach(function (node) {
-            var frag = document.createDocumentFragment();
-            var str = node.nodeValue;
-            var lastIdx = 0;
             re.lastIndex = 0;
+            if (re.test(n.nodeValue)) nodes.push(n);
+        }
+
+        nodes.forEach(function (node) {
+            var str = node.nodeValue;
+            var frag = document.createDocumentFragment();
+            var lastIdx = 0;
             var m;
+            re.lastIndex = 0;
             while ((m = re.exec(str)) !== null) {
                 if (m.index > lastIdx) {
                     frag.appendChild(document.createTextNode(str.substring(lastIdx, m.index)));
@@ -164,20 +226,23 @@
             if (lastIdx < str.length) {
                 frag.appendChild(document.createTextNode(str.substring(lastIdx)));
             }
-            node.parentNode.replaceChild(frag, node);
+            if (node.parentNode) node.parentNode.replaceChild(frag, node);
         });
     }
 
     function removeHits(section) {
-        section.querySelectorAll('mark.guide-hit').forEach(function (m) {
+        var marks = section.querySelectorAll('mark.guide-hit');
+        if (marks.length === 0) return;
+        marks.forEach(function (m) {
             var parent = m.parentNode;
+            if (!parent) return;
             parent.replaceChild(document.createTextNode(m.textContent), m);
             parent.normalize();
         });
     }
 
     // ============================================================
-    // 5. Кнопка «Наверх»
+    // 6. Кнопка «Наверх»
     // ============================================================
     function installTopButton() {
         if (document.querySelector('.guide-top-btn')) return;
@@ -187,23 +252,16 @@
         btn.setAttribute('aria-label', 'Наверх');
         btn.textContent = '↑';
         btn.addEventListener('click', function () {
-            var tab = document.getElementById('tab-guide');
-            if (tab && tab.classList.contains('active')) {
-                var nav = document.getElementById('guide-nav');
-                if (nav) {
-                    nav.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            }
+            var nav = document.getElementById('guide-nav');
+            if (nav) nav.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            else window.scrollTo({ top: 0, behavior: 'smooth' });
         });
         document.body.appendChild(btn);
 
-        // Показ по скроллу
         var check = function () {
             var tab = document.getElementById('tab-guide');
-            var isGuideActive = tab && tab.classList.contains('active');
-            if (!isGuideActive) {
+            var isActive = tab && tab.classList.contains('active');
+            if (!isActive) {
                 btn.classList.remove('visible');
                 return;
             }
@@ -215,50 +273,49 @@
     }
 
     // ============================================================
-    // 6. Наблюдение за загрузкой гайда
+    // 7. Наблюдение за nav (главный фикс v1.1)
     // ============================================================
-    function watchGuide() {
-        var content = document.getElementById('guide-content');
-        if (!content) return;
-
-        var mo = new MutationObserver(function () {
-            setTimeout(tryEnhance, 50);
-        });
-        mo.observe(content, { childList: true, subtree: false });
-
-        // Плюс периодический ретрай — на случай, если observer не поймает
-        // момент, когда initGuideNav() в app.js построит ссылки.
-        var tries = 0;
-        var iv = setInterval(function () {
-            tries++;
-            tryEnhance();
-            if (tries > 20) clearInterval(iv);
-        }, 300);
-    }
-
-    function tryEnhance() {
-        // Ждём, пока появится хотя бы одна ссылка в навигации
+    function watchNav() {
         var nav = document.getElementById('guide-nav');
         if (!nav) return;
-        var hasLinks = nav.querySelectorAll('a').length > 0;
-        if (!hasLinks) return;
 
-        wrapNavLinks();
-        installSearch();
+        var mo = new MutationObserver(function () {
+            scheduleLayout();
+        });
+        mo.observe(nav, { childList: true, subtree: false });
     }
 
     // ============================================================
-    // 7. Boot
+    // 8. Boot
     // ============================================================
     function boot() {
         installTopButton();
-        watchGuide();
+        ensureLayout();
+        watchNav();
 
-        // Первый прогон через 1 сек — если гайд уже был загружен
-        setTimeout(tryEnhance, 1000);
-        setTimeout(tryEnhance, 2000);
+        // Регулярные ретраи — на случай поздней загрузки гайда
+        // через fetch в app.js:loadGuide()
+        var tries = 0;
+        var iv = setInterval(function () {
+            tries++;
+            ensureLayout();
+            if (tries > 40) clearInterval(iv);
+        }, 400);
 
-        console.log('[GuideEnhance] v1.0 ready');
+        // И один поздний — если пользователь откроет вкладку гайда не сразу
+        setTimeout(ensureLayout, 3000);
+        setTimeout(ensureLayout, 8000);
+
+        // Также при переключении на вкладку «Гайд»
+        var guideBtn = document.querySelector('.main-nav .nav-btn[data-tab="guide"]');
+        if (guideBtn) {
+            guideBtn.addEventListener('click', function () {
+                setTimeout(ensureLayout, 100);
+                setTimeout(ensureLayout, 500);
+            });
+        }
+
+        console.log('[GuideEnhance] v1.1 ready');
     }
 
     if (document.readyState === 'loading') {
