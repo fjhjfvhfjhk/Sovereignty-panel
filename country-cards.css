@@ -1,12 +1,11 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · COUNTRY-CARDS.CSS v1.0
+   SOVEREIGNTY PANEL · COUNTRY-CARDS.CSS v1.1
    ============================================================
-   Топ стран — как карточки (не таблица), в стиле старинного атласа.
-   Таблица #countries-table полностью скрывается на всех разрешениях.
-   Рендер карточек обеспечивает mobile.js → renderCountryCards().
+   Топ стран — карточки (не таблица), в стиле старинного атласа.
 
-   ПОДКЛЮЧЕНИЕ: последним в <head>, после antique-theme.css.
-     <link rel="stylesheet" href="country-cards.css?v=1.0">
+   v1.1: добавлено явное правило для .stat-icon svg — раньше SVG-иконки
+   рисовались через `stroke="currentColor"`, а color был выставлен в
+   почти белый (#FFF6D8) — иконки терялись на латунном фоне.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -17,14 +16,12 @@
     display: none !important;
 }
 
-/* Родительский .table-wrap только если он содержит именно нашу таблицу.
-   :has() работает в Chrome 105+, Firefox 121+, Safari 15.4+. */
 .table-wrap:has(#countries-table) {
     display: none !important;
 }
 
 /* ------------------------------------------------------------
-   2. ПОКАЗАТЬ КОНТЕЙНЕР КАРТОЧЕК ВСЕГДА
+   2. КОНТЕЙНЕР КАРТОЧЕК — ВСЕГДА ВИДИМ
    ------------------------------------------------------------ */
 .country-cards-mobile {
     display: grid !important;
@@ -34,7 +31,6 @@
 }
 
 @media (min-width: 900px) {
-    /* На широком экране — 2 колонки, чтобы не растягивались пустотой. */
     .country-cards-mobile {
         grid-template-columns: 1fr 1fr;
     }
@@ -47,7 +43,19 @@
 }
 
 /* ------------------------------------------------------------
-   3. КАРТОЧКА — ПЕРГАМЕНТНАЯ ГРАМОТА С МЕДАЛЬОНОМ
+   3. СТАТ-ИКОНКИ — ЦВЕТ SVG, КОНТРАСТНЫЙ К ФОНУ МЕДАЛЬОНА
+   ------------------------------------------------------------ */
+.stat-card .stat-icon {
+    color: #2A1A0F !important;
+}
+.stat-card .stat-icon svg {
+    stroke: #2A1A0F;
+    fill: none;
+    display: block;
+}
+
+/* ------------------------------------------------------------
+   4. КАРТОЧКА — ПЕРГАМЕНТНАЯ ГРАМОТА С МЕДАЛЬОНОМ
    ------------------------------------------------------------ */
 .country-cards-mobile .ccm-card {
     position: relative;
@@ -81,7 +89,6 @@
     transform: translateY(0);
 }
 
-/* Цветная закладка-лента слева — цвет страны */
 .country-cards-mobile .ccm-card::before {
     content: "";
     position: absolute;
@@ -92,7 +99,6 @@
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.2);
 }
 
-/* Декоративный уголок-орнамент в правом нижнем углу */
 .country-cards-mobile .ccm-card::after {
     content: "❧";
     position: absolute;
@@ -107,7 +113,7 @@
 }
 
 /* ------------------------------------------------------------
-   4. ГОЛОВА КАРТОЧКИ — НОМЕР-МЕДАЛЬОН + НАЗВАНИЕ
+   5. ГОЛОВА КАРТОЧКИ
    ------------------------------------------------------------ */
 .country-cards-mobile .ccm-head {
     display: flex;
@@ -118,7 +124,6 @@
     position: relative;
 }
 
-/* Виновник-разделитель под головой */
 .country-cards-mobile .ccm-head::after {
     content: "◆  ✦  ◆";
     position: absolute;
@@ -134,7 +139,6 @@
     line-height: 1;
 }
 
-/* Медальон с номером */
 .country-cards-mobile .ccm-rank {
     width: 52px;
     height: 52px;
@@ -161,7 +165,6 @@
     transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
 }
 
-/* Медальон-зубчатый контур вокруг круга */
 .country-cards-mobile .ccm-rank::before {
     content: "";
     position: absolute;
@@ -171,7 +174,6 @@
     pointer-events: none;
 }
 
-/* Победители — золотой и серебряный/бронзовый оттенок */
 .country-cards-mobile .ccm-rank.top-1 {
     background:
         radial-gradient(circle at 35% 30%,
@@ -209,7 +211,6 @@
     transform: rotate(-6deg) scale(1.06);
 }
 
-/* Блок имени и владельца */
 .country-cards-mobile .ccm-name-block {
     flex: 1;
     min-width: 0;
@@ -259,7 +260,7 @@
 }
 
 /* ------------------------------------------------------------
-   5. МЕТРИКИ — 4 ПЛАШКИ В СЕТКЕ
+   6. МЕТРИКИ
    ------------------------------------------------------------ */
 .country-cards-mobile .ccm-stats {
     display: grid;
@@ -303,7 +304,6 @@
     text-overflow: ellipsis;
 }
 
-/* Цвета для конкретных метрик */
 .country-cards-mobile .ccm-stat-value.money {
     color: var(--olive, #52682A);
 }
@@ -311,7 +311,6 @@
     color: var(--amber, #B87320);
 }
 
-/* Дельта-бейдж внутри карточки */
 .country-cards-mobile .ccm-stat-value.delta.up {
     color: var(--olive, #52682A);
 }
@@ -323,7 +322,7 @@
 }
 
 /* ------------------------------------------------------------
-   6. МОБИЛЬНАЯ АДАПТАЦИЯ
+   7. МОБИЛЬНАЯ АДАПТАЦИЯ
    ------------------------------------------------------------ */
 @media (max-width: 768px) {
     .country-cards-mobile {
@@ -359,12 +358,9 @@
 }
 
 /* ------------------------------------------------------------
-   7. ПРИЗЕМЛЕНИЕ — если по какой-то причине карточек нет, но
-   таблица осталась, включить таблицу обратно как fallback.
+   8. FALLBACK ДЛЯ ОЧЕНЬ СТАРЫХ БРАУЗЕРОВ БЕЗ :has()
    ------------------------------------------------------------ */
 @supports not (selector(:has(*))) {
-    /* В очень старых браузерах, где нет :has() — оставляем таблицу
-       видимой, а карточки скрываем. Всё лучше, чем пустой экран. */
     #countries-table { display: table !important; }
     .table-wrap { display: block !important; }
     .country-cards-mobile { display: none !important; }
