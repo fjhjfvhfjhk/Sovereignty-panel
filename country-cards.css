@@ -1,0 +1,371 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · COUNTRY-CARDS.CSS v1.0
+   ============================================================
+   Топ стран — как карточки (не таблица), в стиле старинного атласа.
+   Таблица #countries-table полностью скрывается на всех разрешениях.
+   Рендер карточек обеспечивает mobile.js → renderCountryCards().
+
+   ПОДКЛЮЧЕНИЕ: последним в <head>, после antique-theme.css.
+     <link rel="stylesheet" href="country-cards.css?v=1.0">
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. СКРЫТЬ СТАРУЮ ТАБЛИЦУ
+   ------------------------------------------------------------ */
+
+#countries-table {
+    display: none !important;
+}
+
+/* Родительский .table-wrap только если он содержит именно нашу таблицу.
+   :has() работает в Chrome 105+, Firefox 121+, Safari 15.4+. */
+.table-wrap:has(#countries-table) {
+    display: none !important;
+}
+
+/* ------------------------------------------------------------
+   2. ПОКАЗАТЬ КОНТЕЙНЕР КАРТОЧЕК ВСЕГДА
+   ------------------------------------------------------------ */
+.country-cards-mobile {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-top: 4px;
+}
+
+@media (min-width: 900px) {
+    /* На широком экране — 2 колонки, чтобы не растягивались пустотой. */
+    .country-cards-mobile {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (min-width: 1400px) {
+    .country-cards-mobile {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+/* ------------------------------------------------------------
+   3. КАРТОЧКА — ПЕРГАМЕНТНАЯ ГРАМОТА С МЕДАЛЬОНОМ
+   ------------------------------------------------------------ */
+.country-cards-mobile .ccm-card {
+    position: relative;
+    padding: clamp(14px, 1.4vw, 20px) clamp(16px, 1.6vw, 22px)
+             clamp(14px, 1.4vw, 20px) clamp(22px, 2vw, 28px);
+    background-color: var(--parch-1, #F4EBD3);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='cp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23cp)'/></svg>");
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 2px var(--parch-1, #F4EBD3),
+        0 0 0 3px var(--brass, #A88A48),
+        0 3px 10px rgba(42, 26, 15, 0.14);
+    color: var(--ink, #2A1A0F);
+    cursor: pointer;
+    transition: transform .18s cubic-bezier(.2, 1, .3, 1),
+                box-shadow .18s cubic-bezier(.2, 1, .3, 1);
+    overflow: hidden;
+}
+
+.country-cards-mobile .ccm-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 0 0 2px var(--parch-1, #F4EBD3),
+        0 0 0 3px var(--brass, #A88A48),
+        0 8px 22px rgba(42, 26, 15, 0.22);
+}
+
+.country-cards-mobile .ccm-card:active {
+    transform: translateY(0);
+}
+
+/* Цветная закладка-лента слева — цвет страны */
+.country-cards-mobile .ccm-card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 6px;
+    background: var(--row-color, var(--brass, #A88A48));
+    border-right: 1px solid rgba(42, 26, 15, 0.25);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Декоративный уголок-орнамент в правом нижнем углу */
+.country-cards-mobile .ccm-card::after {
+    content: "❧";
+    position: absolute;
+    right: 8px;
+    bottom: 6px;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--brass, #A88A48);
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+/* ------------------------------------------------------------
+   4. ГОЛОВА КАРТОЧКИ — НОМЕР-МЕДАЛЬОН + НАЗВАНИЕ
+   ------------------------------------------------------------ */
+.country-cards-mobile .ccm-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    position: relative;
+}
+
+/* Виновник-разделитель под головой */
+.country-cards-mobile .ccm-head::after {
+    content: "◆  ✦  ◆";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    text-align: center;
+    color: var(--brass, #A88A48);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    opacity: 0.55;
+    line-height: 1;
+}
+
+/* Медальон с номером */
+.country-cards-mobile .ccm-rank {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: #4A3520;
+    background:
+        radial-gradient(circle at 35% 30%,
+            var(--brass-light, #C9A860) 0%,
+            var(--brass, #A88A48) 55%,
+            var(--brass-dark, #6E5828) 100%);
+    border: 2px solid var(--brass-dark, #6E5828);
+    box-shadow:
+        inset 0 2px 0 rgba(255, 240, 200, 0.5),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.22),
+        0 2px 6px rgba(42, 26, 15, 0.25);
+    text-shadow: 0 1px 0 rgba(255, 240, 200, 0.4);
+    position: relative;
+    transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Медальон-зубчатый контур вокруг круга */
+.country-cards-mobile .ccm-rank::before {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px dashed rgba(168, 138, 72, 0.55);
+    pointer-events: none;
+}
+
+/* Победители — золотой и серебряный/бронзовый оттенок */
+.country-cards-mobile .ccm-rank.top-1 {
+    background:
+        radial-gradient(circle at 35% 30%,
+            #F4D990 0%,
+            #C9A860 40%,
+            #8A6E30 100%);
+    border-color: #6E5828;
+    color: #3A2810;
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 220, 0.7),
+        inset 0 -3px 6px rgba(80, 50, 10, 0.35),
+        0 0 16px rgba(201, 168, 96, 0.5),
+        0 2px 6px rgba(42, 26, 15, 0.3);
+}
+.country-cards-mobile .ccm-rank.top-2 {
+    background:
+        radial-gradient(circle at 35% 30%,
+            #DCDCE0 0%,
+            #A8A8B0 40%,
+            #666870 100%);
+    border-color: #55575E;
+    color: #2E2F33;
+}
+.country-cards-mobile .ccm-rank.top-3 {
+    background:
+        radial-gradient(circle at 35% 30%,
+            #D9A06A 0%,
+            #A0663A 40%,
+            #6A3F1E 100%);
+    border-color: #5A3418;
+    color: #F4EBD3;
+}
+
+.country-cards-mobile .ccm-card:hover .ccm-rank {
+    transform: rotate(-6deg) scale(1.06);
+}
+
+/* Блок имени и владельца */
+.country-cards-mobile .ccm-name-block {
+    flex: 1;
+    min-width: 0;
+}
+
+.country-cards-mobile .ccm-name {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: clamp(17px, 1.5vw, 20px);
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+    line-height: 1.15;
+}
+
+.country-cards-mobile .ccm-owner {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--ink-faded, #6B5138);
+    min-width: 0;
+}
+
+.country-cards-mobile .ccm-owner span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.country-cards-mobile .ccm-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 2px;
+    image-rendering: pixelated;
+    border: 1px solid var(--brass-dark, #6E5828);
+    background: var(--parch-3, #DCCBA8);
+    box-shadow: 0 1px 2px rgba(42, 26, 15, 0.25);
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+/* ------------------------------------------------------------
+   5. МЕТРИКИ — 4 ПЛАШКИ В СЕТКЕ
+   ------------------------------------------------------------ */
+.country-cards-mobile .ccm-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+}
+
+.country-cards-mobile .ccm-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 4px 6px 10px;
+    border-left: 2px solid rgba(168, 138, 72, 0.35);
+    transition: border-color .15s;
+}
+
+.country-cards-mobile .ccm-card:hover .ccm-stat {
+    border-left-color: var(--brass, #A88A48);
+}
+
+.country-cards-mobile .ccm-stat-label {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 10.5px;
+    font-style: italic;
+    color: var(--ink-faded, #6B5138);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.country-cards-mobile .ccm-stat-value {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Цвета для конкретных метрик */
+.country-cards-mobile .ccm-stat-value.money {
+    color: var(--olive, #52682A);
+}
+.country-cards-mobile .ccm-stat-value.energy {
+    color: var(--amber, #B87320);
+}
+
+/* Дельта-бейдж внутри карточки */
+.country-cards-mobile .ccm-stat-value.delta.up {
+    color: var(--olive, #52682A);
+}
+.country-cards-mobile .ccm-stat-value.delta.down {
+    color: var(--wax, #8B2020);
+}
+.country-cards-mobile .ccm-stat-value.delta.flat {
+    color: var(--ink-pale, #8A7558);
+}
+
+/* ------------------------------------------------------------
+   6. МОБИЛЬНАЯ АДАПТАЦИЯ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .country-cards-mobile {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    .country-cards-mobile .ccm-card {
+        padding: 12px 14px 12px 20px;
+    }
+    .country-cards-mobile .ccm-rank {
+        width: 44px;
+        height: 44px;
+        font-size: 17px;
+    }
+    .country-cards-mobile .ccm-name {
+        font-size: 16px;
+    }
+    .country-cards-mobile .ccm-stat-value {
+        font-size: 15px;
+    }
+    .country-cards-mobile .ccm-stat-label {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 380px) {
+    .country-cards-mobile .ccm-stats {
+        grid-template-columns: 1fr;
+    }
+    .country-cards-mobile .ccm-head::after {
+        content: "◆  ◆  ◆";
+    }
+}
+
+/* ------------------------------------------------------------
+   7. ПРИЗЕМЛЕНИЕ — если по какой-то причине карточек нет, но
+   таблица осталась, включить таблицу обратно как fallback.
+   ------------------------------------------------------------ */
+@supports not (selector(:has(*))) {
+    /* В очень старых браузерах, где нет :has() — оставляем таблицу
+       видимой, а карточки скрываем. Всё лучше, чем пустой экран. */
+    #countries-table { display: table !important; }
+    .table-wrap { display: block !important; }
+    .country-cards-mobile { display: none !important; }
+}
