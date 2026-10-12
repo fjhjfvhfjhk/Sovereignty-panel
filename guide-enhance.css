@@ -1,0 +1,282 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · GUIDE-ENHANCE.CSS v1.0
+   ============================================================
+   Улучшения гайда: поиск, sticky-навигация на мобилке,
+   перенос длинных команд, кнопка «наверх».
+
+   Подключать последним в <head>.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. ПОИСК ПО ГАЙДУ
+   ------------------------------------------------------------ */
+.guide-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 0 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(168, 138, 72, 0.35);
+    position: relative;
+}
+
+.guide-search {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 32px 8px 12px;
+    background: var(--parch-1, #F4EBD3);
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 2px;
+    color: var(--ink, #2A1A0F);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 13px;
+    box-shadow: inset 0 1px 2px rgba(168, 138, 72, 0.15);
+}
+.guide-search::placeholder {
+    color: var(--ink-pale, #8A7558);
+    font-style: italic;
+}
+.guide-search:focus {
+    outline: none;
+    border-color: var(--brass-dark, #6E5828);
+    box-shadow: 0 0 0 2px rgba(201, 168, 96, 0.35);
+}
+
+.guide-search-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--ink-faded, #6B5138);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    display: none;
+    font-family: inherit;
+}
+.guide-search-clear.visible { display: block; }
+.guide-search-clear:hover { color: var(--wax, #8B2020); }
+
+.guide-search-count {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink-faded, #6B5138);
+    white-space: nowrap;
+}
+.guide-search-count.no-results { color: var(--wax, #8B2020); }
+
+/* Скрытые при поиске секции */
+.guide-section.guide-hidden {
+    display: none !important;
+}
+
+/* Подсветка совпадения */
+.guide-section mark.guide-hit {
+    background: rgba(201, 168, 96, 0.5);
+    color: var(--ink, #2A1A0F);
+    border-radius: 2px;
+    padding: 0 2px;
+}
+
+/* ------------------------------------------------------------
+   2. ПЕРEНОС ДЛИННЫХ КОМАНД В ГАЙДЕ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .guide-section code {
+        white-space: normal;
+        word-break: break-word;
+        display: inline;
+    }
+    .guide-section p code,
+    .guide-section li code {
+        white-space: normal;
+        word-break: break-word;
+    }
+}
+
+/* ------------------------------------------------------------
+   3. КНОПКА «НАВЕРХ»
+   ------------------------------------------------------------ */
+.guide-top-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 100px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--brass-light, #C9A860), var(--brass, #A88A48));
+    border: 1px solid var(--brass-dark, #6E5828);
+    color: #2A1A0F;
+    font-size: 20px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 4px 12px rgba(42, 26, 15, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 200;
+    -webkit-tap-highlight-color: transparent;
+}
+.guide-top-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.guide-top-btn:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        0 8px 18px rgba(42, 26, 15, 0.4);
+}
+.guide-top-btn:active { transform: scale(0.94); }
+
+@media (min-width: 769px) {
+    .guide-top-btn { bottom: 30px; }
+}
+
+/* ------------------------------------------------------------
+   4. STICKY-НАВИГАЦИЯ НА МОБИЛКЕ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    /* Навигация в горизонтальном скролле — sticky под шапкой */
+    .guide-layout {
+        /* grid-template-columns: 1fr; — уже в mobile.css */
+    }
+
+    .guide-nav {
+        position: sticky !important;
+        top: 84px;
+        z-index: 50;
+        background: var(--parch-1, #F4EBD3);
+        border: 1px solid var(--brass, #A88A48);
+        border-radius: 3px;
+        padding: 8px 10px;
+        box-shadow:
+            0 4px 12px rgba(42, 26, 15, 0.15),
+            inset 0 1px 0 rgba(255, 240, 200, 0.4);
+        display: flex !important;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        max-height: none;
+        overflow: visible;
+        margin-bottom: 12px;
+    }
+
+    /* Название «Содержание» — не нужно на мобилке */
+    .guide-nav .guide-nav-title { display: none; }
+
+    /* Ссылки — горизонтальный скролл внутри навигации */
+    .guide-nav .guide-nav-links-wrap {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .guide-nav .guide-nav-links-wrap::-webkit-scrollbar { display: none; }
+
+    /* Пиллы */
+    .guide-nav a {
+        flex-shrink: 0;
+        padding: 7px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+        background: rgba(0, 0, 0, 0.10);
+        border: 1px solid var(--brass, #A88A48);
+        border-radius: 20px;
+        display: inline-block;
+        color: var(--ink-soft, #4A3520);
+    }
+    .guide-nav a.active {
+        background: linear-gradient(180deg, var(--brass-light, #C9A860), var(--brass, #A88A48));
+        color: #1A1208;
+        border-color: var(--brass-dark, #6E5828);
+        font-weight: 500;
+    }
+
+    /* Поиск в sticky-навигации */
+    .guide-search-wrap {
+        padding: 0;
+        margin: 0;
+        border-bottom: none;
+    }
+
+    /* Секции — отступ при скролле для компенсации sticky-навигации */
+    .guide-section {
+        scroll-margin-top: 150px !important;
+    }
+    .guide-section h2,
+    .guide-section h3 {
+        scroll-margin-top: 150px !important;
+    }
+
+    /* Заголовки секций чуть компактнее */
+    .guide-section {
+        padding: 16px 14px;
+    }
+    .guide-section h2 {
+        font-size: 18px;
+        margin-bottom: 14px;
+    }
+    .guide-section h3 {
+        font-size: 15px;
+        margin: 18px 0 10px;
+    }
+}
+
+/* ------------------------------------------------------------
+   5. ТЁМНАЯ ТЕМА
+   ------------------------------------------------------------ */
+:root[data-theme="dark"] .guide-search {
+    background: #1A1008;
+    border-color: var(--brass);
+    color: var(--ink);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] .guide-search::placeholder { color: var(--ink-pale); }
+:root[data-theme="dark"] .guide-search:focus {
+    border-color: var(--brass-light);
+    box-shadow: 0 0 0 2px rgba(201, 168, 96, 0.25);
+}
+:root[data-theme="dark"] .guide-search-wrap {
+    border-bottom-color: rgba(201, 168, 96, 0.25);
+}
+:root[data-theme="dark"] .guide-search-clear { color: var(--ink-faded); }
+:root[data-theme="dark"] .guide-search-clear:hover { color: var(--wax-light); }
+:root[data-theme="dark"] .guide-search-count { color: var(--ink-faded); }
+:root[data-theme="dark"] .guide-search-count.no-results { color: var(--wax-light); }
+:root[data-theme="dark"] .guide-section mark.guide-hit {
+    background: rgba(201, 168, 96, 0.35);
+    color: var(--ink);
+}
+:root[data-theme="dark"] .guide-top-btn {
+    background: linear-gradient(180deg, var(--brass), var(--brass-dark));
+    color: #1A1208;
+    border-color: var(--brass-dark);
+}
+@media (max-width: 768px) {
+    :root[data-theme="dark"] .guide-nav {
+        background: var(--parch-1);
+        border-color: var(--brass);
+        box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(201, 168, 96, 0.15);
+    }
+    :root[data-theme="dark"] .guide-nav a {
+        background: rgba(0, 0, 0, 0.35);
+        border-color: var(--brass);
+        color: var(--ink-soft);
+    }
+    :root[data-theme="dark"] .guide-nav a.active {
+        background: linear-gradient(180deg, var(--brass-light), var(--brass));
+        color: #1A1208;
+    }
+}

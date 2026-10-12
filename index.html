@@ -45,6 +45,9 @@
     <link rel="stylesheet" href="antique-theme.css?v=1.0">
     <link rel="stylesheet" href="country-cards.css?v=1.1">
     <link rel="stylesheet" href="theme-switcher.css?v=1.0">
+    <link rel="stylesheet" href="country-passport.css?v=1.0">
+    <link rel="stylesheet" href="chronicles.css?v=1.0">
+    <link rel="stylesheet" href="guide-enhance.css?v=1.0">
 </head>
 <body>
     <div id="ambient" aria-hidden="true"></div>
@@ -58,6 +61,7 @@
                     <button class="nav-btn active" data-tab="overview">🏠 Обзор</button>
                     <button class="nav-btn" data-tab="map">🗺️ Карта</button>
                     <button class="nav-btn" data-tab="players">👥 Игроки</button>
+                    <button class="nav-btn" data-tab="chronicles">📜 Хроники</button>
                     <button class="nav-btn" data-tab="guide">📖 Гайд</button>
                     <button class="nav-btn" data-tab="commands">⌨️ Команды</button>
                     <button class="nav-btn" data-tab="bonus">🎁 Бонусы</button>
@@ -195,7 +199,6 @@
                     </div>
                     <div class="map-symbol-legend-body" id="map-symbol-legend-body">
                         <div class="map-symbol-legend-grid">
-
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-territory"></div></div>
                                 <div class="msl-text">
@@ -203,7 +206,6 @@
                                     <div class="msl-desc">Цвет = страна.</div>
                                 </div>
                             </div>
-
                             <div class="msl-item">
                                 <div class="msl-icon"><span class="msl-capital">🏛️</span></div>
                                 <div class="msl-text">
@@ -211,7 +213,6 @@
                                     <div class="msl-desc">Щит с короной. Захват = капитуляция.</div>
                                 </div>
                             </div>
-
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-player"></div></div>
                                 <div class="msl-text">
@@ -219,7 +220,6 @@
                                     <div class="msl-desc">Зелёная рамка, пульсирует.</div>
                                 </div>
                             </div>
-
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-battle"></div></div>
                                 <div class="msl-text">
@@ -227,7 +227,6 @@
                                     <div class="msl-desc">PvP-смерть за 24 часа.</div>
                                 </div>
                             </div>
-
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-light"></div></div>
                                 <div class="msl-text">
@@ -235,7 +234,6 @@
                                     <div class="msl-desc">Ночью.</div>
                                 </div>
                             </div>
-
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-contour"></div></div>
                                 <div class="msl-text">
@@ -243,7 +241,6 @@
                                     <div class="msl-desc">Каждые 10 блоков.</div>
                                 </div>
                             </div>
-
                             <div class="msl-item">
                                 <div class="msl-icon"><div class="msl-fog"></div></div>
                                 <div class="msl-text">
@@ -251,7 +248,6 @@
                                     <div class="msl-desc">Неисследованные земли.</div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </section>
@@ -269,6 +265,24 @@
                 </div>
                 <div class="players-grid" id="players-grid"></div>
                 <div class="empty-hint" id="players-empty" style="display:none;">Данные об игроках пока не передаются панелью.</div>
+            </section>
+        </section>
+
+        <section class="tab-content" id="tab-chronicles">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>📜 Хроники мира</h2>
+                </div>
+                <div class="chr-filters" id="chr-filters">
+                    <button class="chr-filter active" data-filter="all" type="button">Все</button>
+                    <button class="chr-filter" data-filter="war" type="button">⚔ Войны</button>
+                    <button class="chr-filter" data-filter="country" type="button">🏛 Страны</button>
+                    <button class="chr-filter" data-filter="diplomacy" type="button">🤝 Дипломатия</button>
+                    <button class="chr-filter" data-filter="event" type="button">🎁 Ивенты</button>
+                </div>
+                <div class="chr-feed" id="chr-feed">
+                    <div class="chr-empty">⏳ Загрузка летописи…</div>
+                </div>
             </section>
         </section>
 
@@ -364,6 +378,9 @@
     <script src="mobile.js?v=1.0"></script>
     <script src="country-cards.js?v=1.0"></script>
     <script src="theme-switcher.js?v=1.0"></script>
+    <script src="country-passport.js?v=1.0"></script>
+    <script src="chronicles.js?v=1.0"></script>
+    <script src="guide-enhance.js?v=1.0"></script>
 </body>
 </html>
 

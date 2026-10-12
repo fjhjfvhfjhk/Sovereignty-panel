@@ -1,0 +1,499 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · COUNTRY-PASSPORT.CSS v1.0
+   ============================================================
+   Паспорт страны — модальное окно с гербом, метриками,
+   мини-картой, гражданами и хроникой.
+   Стилизация: старинная грамота с печатью.
+   ============================================================ */
+
+.pp-modal .pp-modal-content {
+    max-width: 960px;
+    padding: 28px 32px 24px;
+    background-color: var(--parch-1, #F4EBD3);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='ppp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23ppp)'/></svg>");
+    border: 2px solid var(--brass, #A88A48);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 4px var(--parch-2, #EADFC2),
+        0 0 0 5px var(--brass-dark, #6E5828),
+        0 12px 48px rgba(0, 0, 0, 0.55);
+    color: var(--ink, #2A1A0F);
+}
+
+/* ------------------------------------------------------------
+   1. ГЕРОЙ-БЛОК С ГЕРБОМ
+   ------------------------------------------------------------ */
+.pp-hero {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 22px;
+    align-items: center;
+    padding-bottom: 18px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--brass, #A88A48);
+    position: relative;
+}
+.pp-hero::after {
+    content: "❦";
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    transform: translateX(-50%);
+    background: var(--parch-1, #F4EBD3);
+    color: var(--brass, #A88A48);
+    font-size: 14px;
+    padding: 0 10px;
+    line-height: 1;
+}
+
+.pp-coa-wrap {
+    display: grid;
+    place-items: center;
+}
+
+.pp-coa {
+    position: relative;
+    width: 100px;
+    height: 120px;
+    filter: drop-shadow(0 4px 10px rgba(42, 26, 15, 0.35));
+}
+
+.pp-coa svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.pp-coa-charge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 38px;
+    line-height: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.pp-title-block {
+    min-width: 0;
+}
+
+.pp-title {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 34px;
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    margin: 0 0 6px;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    word-break: break-word;
+}
+
+.pp-subtitle {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-faded, #6B5138);
+    margin-bottom: 10px;
+}
+.pp-subtitle b {
+    color: var(--ink, #2A1A0F);
+    font-style: normal;
+    font-weight: 600;
+}
+
+.pp-quick-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pp-quick-stats span {
+    background: rgba(201, 168, 96, 0.20);
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 2px;
+    padding: 4px 10px;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 13px;
+    color: var(--ink-soft, #4A3520);
+    white-space: nowrap;
+}
+.pp-quick-stats b {
+    color: var(--wax, #8B2020);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-weight: 400;
+}
+
+/* ------------------------------------------------------------
+   2. ОСНОВНАЯ СЕТКА
+   ------------------------------------------------------------ */
+.pp-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 720px) {
+    .pp-grid { grid-template-columns: 1fr; }
+}
+
+.pp-section {
+    margin-bottom: 20px;
+}
+
+.pp-section-title {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(168, 138, 72, 0.4);
+    letter-spacing: 0.03em;
+}
+
+/* Мини-карта */
+.pp-map {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--brass-dark, #6E5828);
+    border-radius: 2px;
+    background-color: #2E2010;
+    background-repeat: no-repeat;
+    background-size: auto;
+    box-shadow:
+        inset 0 0 30px rgba(0, 0, 0, 0.4),
+        inset 0 0 0 3px var(--parch-1, #F4EBD3),
+        0 2px 6px rgba(42, 26, 15, 0.25);
+    position: relative;
+    overflow: hidden;
+    image-rendering: pixelated;
+}
+
+/* Маркер столицы поверх мини-карты */
+.pp-map-capital {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 22px;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+    pointer-events: none;
+    animation: ppCapPulse 2s ease-in-out infinite;
+}
+@keyframes ppCapPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50%      { transform: translate(-50%, -50%) scale(1.15); }
+}
+
+.pp-no-map {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    background: rgba(201, 168, 96, 0.10);
+    border: 1px dashed var(--brass, #A88A48);
+    border-radius: 2px;
+    color: var(--ink-faded, #6B5138);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Метрики */
+.pp-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+}
+
+.pp-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 10px;
+    border-left: 2px solid rgba(168, 138, 72, 0.4);
+    background: rgba(201, 168, 96, 0.08);
+    border-radius: 2px;
+    transition: border-color .15s, background .15s;
+}
+.pp-metric:hover {
+    border-left-color: var(--brass, #A88A48);
+    background: rgba(201, 168, 96, 0.16);
+}
+
+.pp-metric span {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--ink-faded, #6B5138);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pp-metric b {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.pp-metric b.money   { color: var(--olive, #52682A); }
+.pp-metric b.warning { color: var(--amber, #B87320); }
+.pp-metric b.danger  { color: var(--wax, #8B2020); }
+
+/* ------------------------------------------------------------
+   3. СОСТАВ ТЕРРИТОРИИ
+   ------------------------------------------------------------ */
+.pp-territory {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+@media (max-width: 720px) {
+    .pp-territory { grid-template-columns: 1fr 1fr; }
+}
+
+.pp-ttype {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 8px;
+    background: rgba(201, 168, 96, 0.12);
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 2px;
+    text-align: center;
+}
+.pp-ttype span {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-faded, #6B5138);
+    white-space: nowrap;
+}
+.pp-ttype b {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------
+   4. ГРАЖДАНЕ
+   ------------------------------------------------------------ */
+.pp-citizens {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pp-citizen {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(201, 168, 96, 0.10);
+    border: 1px solid rgba(168, 138, 72, 0.35);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.pp-citizen:hover {
+    background: rgba(201, 168, 96, 0.20);
+    border-color: var(--brass, #A88A48);
+}
+
+.pp-citizen-avatar {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--brass-dark, #6E5828);
+    border-radius: 2px;
+    image-rendering: pixelated;
+    background: var(--parch-3, #DCCBA8);
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.pp-citizen-name {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 15px;
+    color: var(--ink, #2A1A0F);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pp-citizen-role {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink-faded, #6B5138);
+    padding: 2px 8px;
+    background: rgba(139, 32, 32, 0.10);
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.pp-citizen-role.leader { color: var(--wax, #8B2020); }
+.pp-citizen-role.co-ruler { color: var(--amber, #B87320); }
+
+/* ------------------------------------------------------------
+   5. ХРОНИКА СТРАНЫ
+   ------------------------------------------------------------ */
+.pp-chronicle {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+.pp-chronicle::-webkit-scrollbar { width: 6px; }
+.pp-chronicle::-webkit-scrollbar-track { background: transparent; }
+.pp-chronicle::-webkit-scrollbar-thumb {
+    background: var(--brass, #A88A48);
+    border-radius: 3px;
+}
+
+.pp-chr-item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(201, 168, 96, 0.08);
+    border-left: 3px solid var(--brass, #A88A48);
+    border-radius: 2px;
+}
+.pp-chr-icon { font-size: 16px; text-align: center; line-height: 1; }
+.pp-chr-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pp-chr-msg {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 13px;
+    color: var(--ink-soft, #4A3520);
+    line-height: 1.35;
+    word-break: break-word;
+}
+.pp-chr-time {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-pale, #8A7558);
+}
+
+.pp-chr-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--ink-faded, #6B5138);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+}
+
+/* ------------------------------------------------------------
+   6. ДЕЙСТВИЯ
+   ------------------------------------------------------------ */
+.pp-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid var(--brass, #A88A48);
+    margin-top: 4px;
+}
+
+.pp-action-btn {
+    flex: 1 1 auto;
+    min-width: 140px;
+    padding: 10px 18px;
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: 0.03em;
+    font-size: 14px;
+}
+
+/* Кнопка «Паспорт» в панели inline-деталей */
+.pp-open-btn {
+    margin-top: 14px;
+    width: 100%;
+    padding: 10px 18px;
+    background: linear-gradient(180deg, var(--brass-light, #C9A860), var(--brass, #A88A48));
+    border: 1px solid var(--brass-dark, #6E5828);
+    color: #2A1A0F;
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: 0.05em;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: transform .15s, box-shadow .15s;
+}
+.pp-open-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(201, 168, 96, 0.4);
+}
+
+/* ------------------------------------------------------------
+   7. МОБИЛЬНАЯ АДАПТАЦИЯ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .pp-modal .pp-modal-content {
+        padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
+    }
+    .pp-hero {
+        grid-template-columns: 80px 1fr;
+        gap: 14px;
+    }
+    .pp-coa { width: 72px; height: 88px; }
+    .pp-coa-charge { font-size: 28px; }
+    .pp-title { font-size: 24px; }
+    .pp-quick-stats span { font-size: 12px; padding: 3px 8px; }
+    .pp-metrics { grid-template-columns: 1fr; }
+    .pp-territory { grid-template-columns: 1fr 1fr; }
+    .pp-ttype b { font-size: 18px; }
+    .pp-action-btn { min-width: 100%; font-size: 13px; }
+}
+
+/* ------------------------------------------------------------
+   8. ТЁМНАЯ ТЕМА
+   ------------------------------------------------------------ */
+:root[data-theme="dark"] .pp-modal-content {
+    background-color: var(--parch-1);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='pppd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23pppd)'/></svg>");
+    border-color: var(--brass);
+    box-shadow:
+        0 0 0 4px var(--parch-2),
+        0 0 0 5px var(--brass-dark),
+        0 12px 48px rgba(0, 0, 0, 0.85);
+}
+:root[data-theme="dark"] .pp-title,
+:root[data-theme="dark"] .pp-metric b,
+:root[data-theme="dark"] .pp-ttype b,
+:root[data-theme="dark"] .pp-citizen-name { color: var(--ink); }
+:root[data-theme="dark"] .pp-subtitle,
+:root[data-theme="dark"] .pp-metric span,
+:root[data-theme="dark"] .pp-ttype span,
+:root[data-theme="dark"] .pp-citizen-role { color: var(--ink-faded); }
+:root[data-theme="dark"] .pp-section-title { color: var(--ink); border-bottom-color: rgba(201, 168, 96, 0.4); }
+:root[data-theme="dark"] .pp-hero { border-bottom-color: var(--brass); }
+:root[data-theme="dark"] .pp-hero::after { background: var(--parch-1); }
+:root[data-theme="dark"] .pp-quick-stats span { background: rgba(201, 168, 96, 0.15); color: var(--ink-soft); }
+:root[data-theme="dark"] .pp-metric { background: rgba(201, 168, 96, 0.06); }
+:root[data-theme="dark"] .pp-ttype { background: rgba(201, 168, 96, 0.08); }
+:root[data-theme="dark"] .pp-citizen { background: rgba(201, 168, 96, 0.06); border-color: rgba(201, 168, 96, 0.3); }
+:root[data-theme="dark"] .pp-chr-item { background: rgba(201, 168, 96, 0.05); }
+:root[data-theme="dark"] .pp-chr-msg { color: var(--ink-soft); }
+:root[data-theme="dark"] .pp-actions { border-top-color: var(--brass); }
+:root[data-theme="dark"] .pp-open-btn {
+    background: linear-gradient(180deg, var(--brass), var(--brass-dark));
+    color: #1A1208;
+}

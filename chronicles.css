@@ -1,0 +1,230 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · CHRONICLES.CSS v1.0
+   ============================================================
+   Хроники мира — лента событий как летопись.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. ФИЛЬТРЫ
+   ------------------------------------------------------------ */
+.chr-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(168, 138, 72, 0.35);
+}
+
+.chr-filter {
+    padding: 7px 14px;
+    background: var(--parch-2, #EADFC2);
+    border: 1px solid var(--brass, #A88A48);
+    color: var(--ink-soft, #4A3520);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    transition: background .15s, color .15s, border-color .15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.chr-filter:hover {
+    background: var(--parch-3, #DCCBA8);
+    color: var(--ink, #2A1A0F);
+    border-color: var(--brass-dark, #6E5828);
+}
+.chr-filter.active {
+    background: linear-gradient(180deg, var(--brass-light, #C9A860), var(--brass, #A88A48));
+    color: #1A1208;
+    border-color: var(--brass-dark, #6E5828);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* ------------------------------------------------------------
+   2. ЛЕНТА
+   ------------------------------------------------------------ */
+.chr-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+/* День */
+.chr-day {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chr-day-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 0;
+    position: relative;
+}
+.chr-day-header::before,
+.chr-day-header::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--brass, #A88A48), transparent);
+}
+
+.chr-day-label {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 15px;
+    color: var(--ink, #2A1A0F);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    padding: 2px 8px;
+    background: rgba(201, 168, 96, 0.18);
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 2px;
+}
+
+/* Событие */
+.chr-events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 8px;
+}
+
+.chr-event {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(201, 168, 96, 0.06);
+    border-left: 3px solid var(--brass, #A88A48);
+    border-radius: 2px;
+    transition: background .15s, transform .12s;
+}
+.chr-event:hover {
+    background: rgba(201, 168, 96, 0.15);
+    transform: translateX(2px);
+}
+
+.chr-event-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    background: rgba(42, 26, 15, 0.08);
+    border: 1px solid rgba(168, 138, 72, 0.4);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.chr-event-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.chr-event-msg {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 14.5px;
+    line-height: 1.4;
+    color: var(--ink-soft, #4A3520);
+    word-break: break-word;
+}
+.chr-event-msg b,
+.chr-event-msg .country-link {
+    color: var(--wax, #8B2020);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+.chr-event-msg .country-link:hover { text-decoration: underline; }
+
+.chr-event-time {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink-pale, #8A7558);
+}
+
+/* Тип события — цвет полосы слева */
+.chr-event.chr-war      { border-left-color: var(--wax, #8B2020); }
+.chr-event.chr-country  { border-left-color: var(--olive, #52682A); }
+.chr-event.chr-diplomacy{ border-left-color: var(--brass-light, #C9A860); }
+.chr-event.chr-event    { border-left-color: #8A4AA8; }
+.chr-event.chr-other    { border-left-color: var(--brass, #A88A48); }
+
+/* Пусто */
+.chr-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-faded, #6B5138);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 15px;
+}
+.chr-empty::before {
+    content: "❦";
+    display: block;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 24px;
+    color: var(--brass, #A88A48);
+    margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------------
+   3. МОБИЛЬНАЯ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .chr-filters {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+    }
+    .chr-filters::-webkit-scrollbar { display: none; }
+    .chr-filter { flex-shrink: 0; font-size: 12.5px; padding: 6px 12px; }
+    .chr-event { padding: 9px 10px; grid-template-columns: 30px 1fr; gap: 8px; }
+    .chr-event-icon { width: 30px; height: 30px; font-size: 15px; }
+    .chr-event-msg { font-size: 13.5px; }
+}
+
+/* ------------------------------------------------------------
+   4. ТЁМНАЯ ТЕМА
+   ------------------------------------------------------------ */
+:root[data-theme="dark"] .chr-filter {
+    background: var(--parch-3);
+    border-color: var(--brass);
+    color: var(--ink-soft);
+}
+:root[data-theme="dark"] .chr-filter:hover {
+    background: var(--parch-1);
+    color: var(--ink);
+}
+:root[data-theme="dark"] .chr-filter.active {
+    background: linear-gradient(180deg, var(--brass-light), var(--brass));
+    color: #1A1208;
+}
+:root[data-theme="dark"] .chr-day-label {
+    background: rgba(201, 168, 96, 0.15);
+    color: var(--ink);
+    border-color: var(--brass);
+}
+:root[data-theme="dark"] .chr-event {
+    background: rgba(201, 168, 96, 0.05);
+}
+:root[data-theme="dark"] .chr-event:hover {
+    background: rgba(201, 168, 96, 0.12);
+}
+:root[data-theme="dark"] .chr-event-icon {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(201, 168, 96, 0.35);
+}
+:root[data-theme="dark"] .chr-event-msg { color: var(--ink-soft); }
+:root[data-theme="dark"] .chr-event-msg .country-link { color: var(--wax-light); }
+:root[data-theme="dark"] .chr-empty { color: var(--ink-faded); }
