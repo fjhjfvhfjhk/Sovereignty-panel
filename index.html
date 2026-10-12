@@ -5,6 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
     <title>Панель сервера</title>
 
+    <!-- Тема применяется ДО отрисовки — никакой "вспышки" светлой темы. -->
+    <script>
+    (function () {
+        try {
+            var mode = localStorage.getItem('panel_theme') || 'auto';
+            var effective = mode;
+            if (mode === 'auto') {
+                effective = window.matchMedia('(prefers-color-scheme: dark)').matches
+                    ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', effective);
+            document.documentElement.setAttribute('data-theme-mode', mode);
+        } catch (e) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
+    </script>
+
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/svg+xml" href="favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="favicon.svg">
@@ -26,6 +44,7 @@
     <link rel="stylesheet" href="mobile.css?v=1.0">
     <link rel="stylesheet" href="antique-theme.css?v=1.0">
     <link rel="stylesheet" href="country-cards.css?v=1.1">
+    <link rel="stylesheet" href="theme-switcher.css?v=1.0">
 </head>
 <body>
     <div id="ambient" aria-hidden="true"></div>
@@ -45,6 +64,7 @@
                 </nav>
             </div>
             <div class="header-meta">
+                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему">🌓</button>
                 <span class="badge" id="online-badge">Онлайн: —</span>
                 <span class="badge" id="updated-badge">Обновлено: —</span>
                 <button class="badge btn-badge" id="refresh-btn">Обновить</button>
@@ -343,6 +363,7 @@
     <script src="map-enhance.js?v=1.0"></script>
     <script src="mobile.js?v=1.0"></script>
     <script src="country-cards.js?v=1.0"></script>
+    <script src="theme-switcher.js?v=1.0"></script>
 </body>
 </html>
 
