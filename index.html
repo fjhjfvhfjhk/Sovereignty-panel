@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="ru">
+<!DOCTYPE html><html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
-    <title>Панель сервера</title>
-
-    <script>
+    <title>Панель сервера</title>    <script>
     (function () {
         try {
             var mode = localStorage.getItem('panel_theme') || 'auto';
@@ -20,9 +17,7 @@
             document.documentElement.setAttribute('data-theme', 'light');
         }
     })();
-    </script>
-
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    </script>    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/svg+xml" href="favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="favicon.svg">
     <link rel="manifest" href="site.webmanifest">
@@ -32,9 +27,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#5E4224">
-
-    <link rel="stylesheet" href="style.css?v=5.3">
+    <meta name="theme-color" content="#5E4224">    <link rel="stylesheet" href="style.css?v=5.3">
     <link rel="stylesheet" href="legend.css?v=1.0">
     <link rel="stylesheet" href="panel-animations.css?v=1.0">
     <link rel="stylesheet" href="panel-loading.css?v=1.0">
@@ -56,9 +49,7 @@
 </head>
 <body>
     <div id="ambient" aria-hidden="true"></div>
-    <canvas id="particles" aria-hidden="true"></canvas>
-
-    <header>
+    <canvas id="particles" aria-hidden="true"></canvas>    <header>
         <div class="container">
             <div class="header-row">
                 <h1 id="server-name">Загрузка...</h1>
@@ -79,9 +70,7 @@
                 <button class="badge btn-badge" id="refresh-btn">Обновить</button>
             </div>
         </div>
-    </header>
-
-    <main class="container">
+    </header>    <main class="container">
         <section class="tab-content active" id="tab-overview">
             <section class="stats-grid">
                 <div class="stat-card"><div class="stat-icon">🏛️</div><div class="stat-value" id="countries-count">—</div><div class="stat-label">Стран</div></div>
@@ -89,9 +78,7 @@
                 <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value" id="total-bank">—</div><div class="stat-label">Общая казна</div></div>
                 <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-value" id="total-energy">—</div><div class="stat-label">Энергия лидеров</div></div>
                 <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="total-players">—</div><div class="stat-label">Игроков</div></div>
-            </section>
-
-            <div class="overview-layout">
+            </section>            <div class="overview-layout">
                 <div class="overview-main">
                     <section class="panel" id="panel-online-chart">
                         <div class="panel-header">
@@ -103,9 +90,7 @@
                             </div>
                         </div>
                         <div class="sparkline-wrap"><canvas id="sparkline-canvas"></canvas></div>
-                    </section>
-
-                    <section class="panel">
+                    </section>                    <section class="panel">
                         <h2>🏆 Топ стран</h2>
                         <div class="tabs">
                             <button class="tab active" data-sort="claims">По территории</button>
@@ -130,24 +115,18 @@
                                 <tbody id="countries-body"><tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr></tbody>
                             </table>
                         </div>
-                    </section>
-
-                    <section class="panel" id="country-details" style="display:none;">
+                    </section>                    <section class="panel" id="country-details" style="display:none;">
                         <h2 id="detail-title">Детали страны</h2>
                         <div class="detail-grid" id="detail-content"></div>
                     </section>
-                </div>
-
-                <aside class="overview-side">
+                </div>                <aside class="overview-side">
                     <section class="panel" id="panel-event-log">
-                        <div class="panel-header"><h2>📰 За последние 24 часа</h2></div>
+                        <div class="panel-header"><h2>✨ Свежие события</h2></div>
                         <div class="event-log-list" id="event-log-list"><div class="event-log-empty">⏳ Загрузка...</div></div>
                     </section>
                 </aside>
             </div>
-        </section>
-
-        <section class="tab-content" id="tab-map">
+        </section>        <section class="tab-content" id="tab-map">
             <section class="panel">
                 <div class="panel-header">
                     <h2>🗺️ Карта территорий</h2>
@@ -190,9 +169,7 @@
                     <button class="map-layers-restore" id="map-layers-restore" title="Показать слои" aria-label="Показать слои">🎨</button>
                     <div class="map-fullscreen-hint" id="map-fullscreen-hint">Esc — выйти</div>
                 </div>
-                <div class="map-legend" id="map-legend"></div>
-
-                <section class="map-symbol-legend" id="map-symbol-legend">
+                <div class="map-legend" id="map-legend"></div>                <section class="map-symbol-legend" id="map-symbol-legend">
                     <div class="map-symbol-legend-header" id="map-symbol-legend-header">
                         <div class="map-symbol-legend-title">
                             🎨 Легенда карты
@@ -257,9 +234,7 @@
                     </div>
                 </section>
             </section>
-        </section>
-
-        <section class="tab-content" id="tab-players">
+        </section>        <section class="tab-content" id="tab-players">
             <section class="panel">
                 <div class="panel-header">
                     <h2>👥 Игроки</h2>
@@ -271,9 +246,7 @@
                 <div class="players-grid" id="players-grid"></div>
                 <div class="empty-hint" id="players-empty" style="display:none;">Данные об игроках пока не передаются панелью.</div>
             </section>
-        </section>
-
-        <section class="tab-content" id="tab-chronicles">
+        </section>        <section class="tab-content" id="tab-chronicles">
             <section class="panel">
                 <div class="panel-header">
                     <h2>📜 Хроники мира</h2>
@@ -289,16 +262,12 @@
                     <div class="chr-empty">⏳ Загрузка летописи…</div>
                 </div>
             </section>
-        </section>
-
-        <section class="tab-content" id="tab-guide">
+        </section>        <section class="tab-content" id="tab-guide">
             <div class="guide-layout">
                 <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
                 <div id="guide-content"></div>
             </div>
-        </section>
-
-        <section class="tab-content" id="tab-commands">
+        </section>        <section class="tab-content" id="tab-commands">
             <section class="panel">
                 <div class="panel-header">
                     <h2>⌨️ Команды</h2>
@@ -306,9 +275,7 @@
                 <input type="text" id="cmd-search" placeholder="🔍 Поиск..." class="cmd-search" style="margin-bottom:14px">
                 <div class="commands-list" id="commands-list"></div>
             </section>
-        </section>
-
-        <section class="tab-content" id="tab-bonus">
+        </section>        <section class="tab-content" id="tab-bonus">
             <section class="panel" id="panel-jackpot" style="display:none;">
                 <h2>💎 Джекпот казино</h2>
                 <div class="jackpot-display">
@@ -328,18 +295,12 @@
                 <p class="empty-hint">Секции появятся автоматически, когда плагины начнут экспортировать данные.</p>
             </section>
         </section>
-    </main>
-
-    <footer>
+    </main>    <footer>
         <div class="container">
             <p>Данные обновляются каждые 5 минут. Карта — раз в час.</p>
             <p class="small">Powered by <strong>Sovereignty</strong> plugin</p>
         </div>
-    </footer>
-
-    <div class="toast" id="toast"></div>
-
-    <div class="modal" id="player-modal">
+    </footer>    <div class="toast" id="toast"></div>    <div class="modal" id="player-modal">
         <div class="modal-overlay" data-modal-close></div>
         <div class="modal-content player-modal-content">
             <button class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
@@ -368,30 +329,5 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <script src="map-layers.js?v=1.2"></script>
-    <script src="skin3d.js?v=4.7"></script>
-    <script src="legend.js?v=1.1"></script>
-    <script src="app.js?v=5.9"></script>
-    <script src="avatars.js?v=1.0"></script>
-    <script src="sparkline.js?v=1.0"></script>
-    <script src="panel-ambient.js?v=1.0"></script>
-    <script src="panel-loading.js?v=1.0"></script>
-    <script src="panel-detail.js?v=1.3"></script>
-    <script src="map-enhance.js?v=1.0"></script>
-    <script src="mobile.js?v=1.2"></script>
-    <script src="country-cards.js?v=1.0"></script>
-    <script src="theme-switcher.js?v=1.0"></script>
-    <script src="country-passport.js?v=1.0"></script>
-    <script src="chronicles.js?v=1.0"></script>
-    <script src="guide-enhance.js?v=1.2"></script>
-    <script src="event-log-24h.js?v=1.0"></script>
-    <script src="world-timeline.js?v=1.0"></script>
-    <script src="active-wars.js?v=1.0"></script>
-    <script src="country-compare.js?v=1.0"></script>
-    <script src="country-sparkline.js?v=1.0"></script>
-    <script src="deep-links.js?v=1.0"></script>
-</body>
+    </div>    <script src="map-layers.js?v=1.2"></script>    <script src="skin3d.js?v=4.7"></script>    <script src="legend.js?v=1.1"></script>    <script src="app.js?v=5.9"></script>    <script src="panel-fixes.js?v=1.0"></script>    <script src="avatars.js?v=1.0"></script>    <script src="sparkline.js?v=1.1"></script>    <script src="panel-ambient.js?v=1.0"></script>    <script src="panel-loading.js?v=1.0"></script>    <script src="panel-detail.js?v=1.3"></script>    <script src="map-enhance.js?v=1.0"></script>    <script src="mobile.js?v=1.2"></script>    <script src="country-cards.js?v=1.0"></script>    <script src="theme-switcher.js?v=1.0"></script>    <script src="country-passport.js?v=1.1"></script>    <script src="chronicles.js?v=1.0"></script>    <script src="guide-enhance.js?v=1.2"></script>    <script src="event-log-24h.js?v=1.1"></script>    <script src="world-timeline.js?v=1.1"></script>    <script src="active-wars.js?v=1.0"></script>    <script src="country-compare.js?v=1.0"></script>    <script src="country-sparkline.js?v=1.0"></script>    <script src="deep-links.js?v=1.0"></script></body>
 </html>
-
