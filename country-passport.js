@@ -1,6 +1,6 @@
-/* SOVEREIGNTY PANEL - country-passport.js v3.1
+/* SOVEREIGNTY PANEL - country-passport.js v3.2
 DOM-based, ASCII-only source.
-Full passport design: emblem, mini-map, metrics, citizens, chronicle.
+Fix: убран мигающий маркер столицы - карта просто центрируется.
 */
 (function () {
 'use strict';
@@ -23,13 +23,6 @@ return n;
 
 function clearNode(node) {
 while (node.firstChild) node.removeChild(node.firstChild);
-}
-
-function appendAll(parent, children) {
-for (var i = 0; i < children.length; i++) {
-if (children[i]) parent.appendChild(children[i]);
-}
-return parent;
 }
 
 function money(a) {
@@ -58,7 +51,6 @@ h |= 0;
 return Math.abs(h);
 }
 
-/* Emoji via code points - source stays ASCII */
 function cp() {
 var s = '';
 for (var i = 0; i < arguments.length; i++) {
@@ -94,7 +86,6 @@ var E_FARM     = cp(0x1F33E);
 var E_MINE     = cp(0x26CF, VS16);
 var E_WAR      = cp(0x2694, VS16);
 var E_TRADE    = cp(0x1F4B0);
-var E_BOOK     = cp(0x1F4DC);
 
 var CHARGES = [
 E_SWORDS, E_SHIELD, E_CROWN, E_LION,
@@ -105,7 +96,7 @@ E_DAGGER, E_ANCHOR, E_CASTLE, E_SUN
 
 /* ---------------------------------------------------------------
 
-2. Localized strings (ASCII source via \u escapes)
+2. Localized strings
 --------------------------------------------------------------- */
 
 var T = {
@@ -150,7 +141,8 @@ notFound:'\u0421\u0442\u0440\u0430\u043d\u0430 \u043d\u0435 \u043d\u0430\u0439\u
 noData:  '\u0414\u0430\u043d\u043d\u044b\u0435 \u0435\u0449\u0451 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u044b',
 okCopy:  '\u0421\u0441\u044b\u043b\u043a\u0430 \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u0430',
 failCopy:'\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
-okCap:   '\u0421\u0442\u043e\u043b\u0438\u0446\u0430: '
+okCap:   '\u0421\u0442\u043e\u043b\u0438\u0446\u0430: ',
+openPP:  '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u0430\u0441\u043f\u043e\u0440\u0442'
 };
 
 /* ---------------------------------------------------------------
@@ -177,16 +169,14 @@ svg.innerHTML =
 '<path d="M 18 13 L 82 13 L 82 56 Q 82 95 50 104 Q 18 95 18 56 Z" ' +
 'fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="0.8"/>';
 
-var chargeEl = el('span', 'pp-coa-charge', charge);
-
 wrap.appendChild(svg);
-wrap.appendChild(chargeEl);
+wrap.appendChild(el('span', 'pp-coa-charge', charge));
 return wrap;
 }
 
 /* ---------------------------------------------------------------
 
-4. Mini-map
+4. Mini-map (v3.2: без маркера-эмодзи)
 --------------------------------------------------------------- */
 
 function buildMiniMap(country) {
@@ -205,8 +195,7 @@ if (noCap) {
 var box = el('div', 'pp-no-map');
 box.appendChild(el('div', null, E_CAPITAL));
 box.appendChild(el('div', null, T.noCap));
-var hint = el('small', null, T.hintSet);
-box.appendChild(hint);
+box.appendChild(el('small', null, T.hintSet));
 return box;
 }
 
@@ -251,27 +240,21 @@ img.style.imageRendering = 'pixelated';
 img.style.maxWidth = 'none';
 img.style.pointerEvents = 'none';
 
-var marker = el('span', 'pp-map-capital', E_CAPITAL);
-
 mapBox.appendChild(img);
-mapBox.appendChild(marker);
 return mapBox;
 }
 
 /* ---------------------------------------------------------------
 
-5. Metrics / territory tiles
+5. Metrics / territory
 --------------------------------------------------------------- */
 
 function metric(label, value, cls) {
 var m = el('div', 'pp-metric');
 m.appendChild(el('span', null, label));
 var b = el('b', cls || null);
-if (value && value.nodeType) {
-b.appendChild(value);
-} else {
-b.textContent = txt(value);
-}
+if (value && value.nodeType) b.appendChild(value);
+else b.textContent = txt(value);
 m.appendChild(b);
 return m;
 }
@@ -356,9 +339,7 @@ roleCls += ' co-ruler';
 } else if (p.online) {
 roleText = T.rOn;
 }
-if (roleText) {
-row.appendChild(el('span', roleCls, roleText));
-}
+if (roleText) row.appendChild(el('span', roleCls, roleText));
 return row;
 }
 
@@ -428,6 +409,20 @@ function sectionHeader(text) {
 return el('h3', 'pp-section-title', text);
 }
 
+function quickStat(icon, value) {
+var s = el('span');
+s.appendChild(document.createTextNode(icon + ' '));
+s.appendChild(el('b', null, value));
+return s;
+}
+
+function actionBtn(act, label) {
+var b = el('button', 'map-btn pp-action-btn', label);
+b.setAttribute('type', 'button');
+b.setAttribute('data-pp-act', act);
+return b;
+}
+
 function buildPassport(country) {
 var root = document.createDocumentFragment();
 
@@ -453,7 +448,6 @@ qs.appendChild(quickStat(E_BOLT,
 (country.energy || 0).toFixed(1) + ' / ' +
 (country.max_energy || 0).toFixed(1)));
 titleBlock.appendChild(qs);
-
 hero.appendChild(titleBlock);
 root.appendChild(hero);
 
@@ -467,44 +461,38 @@ grid.appendChild(secMap);
 
 var secMet = el('section', 'pp-section');
 secMet.appendChild(sectionHeader(T.metrics));
-var metricsWrap = el('div', 'pp-metrics');
-metricsWrap.appendChild(metric(T.mChunks,
+var mw = el('div', 'pp-metrics');
+mw.appendChild(metric(T.mChunks,
 (country.claims || 0) + ' / ' + (country.max_claims || '?')));
-metricsWrap.appendChild(metric(T.mBank, money(country.bank || 0), 'money'));
+mw.appendChild(metric(T.mBank, money(country.bank || 0), 'money'));
+
 var debt = country.debt || 0;
-metricsWrap.appendChild(metric(T.mDebt, money(debt),
-debt > 0 ? 'danger' : ''));
-metricsWrap.appendChild(metric(T.mEnergy,
+mw.appendChild(metric(T.mDebt, money(debt), debt > 0 ? 'danger' : ''));
+mw.appendChild(metric(T.mEnergy,
 (country.energy || 0).toFixed(1) + ' / ' +
 (country.max_energy || 0).toFixed(1), 'warning'));
-metricsWrap.appendChild(metric(T.mRegen,
+mw.appendChild(metric(T.mRegen,
 (country.regen || 0).toFixed(1) + '/\u0447', 'warning'));
 
 var delta = country.claims_delta_7d || 0;
-var deltaNode = document.createElement('span');
-if (delta > 0) {
-deltaNode.className = 'money';
-deltaNode.textContent = '+' + delta;
-} else if (delta < 0) {
-deltaNode.className = 'danger';
-deltaNode.textContent = String(delta);
-} else {
-deltaNode.textContent = '0';
-}
-metricsWrap.appendChild(metric(T.mDelta, deltaNode, ''));
+var dNode = document.createElement('span');
+if (delta > 0) { dNode.className = 'money'; dNode.textContent = '+' + delta; }
+else if (delta < 0) { dNode.className = 'danger'; dNode.textContent = String(delta); }
+else dNode.textContent = '0';
+mw.appendChild(metric(T.mDelta, dNode, ''));
 
-metricsWrap.appendChild(metric(T.mAllies, String(country.allies || 0)));
-metricsWrap.appendChild(metric(T.mPacts, String(country.pacts || 0)));
+mw.appendChild(metric(T.mAllies, String(country.allies || 0)));
+mw.appendChild(metric(T.mPacts, String(country.pacts || 0)));
+
 var wars = country.active_wars || 0;
-metricsWrap.appendChild(metric(T.mWars, String(wars),
-wars > 0 ? 'danger' : ''));
-metricsWrap.appendChild(metric(T.mAct, String(country.activity || 0)));
+mw.appendChild(metric(T.mWars, String(wars), wars > 0 ? 'danger' : ''));
+mw.appendChild(metric(T.mAct, String(country.activity || 0)));
 
-secMet.appendChild(metricsWrap);
+secMet.appendChild(mw);
 grid.appendChild(secMet);
 root.appendChild(grid);
 
-/* TERRITORY COMPOSITION */
+/* TERRITORY */
 var secComp = el('section', 'pp-section');
 secComp.appendChild(sectionHeader(T.comp));
 var terr = el('div', 'pp-territory');
@@ -529,28 +517,12 @@ root.appendChild(secChr);
 
 /* ACTIONS */
 var actions = el('div', 'pp-actions');
-if (country.capital) {
-actions.appendChild(actionBtn('capital', T.bCapital));
-}
+if (country.capital) actions.appendChild(actionBtn('capital', T.bCapital));
 actions.appendChild(actionBtn('map', T.bMap));
 actions.appendChild(actionBtn('link', T.bLink));
 root.appendChild(actions);
 
 return root;
-}
-
-function quickStat(icon, value) {
-var s = el('span');
-s.appendChild(document.createTextNode(icon + ' '));
-s.appendChild(el('b', null, value));
-return s;
-}
-
-function actionBtn(act, label) {
-var b = el('button', 'map-btn pp-action-btn', label);
-b.setAttribute('type', 'button');
-b.setAttribute('data-pp-act', act);
-return b;
 }
 
 /* ---------------------------------------------------------------
@@ -579,7 +551,6 @@ body.id = 'pp-body';
 
 content.appendChild(closeBtn);
 content.appendChild(body);
-
 m.appendChild(overlay);
 m.appendChild(content);
 document.body.appendChild(m);
@@ -591,7 +562,6 @@ closers[i].addEventListener('click', closePassport);
 
 m.addEventListener('click', onModalClick);
 document.addEventListener('keydown', onModalKey);
-
 return m;
 }
 
@@ -722,9 +692,7 @@ toast(T.okCap + countryName);
 function copyLink(countryName) {
 var url = location.origin + location.pathname +
 '?country=' + encodeURIComponent(countryName);
-var done = function (ok) {
-toast(ok ? T.okCopy : T.failCopy);
-};
+var done = function (ok) { toast(ok ? T.okCopy : T.failCopy); };
 if (navigator.clipboard && window.isSecureContext) {
 navigator.clipboard.writeText(url).then(
 function () { done(true); },
@@ -795,9 +763,8 @@ if (!title || !content) return;
 var name = txt(title.textContent).replace(/[\uD83C\uDFDB\uFE0F]/g, '').trim();
 if (!name) return;
 
-var btn = el('button', 'pp-open-btn map-btn', T.bLink.split(' ')[0]);
+var btn = el('button', 'pp-open-btn map-btn', T.openPP);
 btn.setAttribute('type', 'button');
-btn.textContent = '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u0430\u0441\u043f\u043e\u0440\u0442';
 btn.addEventListener('click', function () { openPassport(name); });
 content.appendChild(btn);
 }
@@ -836,7 +803,7 @@ var tries = 0;
 function tryPatch() {
 tries++;
 if (installOverride()) {
-console.log('[CountryPassport] v3.1 ready');
+console.log('[CountryPassport] v3.2 ready');
 return;
 }
 if (tries < 50) setTimeout(tryPatch, 100);
