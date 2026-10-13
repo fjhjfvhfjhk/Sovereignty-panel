@@ -1,5 +1,17 @@
-/* SOVEREIGNTY PANEL / country-passport.js v3.4
+/* SOVEREIGNTY PANEL / country-passport.js v3.5
 DOM-based, ASCII-only. SVG icons via PanelIcons.
+
+ИЗМЕНЕНИЯ v3.5 (13.10.2026):
+
+- ФИКС герба: щит получает класс `.pp-coa-shield`, а эмблема
+(SVG из PanelIcons) сохраняет собственный размер из атрибутов
+width/height. Раньше CSS `.pp-coa svg { width:100%; height:100%; }`
+раздувал эмблему до 100×120 — она выезжала за границы щита.
+- ФИКС мини-карты: позиция пересчитывается ПОСЛЕ загрузки PNG,
+по его naturalWidth/naturalHeight. Раньше координаты считались
+от метаданных `map_meta.img_width/img_height`, и если реальный
+файл отличался размером — пиксель столицы уезжал в угол.
+- Добавлен onerror-фолбэк для мини-карты.
 */
 (function () {
 'use strict';
@@ -119,8 +131,12 @@ var charge = CHARGES[hashName(country.name) % CHARGES.length];
 var wrap = el('div', 'pp-coa');
 wrap.style.setProperty('--cc', color);
 
+// v3.5: щит получает ЯВНЫЙ класс, чтобы CSS не задевал
+// SVG-эмблему ниже (раньше был широкий селектор `.pp-coa svg`,
+// который раздувал эмблему до 100×120).
 var shield = document.createElementNS(NS, 'svg');
 shield.setAttribute('viewBox', '0 0 100 120');
+shield.classList.add('pp-coa-shield');
 shield.innerHTML = SHIELD_SVG;
 wrap.appendChild(shield);
 
@@ -130,6 +146,16 @@ wrap.appendChild(ch);
 return wrap;
 }
 
+/**
+
+- Мини-карта с центрированием на столице.
+- 
+- v3.5: позиция img рассчитывается ПОСЛЕ загрузки PNG — по
+- naturalWidth/naturalHeight, а не по метаданным сервера. Если
+- файл data/map.png есть в репозитории, но его размер отличается
+- от map_meta.img_width/img_height, старая формула «промахивалась»
+- мимо столицы. Теперь размер берётся у самого изображения.
+*/
 function buildMiniMap(country) {
 var data = window.currentData;
 if (!data || !data.map_meta) return el('div', 'pp-no-map', T.noMap);
@@ -144,38 +170,70 @@ box.appendChild(el('small', null, T.hintSet));
 return box;
 }
 
-var imgW = meta.img_width || 0, imgH = meta.img_height || 0;
-if (imgW === 0 || imgH === 0) return el('div', 'pp-no-map', T.noMapPng);
+var mapBox = el('div', 'pp-map');
+var img = document.createElement('img');
+img.className = 'pp-map-img';
+img.alt = '';
+img.setAttribute('draggable', 'false');
 
-var ppb = (typeof meta.pixels_per_block === 'number'
-&& meta.pixels_per_block > 0) ? meta.pixels_per_block : 1;
+var url = 'data/map.png';
+if (meta.tiles_version) url += '?v=' + meta.tiles_version;
+
+img.style.position = 'absolute';
+img.style.imageRendering = 'pixelated';
+img.style.maxWidth = 'none';
+img.style.pointerEvents = 'none';
+img.style.left = '50%';
+img.style.top = '50%';
+img.style.transform = 'translate(-50%, -50%)';
+img.style.visibility = 'hidden';
+
+var positioned = false;
+
+function positionAtCapital() {
+if (positioned) return;
+var imgW = img.naturalWidth || meta.img_width || 0;
+var imgH = img.naturalHeight || meta.img_height || 0;
+if (imgW <= 0 || imgH <= 0) return;
+positioned = true;
+
+var ppb = (typeof meta.pixels_per_block === 'number' && meta.pixels_per_block > 0)
+? meta.pixels_per_block : 1;
 var minBX = meta.min_chunk_x * 16;
 var minBZ = meta.min_chunk_z * 16;
 var px = (cap.chunk_x * 16 + 8 - minBX) * ppb;
 var pz = (cap.chunk_z * 16 + 8 - minBZ) * ppb;
 
+px = Math.max(0, Math.min(imgW - 1, px));
+pz = Math.max(0, Math.min(imgH - 1, pz));
+
 var zoom = 2;
-var url = 'data/map.png';
-if (meta.tiles_version) url += '?v=' + meta.tiles_version;
-
-var mapBox = el('div', 'pp-map');
-var img = document.createElement('img');
-img.className = 'pp-map-img';
-img.setAttribute('alt', '');
-img.setAttribute('draggable', 'false');
-img.src = url;
-img.style.position = 'absolute';
-img.style.left = '50%';
-img.style.top = '50%';
-img.style.width = (imgW * zoom) + 'px';
+img.style.width  = (imgW * zoom) + 'px';
 img.style.height = (imgH * zoom) + 'px';
-img.style.transform = 'translate(' + (-px * zoom) + 'px,'
+img.style.left = '50%';
+img.style.top  = '50%';
+img.style.transform =
+'translate(' + (-px * zoom) + 'px, ' + (-pz * zoom) + 'px)';
+img.style.visibility = 'visible';
+}
 
-- (-pz * zoom) + 'px)';
-img.style.imageRendering = 'pixelated';
-img.style.maxWidth = 'none';
-img.style.pointerEvents = 'none';
+img.addEventListener('load', positionAtCapital);
+
+img.onerror = function () {
+positioned = true;
+var parent = mapBox.parentNode;
+if (parent) {
+parent.replaceChild(el('div', 'pp-no-map', T.noMapPng), mapBox);
+}
+};
+
+img.src = url;
 mapBox.appendChild(img);
+
+if (img.complete && img.naturalWidth > 0) {
+positionAtCapital();
+}
+
 return mapBox;
 }
 
@@ -614,7 +672,7 @@ var tries = 0;
 function tryPatch() {
 tries++;
 if (installOverride()) {
-console.log('[CountryPassport] v3.4 ready (svg icons)');
+console.log('[CountryPassport] v3.5 ready (shield class + minimap natural-size fix)');
 return;
 }
 if (tries < 50) setTimeout(tryPatch, 100);

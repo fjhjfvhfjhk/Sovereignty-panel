@@ -1,15 +1,22 @@
 /* ============================================================
-SOVEREIGNTY PANEL / COUNTRY-PASSPORT.CSS v1.1
+SOVEREIGNTY PANEL / COUNTRY-PASSPORT.CSS v1.2
 ============================================================
 Паспорт страны — модальное окно с гербом, метриками,
 мини-картой, гражданами и хроникой.
 
+ИЗМЕНЕНИЯ v1.2 (13.10.2026):
+
+- ФИКС: селектор `.pp-coa svg { width:100%; height:100%; }`
+применялся и к самому щиту, и к SVG-эмблеме (PanelIcons),
+из-за чего эмблема раздувалась до размера контейнера
+(100×120) и выезжала за границы герба. Теперь размер
+задаётся только через явный класс `.pp-coa-shield`,
+а эмблема сохраняет собственные width/height из PanelIcons.
+
 ИЗМЕНЕНИЯ v1.1 (13.10.2026):
 
-- Убрана анимация ppCapPulse (мигающий маркер столицы) —
-теперь карта просто центрируется на столице без маркера.
-- Оставлены стили .pp-map-capital для обратной совместимости
-(просто не используется в DOM v3.2+).
+- Убрана анимация ppCapPulse (мигающий маркер столицы).
+- Оставлены стили .pp-map-capital для обратной совместимости.
 ============================================================ */
 
 .pp-modal .pp-modal-content {
@@ -66,22 +73,42 @@ height: 120px;
 filter: drop-shadow(0 4px 10px rgba(42, 26, 15, 0.35));
 }
 
-.pp-coa svg {
+/* v1.2: явный класс для щита. Раньше тут был широкий селектор
+`.pp-coa svg`, который ловил и щит, и SVG-эмблему PanelIcons —
+из-за этого эмблема раздувалась до 100×120 и выходила за герб. */
+.pp-coa-shield {
 width: 100%;
 height: 100%;
 display: block;
 }
 
+/* Эмблема. Позиционируется по центру контейнера щита.
+Размер — из SVG-атрибутов width/height (PanelIcons при
+вызове `PanelIcons.element(name, 38)` их выставляет).
+CSS здесь только страхует от растягивания. */
 .pp-coa-charge {
 position: absolute;
 top: 50%;
 left: 50%;
 transform: translate(-50%, -50%);
-font-size: 38px;
-line-height: 1;
+max-width: 60%;
+max-height: 60%;
+width: auto;
+height: auto;
 pointer-events: none;
-filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+color: #F4EBD3;
+filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
+
+/* PanelIcons использует currentColor для stroke/fill.
+Убеждаемся, что цвет у эмблемы кремово-белый — контрастный
+на любом цвете щита. */
+.pp-coa-charge.panel-icon {
+stroke: currentColor;
+fill: currentColor;
+}
+
+:root[data-theme="dark"] .pp-coa-charge { color: #F4EBD3; }
 
 .pp-title-block {
 min-width: 0;
@@ -165,8 +192,14 @@ letter-spacing: 0.03em;
 
 /* ------------------------------------------------------------
 
-3. МИНИ-КАРТА (v1.1: без мигающего маркера)
------------------------------------------------------------- */
+3. МИНИ-КАРТА
+
+---
+
+v1.2: Контейнер жёстко фиксирован, изображение абсолютно
+позиционировано. Позиция пересчитывается ПОСЛЕ загрузки PNG
+по его naturalWidth/naturalHeight, чтобы не зависеть от того,
+совпадают ли метаданные сервера с реальным файлом. */
 .pp-map {
 width: 100%;
 aspect-ratio: 16 / 10;
@@ -182,16 +215,14 @@ overflow: hidden;
 image-rendering: pixelated;
 }
 
-/* v3.2: изображение карты, позиционируется inline-стилями
-(left/top/transform) в country-passport.js. */
 .pp-map-img {
 display: block;
 user-select: none;
 -webkit-user-drag: none;
+will-change: transform;
 }
 
-/* Наследие — старый маркер столицы. В v3.2+ не используется,
-но оставлен на случай откатов. */
+/* Наследие — старый маркер столицы. В v3.2+ не используется. */
 .pp-map-capital {
 position: absolute;
 top: 50%;
@@ -473,7 +504,7 @@ grid-template-columns: 80px 1fr;
 gap: 14px;
 }
 .pp-coa { width: 72px; height: 88px; }
-.pp-coa-charge { font-size: 28px; }
+.pp-coa-charge { max-width: 55%; max-height: 55%; }
 .pp-title { font-size: 24px; }
 .pp-quick-stats span { font-size: 12px; padding: 3px 8px; }
 .pp-metrics { grid-template-columns: 1fr; }
