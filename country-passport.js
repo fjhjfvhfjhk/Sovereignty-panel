@@ -1,19 +1,11 @@
-/* ============================================================
-SOVEREIGNTY PANEL / COUNTRY-PASSPORT.JS v3.3
-============================================================
-Паспорт страны. DOM-based, ASCII-only source.
-Все иконки — через PanelIcons (SVG), без emoji.
-============================================================ */
+/* SOVEREIGNTY PANEL / country-passport.js v3.4
+DOM-based, ASCII-only. SVG icons via PanelIcons.
+*/
 (function () {
 'use strict';
 
 var MODAL_ID = 'country-modal';
-var SVG_NS = 'http://www.w3.org/2000/svg';
-
-/* ---------------------------------------------------------------
-
-1. Helpers
---------------------------------------------------------------- */
+var NS = 'http://www.w3.org/2000/svg';
 
 function txt(s) { return s == null ? '' : String(s); }
 
@@ -24,9 +16,7 @@ if (text != null) n.textContent = text;
 return n;
 }
 
-function clearNode(node) {
-while (node.firstChild) node.removeChild(node.firstChild);
-}
+function clearNode(n) { while (n.firstChild) n.removeChild(n.firstChild); }
 
 function money(a) {
 if (a == null) return '0';
@@ -48,36 +38,27 @@ return Math.floor(h / 24) + ' дн назад';
 function hashName(name) {
 var h = 0, s = txt(name || '?');
 for (var i = 0; i < s.length; i++) {
-h = ((h << 5) - h) + s.charCodeAt(i);
-h |= 0;
+h = ((h << 5) - h) + s.charCodeAt(i); h |= 0;
 }
 return Math.abs(h);
 }
 
-/* Иконка через PanelIcons, безопасный fallback */
 function icon(name, size) {
-if (window.PanelIcons && typeof window.PanelIcons.element === 'function') {
-var node = window.PanelIcons.element(name, size);
-if (node) return node;
+if (window.PanelIcons && window.PanelIcons.element) {
+var n = window.PanelIcons.element(name, size || 16);
+if (n) return n;
 }
-var dummy = document.createElementNS(SVG_NS, 'svg');
-dummy.setAttribute('width', size);
-dummy.setAttribute('height', size);
-dummy.classList.add('panel-icon');
-return dummy;
+var d = document.createElementNS(NS, 'svg');
+d.setAttribute('width', size || 16);
+d.setAttribute('height', size || 16);
+d.classList.add('panel-icon');
+return d;
 }
 
 var CHARGES = [
-'charge-sword', 'charge-shield', 'charge-crown', 'charge-star',
-'charge-moon', 'charge-sun', 'charge-flame', 'charge-snow',
-'charge-wave', 'charge-tree', 'charge-cross', 'charge-anchor',
-'charge-castle', 'charge-key', 'charge-hammer', 'charge-chalice'
+'sword','shield','crown','star','moon','sun','flame','snow',
+'wave','tree','cross','anchor','castle','key','hammer','chalice'
 ];
-
-/* ---------------------------------------------------------------
-
-2. Localized strings
---------------------------------------------------------------- */
 
 var T = {
 leader:  '\u041b\u0438\u0434\u0435\u0440: ',
@@ -109,22 +90,17 @@ rCo:     '\u0421\u043e-\u043f\u0440\u0430\u0432\u0438\u0442\u0435\u043b\u044c',
 rOn:     '\u043e\u043d\u043b\u0430\u0439\u043d',
 bCapital:'\u041a \u0441\u0442\u043e\u043b\u0438\u0446\u0435',
 bMap:    '\u041d\u0430 \u043a\u0430\u0440\u0442\u0435',
-bLink:   '\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443',
+bLink:   '\u0421\u0441\u044b\u043b\u043a\u0430',
 noCit:   '\u0412 \u0441\u0442\u0440\u0430\u043d\u0435 \u043f\u043e\u043a\u0430 \u043e\u0434\u0438\u043d \u043b\u0438\u0434\u0435\u0440',
-noChr:   '\u0412 \u0445\u0440\u043e\u043d\u0438\u043a\u0430\u0445 \u0435\u0449\u0451 \u043d\u0435\u0442 \u0443\u043f\u043e\u043c\u0438\u043d\u0430\u043d\u0438\u0439 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u044b',
+noChr:   '\u0412 \u0445\u0440\u043e\u043d\u0438\u043a\u0430\u0445 \u0435\u0449\u0451 \u043d\u0435\u0442 \u0443\u043f\u043e\u043c\u0438\u043d\u0430\u043d\u0438\u0439',
 empty:   '\u041f\u0443\u0441\u0442\u043e',
 notFound:'\u0421\u0442\u0440\u0430\u043d\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430: ',
-noData:  '\u0414\u0430\u043d\u043d\u044b\u0435 \u0435\u0449\u0451 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u044b',
+noData:  '\u0414\u0430\u043d\u043d\u044b\u0435 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u044b',
 okCopy:  '\u0421\u0441\u044b\u043b\u043a\u0430 \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u0430',
 failCopy:'\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
 okCap:   '\u0421\u0442\u043e\u043b\u0438\u0446\u0430: ',
 openPP:  '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u0430\u0441\u043f\u043e\u0440\u0442'
 };
-
-/* ---------------------------------------------------------------
-
-3. Coat of arms
---------------------------------------------------------------- */
 
 var SHIELD_SVG =
 '<path d="M 12 7 L 92 7 L 92 62 Q 92 107 52 117 Q 12 107 12 62 Z" ' +
@@ -136,41 +112,31 @@ var SHIELD_SVG =
 '<path d="M 18 13 L 82 13 L 82 56 Q 82 95 50 104 Q 18 95 18 56 Z" ' +
 'fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="0.8"/>';
 
-function buildCoatOfArms(country) {
+function buildCoA(country) {
 var color = country.color || '#6366f1';
-var chargeName = CHARGES[hashName(country.name) % CHARGES.length];
+var charge = CHARGES[hashName(country.name) % CHARGES.length];
 
 var wrap = el('div', 'pp-coa');
 wrap.style.setProperty('--cc', color);
 
-var shield = document.createElementNS(SVG_NS, 'svg');
+var shield = document.createElementNS(NS, 'svg');
 shield.setAttribute('viewBox', '0 0 100 120');
 shield.innerHTML = SHIELD_SVG;
 wrap.appendChild(shield);
 
-var charge = icon(chargeName, 38);
-charge.classList.add('pp-coa-charge');
-wrap.appendChild(charge);
-
+var ch = icon(charge, 38);
+ch.classList.add('pp-coa-charge');
+wrap.appendChild(ch);
 return wrap;
 }
 
-/* ---------------------------------------------------------------
-
-4. Mini-map
---------------------------------------------------------------- */
-
 function buildMiniMap(country) {
 var data = window.currentData;
-if (!data || !data.map_meta) {
-return el('div', 'pp-no-map', T.noMap);
-}
+if (!data || !data.map_meta) return el('div', 'pp-no-map', T.noMap);
 
 var meta = data.map_meta;
 var cap = country.capital;
-
-var noCap = !cap || cap.chunk_x == null || cap.chunk_z == null;
-if (noCap) {
+if (!cap || cap.chunk_x == null || cap.chunk_z == null) {
 var box = el('div', 'pp-no-map');
 box.appendChild(icon('capital', 28));
 box.appendChild(el('div', null, T.noCap));
@@ -178,31 +144,21 @@ box.appendChild(el('small', null, T.hintSet));
 return box;
 }
 
-var imgW = meta.img_width || 0;
-var imgH = meta.img_height || 0;
-if (imgW === 0 || imgH === 0) {
-return el('div', 'pp-no-map', T.noMapPng);
-}
+var imgW = meta.img_width || 0, imgH = meta.img_height || 0;
+if (imgW === 0 || imgH === 0) return el('div', 'pp-no-map', T.noMapPng);
 
-var ppb = 1;
-if (typeof meta.pixels_per_block === 'number'
-&& meta.pixels_per_block > 0) {
-ppb = meta.pixels_per_block;
-}
-
-var minBlockX = meta.min_chunk_x * 16;
-var minBlockZ = meta.min_chunk_z * 16;
-var capBlockX = cap.chunk_x * 16 + 8;
-var capBlockZ = cap.chunk_z * 16 + 8;
-var px = (capBlockX - minBlockX) * ppb;
-var pz = (capBlockZ - minBlockZ) * ppb;
+var ppb = (typeof meta.pixels_per_block === 'number'
+&& meta.pixels_per_block > 0) ? meta.pixels_per_block : 1;
+var minBX = meta.min_chunk_x * 16;
+var minBZ = meta.min_chunk_z * 16;
+var px = (cap.chunk_x * 16 + 8 - minBX) * ppb;
+var pz = (cap.chunk_z * 16 + 8 - minBZ) * ppb;
 
 var zoom = 2;
 var url = 'data/map.png';
 if (meta.tiles_version) url += '?v=' + meta.tiles_version;
 
 var mapBox = el('div', 'pp-map');
-
 var img = document.createElement('img');
 img.className = 'pp-map-img';
 img.setAttribute('alt', '');
@@ -219,15 +175,9 @@ img.style.transform = 'translate(' + (-px * zoom) + 'px,'
 img.style.imageRendering = 'pixelated';
 img.style.maxWidth = 'none';
 img.style.pointerEvents = 'none';
-
 mapBox.appendChild(img);
 return mapBox;
 }
-
-/* ---------------------------------------------------------------
-
-5. Metrics / territory
---------------------------------------------------------------- */
 
 function metric(label, value, cls) {
 var m = el('div', 'pp-metric');
@@ -249,33 +199,22 @@ t.appendChild(el('b', null, txt(value)));
 return t;
 }
 
-/* ---------------------------------------------------------------
-
-6. Citizens
---------------------------------------------------------------- */
-
 function buildCitizens(country) {
 var data = window.currentData;
 var wrap = el('div', 'pp-citizens');
-
 if (!data || !data.players) {
 wrap.appendChild(el('div', 'pp-chr-empty', T.empty));
 return wrap;
 }
-
-var citizens = [];
+var arr = [];
 for (var i = 0; i < data.players.length; i++) {
-if (data.players[i].country === country.name) {
-citizens.push(data.players[i]);
+if (data.players[i].country === country.name) arr.push(data.players[i]);
 }
-}
-
-if (citizens.length === 0) {
+if (arr.length === 0) {
 wrap.appendChild(el('div', 'pp-chr-empty', T.noCit));
 return wrap;
 }
-
-citizens.sort(function (a, b) {
+arr.sort(function (a, b) {
 var oa = a.country_role === 'leader' ? 0
 : a.country_role === 'co_ruler' ? 1 : 2;
 var ob = b.country_role === 'leader' ? 0
@@ -283,14 +222,11 @@ var ob = b.country_role === 'leader' ? 0
 if (oa !== ob) return oa - ob;
 return (b.playtime_seconds || 0) - (a.playtime_seconds || 0);
 });
-
-for (var j = 0; j < citizens.length; j++) {
-wrap.appendChild(buildCitizenRow(citizens[j], country));
-}
+for (var j = 0; j < arr.length; j++) wrap.appendChild(citizenRow(arr[j], country));
 return wrap;
 }
 
-function buildCitizenRow(p, country) {
+function citizenRow(p, country) {
 var name = p.name || '?';
 var row = el('div', 'pp-citizen');
 row.setAttribute('data-pname', name);
@@ -301,99 +237,62 @@ avatar = window.PanelAvatars.get(name, 32);
 } else {
 avatar = fallbackAvatar(name, country.color);
 }
-
 var img = document.createElement('img');
 img.className = 'pp-citizen-avatar';
 img.setAttribute('alt', '');
 img.setAttribute('data-avatar-name', name);
 img.src = avatar;
 row.appendChild(img);
-
 row.appendChild(el('span', 'pp-citizen-name', name));
 
-var roleText = '';
-var roleCls = 'pp-citizen-role';
-if (p.country_role === 'leader') {
-roleText = T.rLeader;
-roleCls += ' leader';
-} else if (p.country_role === 'co_ruler') {
-roleText = T.rCo;
-roleCls += ' co-ruler';
-} else if (p.online) {
-roleText = T.rOn;
-}
-if (roleText) row.appendChild(el('span', roleCls, roleText));
+var rt = '', rc = 'pp-citizen-role';
+if (p.country_role === 'leader') { rt = T.rLeader; rc += ' leader'; }
+else if (p.country_role === 'co_ruler') { rt = T.rCo; rc += ' co-ruler'; }
+else if (p.online) rt = T.rOn;
+if (rt) row.appendChild(el('span', rc, rt));
 return row;
 }
 
 function fallbackAvatar(name, color) {
 var letter = String(name).charAt(0).toUpperCase();
 var fill = color || '#6366f1';
-var svg =
-'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
 '<rect width="32" height="32" rx="2" fill="' + fill + '"/>' +
-'<text x="16" y="22" text-anchor="middle" ' +
-'font-family="Georgia" font-size="17" font-weight="800" ' +
-'fill="white">' + letter + '</text>' +
-'</svg>';
+'<text x="16" y="22" text-anchor="middle" font-family="Georgia" ' +
+'font-size="17" font-weight="800" fill="white">' + letter + '</text></svg>';
 return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
-
-/* ---------------------------------------------------------------
-
-7. Chronicle
---------------------------------------------------------------- */
 
 function buildChronicle(country) {
 var data = window.currentData;
 var wrap = el('div', 'pp-chronicle');
-
 if (!data || !data.event_log || data.event_log.length === 0) {
 wrap.appendChild(el('div', 'pp-chr-empty', T.empty));
 return wrap;
 }
-
-var relevant = [];
+var rel = [];
 for (var i = 0; i < data.event_log.length; i++) {
 var e = data.event_log[i];
-if (e.message && e.message.indexOf(country.name) !== -1) {
-relevant.push(e);
+if (e.message && e.message.indexOf(country.name) !== -1) rel.push(e);
 }
-}
-
-if (relevant.length === 0) {
+if (rel.length === 0) {
 wrap.appendChild(el('div', 'pp-chr-empty', T.noChr));
 return wrap;
 }
-
-var limit = Math.min(relevant.length, 8);
-for (var j = 0; j < limit; j++) {
-wrap.appendChild(buildChronicleRow(relevant[j]));
+var lim = Math.min(rel.length, 8);
+for (var j = 0; j < lim; j++) {
+var it = el('div', 'pp-chr-item');
+it.appendChild(el('div', 'pp-chr-icon', txt(rel[j].icon || '-')));
+var b = el('div', 'pp-chr-body');
+b.appendChild(el('div', 'pp-chr-msg', txt(rel[j].message)));
+b.appendChild(el('div', 'pp-chr-time', timeAgo(rel[j].ts)));
+it.appendChild(b);
+wrap.appendChild(it);
 }
 return wrap;
 }
 
-function buildChronicleRow(e) {
-var item = el('div', 'pp-chr-item');
-var iconWrap = el('div', 'pp-chr-icon');
-iconWrap.textContent = txt(e.icon || '-');
-item.appendChild(iconWrap);
-
-var body = el('div', 'pp-chr-body');
-body.appendChild(el('div', 'pp-chr-msg', txt(e.message)));
-body.appendChild(el('div', 'pp-chr-time', timeAgo(e.ts)));
-item.appendChild(body);
-return item;
-}
-
-/* ---------------------------------------------------------------
-
-8. Full passport
---------------------------------------------------------------- */
-
-function sectionHeader(text) {
-return el('h3', 'pp-section-title', text);
-}
+function sectionHeader(text) { return el('h3', 'pp-section-title', text); }
 
 function quickStat(iconName, value) {
 var s = el('span');
@@ -402,29 +301,33 @@ s.appendChild(el('b', null, value));
 return s;
 }
 
-function actionBtn(act, label) {
-var b = el('button', 'map-btn pp-action-btn', label);
+function actionBtn(act, label, iconName) {
+var b = el('button', 'map-btn pp-action-btn');
 b.setAttribute('type', 'button');
 b.setAttribute('data-pp-act', act);
+if (iconName) {
+b.appendChild(icon(iconName, 16));
+b.appendChild(document.createTextNode(' '));
+}
+b.appendChild(document.createTextNode(label));
 return b;
 }
 
 function buildPassport(country) {
 var root = document.createDocumentFragment();
 
-/* HERO */
 var hero = el('div', 'pp-hero');
-var coaWrap = el('div', 'pp-coa-wrap');
-coaWrap.appendChild(buildCoatOfArms(country));
-hero.appendChild(coaWrap);
+var coa = el('div', 'pp-coa-wrap');
+coa.appendChild(buildCoA(country));
+hero.appendChild(coa);
 
-var titleBlock = el('div', 'pp-title-block');
-titleBlock.appendChild(el('h2', 'pp-title', txt(country.name)));
+var tb = el('div', 'pp-title-block');
+tb.appendChild(el('h2', 'pp-title', txt(country.name)));
 
 var sub = el('div', 'pp-subtitle');
 sub.appendChild(document.createTextNode(T.leader));
 sub.appendChild(el('b', null, txt(country.owner || '?')));
-titleBlock.appendChild(sub);
+tb.appendChild(sub);
 
 var qs = el('div', 'pp-quick-stats');
 qs.appendChild(quickStat('money', money(country.bank || 0)));
@@ -433,11 +336,10 @@ qs.appendChild(quickStat('map',
 qs.appendChild(quickStat('bolt',
 (country.energy || 0).toFixed(1) + ' / ' +
 (country.max_energy || 0).toFixed(1)));
-titleBlock.appendChild(qs);
-hero.appendChild(titleBlock);
+tb.appendChild(qs);
+hero.appendChild(tb);
 root.appendChild(hero);
 
-/* GRID */
 var grid = el('div', 'pp-grid');
 
 var secMap = el('section', 'pp-section');
@@ -451,7 +353,6 @@ var mw = el('div', 'pp-metrics');
 mw.appendChild(metric(T.mChunks,
 (country.claims || 0) + ' / ' + (country.max_claims || '?')));
 mw.appendChild(metric(T.mBank, money(country.bank || 0), 'money'));
-
 var debt = country.debt || 0;
 mw.appendChild(metric(T.mDebt, money(debt), debt > 0 ? 'danger' : ''));
 mw.appendChild(metric(T.mEnergy,
@@ -461,73 +362,49 @@ mw.appendChild(metric(T.mRegen,
 (country.regen || 0).toFixed(1) + '/\u0447', 'warning'));
 
 var delta = country.claims_delta_7d || 0;
-var dNode = document.createElement('span');
-if (delta > 0) { dNode.className = 'money'; dNode.textContent = '+' + delta; }
-else if (delta < 0) { dNode.className = 'danger'; dNode.textContent = String(delta); }
-else dNode.textContent = '0';
-mw.appendChild(metric(T.mDelta, dNode, ''));
+var dn = document.createElement('span');
+if (delta > 0) { dn.className = 'money'; dn.textContent = '+' + delta; }
+else if (delta < 0) { dn.className = 'danger'; dn.textContent = String(delta); }
+else dn.textContent = '0';
+mw.appendChild(metric(T.mDelta, dn, ''));
 
 mw.appendChild(metric(T.mAllies, String(country.allies || 0)));
 mw.appendChild(metric(T.mPacts, String(country.pacts || 0)));
-
 var wars = country.active_wars || 0;
 mw.appendChild(metric(T.mWars, String(wars), wars > 0 ? 'danger' : ''));
 mw.appendChild(metric(T.mAct, String(country.activity || 0)));
-
 secMet.appendChild(mw);
 grid.appendChild(secMet);
 root.appendChild(grid);
 
-/* TERRITORY */
 var secComp = el('section', 'pp-section');
 secComp.appendChild(sectionHeader(T.comp));
 var terr = el('div', 'pp-territory');
 terr.appendChild(ttype('farm', T.tFarm, country.chunks_farm || 0));
 terr.appendChild(ttype('mine', T.tMine, country.chunks_mining || 0));
-terr.appendChild(ttype('war', T.tMil, country.chunks_military || 0));
-terr.appendChild(ttype('trade', T.tTrade, country.chunks_trade || 0));
+terr.appendChild(ttype('sword', T.tMil, country.chunks_military || 0));
+terr.appendChild(ttype('money', T.tTrade, country.chunks_trade || 0));
 secComp.appendChild(terr);
 root.appendChild(secComp);
 
-/* CITIZENS */
 var secCit = el('section', 'pp-section');
 secCit.appendChild(sectionHeader(T.citizens));
 secCit.appendChild(buildCitizens(country));
 root.appendChild(secCit);
 
-/* CHRONICLE */
 var secChr = el('section', 'pp-section');
 secChr.appendChild(sectionHeader(T.chr));
 secChr.appendChild(buildChronicle(country));
 root.appendChild(secChr);
 
-/* ACTIONS */
 var actions = el('div', 'pp-actions');
-if (country.capital) {
-var bCap = actionBtn('capital', T.bCapital);
-bCap.insertBefore(icon('capital', 16), bCap.firstChild);
-bCap.insertBefore(document.createTextNode(' '), bCap.firstChild.nextSibling);
-actions.appendChild(bCap);
-}
-var bMap = actionBtn('map', T.bMap);
-bMap.insertBefore(icon('map', 16), bMap.firstChild);
-bMap.insertBefore(document.createTextNode(' '), bMap.firstChild.nextSibling);
-actions.appendChild(bMap);
-
-var bLink = actionBtn('link', T.bLink);
-bLink.insertBefore(icon('scroll', 16), bLink.firstChild);
-bLink.insertBefore(document.createTextNode(' '), bLink.firstChild.nextSibling);
-actions.appendChild(bLink);
-
+if (country.capital) actions.appendChild(actionBtn('capital', T.bCapital, 'landmark'));
+actions.appendChild(actionBtn('map', T.bMap, 'map'));
+actions.appendChild(actionBtn('link', T.bLink, 'scroll'));
 root.appendChild(actions);
 
 return root;
 }
-
-/* ---------------------------------------------------------------
-
-9. Modal
---------------------------------------------------------------- */
 
 function ensureModal() {
 var m = document.getElementById(MODAL_ID);
@@ -536,11 +413,10 @@ if (m) return m;
 m = el('div', 'modal pp-modal');
 m.id = MODAL_ID;
 
-var overlay = el('div', 'modal-overlay');
-overlay.setAttribute('data-pp-close', '1');
+var ov = el('div', 'modal-overlay');
+ov.setAttribute('data-pp-close', '1');
 
 var content = el('div', 'modal-content pp-modal-content');
-
 var closeBtn = document.createElement('button');
 closeBtn.className = 'modal-close';
 closeBtn.setAttribute('data-pp-close', '1');
@@ -550,29 +426,23 @@ closeBtn.appendChild(icon('close', 16));
 
 var body = el('div');
 body.id = 'pp-body';
-
 content.appendChild(closeBtn);
 content.appendChild(body);
-m.appendChild(overlay);
+m.appendChild(ov);
 m.appendChild(content);
 document.body.appendChild(m);
 
-var closers = m.querySelectorAll('[data-pp-close]');
-for (var i = 0; i < closers.length; i++) {
-closers[i].addEventListener('click', closePassport);
-}
-
+var cs = m.querySelectorAll('[data-pp-close]');
+for (var i = 0; i < cs.length; i++) cs[i].addEventListener('click', closePassport);
 m.addEventListener('click', onModalClick);
 document.addEventListener('keydown', onModalKey);
 return m;
 }
 
 function onModalClick(e) {
-var citizen = e.target.closest('.pp-citizen');
-if (citizen && citizen.getAttribute('data-pname')) {
-if (typeof window.openPlayer === 'function') {
-window.openPlayer(citizen.getAttribute('data-pname'));
-}
+var cit = e.target.closest('.pp-citizen');
+if (cit && cit.getAttribute('data-pname')) {
+if (typeof window.openPlayer === 'function') window.openPlayer(cit.getAttribute('data-pname'));
 return;
 }
 var btn = e.target.closest('[data-pp-act]');
@@ -582,8 +452,8 @@ if (!m) return;
 var name = m.getAttribute('data-country');
 if (!name) return;
 var act = btn.getAttribute('data-pp-act');
-if (act === 'capital') gotoCountryOnMap(name, true);
-else if (act === 'map') gotoCountryOnMap(name, false);
+if (act === 'capital') gotoMap(name, true);
+else if (act === 'map') gotoMap(name, false);
 else if (act === 'link') copyLink(name);
 }
 
@@ -593,15 +463,9 @@ var m = document.getElementById(MODAL_ID);
 if (m && m.classList.contains('show')) closePassport();
 }
 
-/* ---------------------------------------------------------------
-
-10. Open / close
---------------------------------------------------------------- */
-
 function openPassport(name) {
 var data = window.currentData;
 if (!data || !data.countries) { toast(T.noData); return; }
-
 var c = null;
 for (var i = 0; i < data.countries.length; i++) {
 if (data.countries[i].name === name) { c = data.countries[i]; break; }
@@ -610,20 +474,13 @@ if (!c) { toast(T.notFound + name); return; }
 
 var m = ensureModal();
 m.setAttribute('data-country', c.name);
-
 var body = document.getElementById('pp-body');
-if (body) {
-clearNode(body);
-body.appendChild(buildPassport(c));
-}
-
+if (body) { clearNode(body); body.appendChild(buildPassport(c)); }
 m.classList.add('show');
 document.body.style.overflow = 'hidden';
-
 var inline = document.getElementById('country-details');
 if (inline) inline.style.display = 'none';
-
-if (window.PanelAvatars && typeof window.PanelAvatars.refresh === 'function') {
+if (window.PanelAvatars && window.PanelAvatars.refresh) {
 setTimeout(window.PanelAvatars.refresh, 60);
 }
 }
@@ -640,53 +497,35 @@ if (typeof window.showToast === 'function') window.showToast(msg);
 else console.log('[Passport] ' + msg);
 }
 
-/* ---------------------------------------------------------------
-
-11. Actions
---------------------------------------------------------------- */
-
-function gotoCountryOnMap(countryName, focusCapital) {
+function gotoMap(countryName, focusCap) {
 var data = window.currentData;
 if (!data) return;
-
 var c = null;
 for (var i = 0; i < data.countries.length; i++) {
-if (data.countries[i].name === countryName) {
-c = data.countries[i]; break;
-}
+if (data.countries[i].name === countryName) { c = data.countries[i]; break; }
 }
 if (!c) return;
-
-var mapBtn = document.querySelector(
-'.main-nav .nav-btn[data-tab="map"]');
-if (mapBtn) mapBtn.click();
-
+var mb = document.querySelector('.main-nav .nav-btn[data-tab="map"]');
+if (mb) mb.click();
 closePassport();
-
 setTimeout(function () {
-if (!focusCapital || !c.capital) {
-if (typeof window.highlightCountry === 'function') {
-window.highlightCountry(countryName);
-}
+if (!focusCap || !c.capital) {
+if (window.highlightCountry) window.highlightCountry(countryName);
 return;
 }
 var meta = data.map_meta;
 if (!meta) return;
 var cap = c.capital;
 var ppb = meta.pixels_per_block || 1;
-var minX = meta.min_chunk_x * 16;
-var minZ = meta.min_chunk_z * 16;
-var px = (cap.chunk_x * 16 + 8 - minX) * ppb;
-var pz = (cap.chunk_z * 16 + 8 - minZ) * ppb;
+var px = (cap.chunk_x * 16 + 8 - meta.min_chunk_x * 16) * ppb;
+var pz = (cap.chunk_z * 16 + 8 - meta.min_chunk_z * 16) * ppb;
 var vp = document.getElementById('map-viewport');
 if (!vp) return;
 var zoom = 2;
 window.mapZoom = zoom;
 window.mapOffsetX = vp.clientWidth / 2 - px * zoom;
 window.mapOffsetY = vp.clientHeight / 2 - pz * zoom;
-if (typeof window.applyMapTransform === 'function') {
-window.applyMapTransform();
-}
+if (window.applyMapTransform) window.applyMapTransform();
 toast(T.okCap + countryName);
 }, 220);
 }
@@ -697,8 +536,7 @@ var url = location.origin + location.pathname +
 var done = function (ok) { toast(ok ? T.okCopy : T.failCopy); };
 if (navigator.clipboard && window.isSecureContext) {
 navigator.clipboard.writeText(url).then(
-function () { done(true); },
-function () { done(false); });
+function () { done(true); }, function () { done(false); });
 return;
 }
 try {
@@ -713,11 +551,6 @@ document.body.removeChild(ta);
 done(ok);
 } catch (e) { done(false); }
 }
-
-/* ---------------------------------------------------------------
-
-12. Hook window.showDetails
---------------------------------------------------------------- */
 
 function installOverride() {
 if (window.__showDetailsPatched) return true;
@@ -735,21 +568,11 @@ try { orig.apply(this, arguments); } catch (e2) {}
 return true;
 }
 
-/* ---------------------------------------------------------------
-
-13. Detail-panel button
---------------------------------------------------------------- */
-
 function installDetailButton() {
 var panel = document.getElementById('country-details');
 if (!panel) return;
-var mo = new MutationObserver(function () {
-setTimeout(addDetailBtn, 30);
-});
-mo.observe(panel, {
-childList: true, subtree: true,
-attributes: true, attributeFilter: ['style']
-});
+var mo = new MutationObserver(function () { setTimeout(addDetailBtn, 30); });
+mo.observe(panel, { childList:true, subtree:true, attributes:true, attributeFilter:['style'] });
 setTimeout(addDetailBtn, 500);
 }
 
@@ -757,25 +580,16 @@ function addDetailBtn() {
 var panel = document.getElementById('country-details');
 if (!panel || panel.style.display === 'none') return;
 if (panel.querySelector('.pp-open-btn')) return;
-
 var title = document.getElementById('detail-title');
 var content = document.getElementById('detail-content');
 if (!title || !content) return;
-
-var name = txt(title.textContent)
-.replace(/[\uD83C\uDFDB\uFE0F]/g, '').trim();
+var name = txt(title.textContent).replace(/[\uD83C\uDFDB\uFE0F]/g, '').trim();
 if (!name) return;
-
 var btn = el('button', 'pp-open-btn map-btn', T.openPP);
 btn.setAttribute('type', 'button');
 btn.addEventListener('click', function () { openPassport(name); });
 content.appendChild(btn);
 }
-
-/* ---------------------------------------------------------------
-
-14. ?country=...
---------------------------------------------------------------- */
 
 function checkUrl() {
 var c;
@@ -794,35 +608,26 @@ else if (tries > 30) clearInterval(iv);
 }, 300);
 }
 
-/* ---------------------------------------------------------------
-
-15. Boot
---------------------------------------------------------------- */
-
 function boot() {
 ensureModal();
-
 var tries = 0;
 function tryPatch() {
 tries++;
 if (installOverride()) {
-console.log('[CountryPassport] v3.3 ready (svg icons)');
+console.log('[CountryPassport] v3.4 ready (svg icons)');
 return;
 }
 if (tries < 50) setTimeout(tryPatch, 100);
 else console.warn('[CountryPassport] showDetails not found');
 }
 tryPatch();
-
 installDetailButton();
 checkUrl();
 }
 
 if (document.readyState === 'loading') {
 document.addEventListener('DOMContentLoaded', boot);
-} else {
-boot();
-}
+} else { boot(); }
 
 window.openCountryPassport = openPassport;
 window.closeCountryPassport = closePassport;

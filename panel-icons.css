@@ -1,28 +1,37 @@
-/* ============================================================
-SOVEREIGNTY PANEL / PANEL-ICONS.CSS v1.0
-============================================================
-Alignment & sizing for inline SVG icons from panel-icons.js
-============================================================ */
+/* SOVEREIGNTY PANEL / panel-icons.css v1.1
+Inline SVG icon alignment and sizing. */
 
 .panel-icon {
 display: inline-block;
-vertical-align: -0.15em;
+vertical-align: -0.18em;
 flex-shrink: 0;
 overflow: visible;
 line-height: 1;
 }
 
-/* Автовыравнивание в inline-flex контейнерах */
-.pp-quick-stats > span {
+/* Buttons with leading icon: align nicely */
+.nav-btn,
+.tab,
+.badge,
+.map-btn,
+.player-modal-btn,
+.chr-filter,
+.pp-action-btn {
 display: inline-flex;
 align-items: center;
-gap: 5px;
+gap: 6px;
 }
 
-.pp-ttype > span {
+.panel-header h2,
+.panel h2 {
 display: inline-flex;
 align-items: center;
-gap: 4px;
+gap: 8px;
+}
+
+.stat-card .stat-icon svg.panel-icon {
+width: 22px;
+height: 22px;
 }
 
 .event-log-more a {
@@ -31,7 +40,11 @@ align-items: center;
 gap: 6px;
 }
 
-/* Эмблема на гербе — поверх SVG-щита */
+.guide-top-btn .panel-icon { vertical-align: middle; }
+
+.theme-toggle .panel-icon { vertical-align: middle; }
+
+/* Passport emblem layer */
 .pp-coa-charge {
 position: absolute;
 top: 50%;
@@ -41,13 +54,9 @@ color: #F4EBD3;
 pointer-events: none;
 filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
-
-/* Кнопка "Наверх" в гайде и прочие иконки */
-.guide-top-btn .panel-icon {
-vertical-align: middle;
+.pp-coa-charge.panel-icon {
+stroke: currentColor;
+fill: currentColor;
 }
 
-/* Тёмная тема — на всякий случай */
-:root[data-theme="dark"] .pp-coa-charge {
-color: #F4EBD3;
-}
+:root[data-theme="dark"] .pp-coa-charge { color: #F4EBD3; }

@@ -1,16 +1,13 @@
-/* ============================================================
-SOVEREIGNTY PANEL / EVENT-LOG-24H.JS v3.2
-============================================================
-Правая колонка "Свежие события". DOM-based, ASCII-only source.
-Иконки — PanelIcons (SVG), без emoji.
-============================================================ */
+/* SOVEREIGNTY PANEL / event-log-24h.js v3.3
+Right column "fresh events". DOM-based, ASCII-only.
+*/
 (function () {
 'use strict';
 
 var KEY_LAST = 'panel_last_visit';
 var KEY_SESS = 'panel_session_start';
-var MAX_DISPLAY = 12;
-var WINDOW_MS = 24 * 3600 * 1000;
+var MAX = 12;
+var WIN = 24 * 3600 * 1000;
 
 var lastVisit = 0;
 var lastUpdated = 0;
@@ -37,9 +34,7 @@ if (text != null) n.textContent = text;
 return n;
 }
 
-function clear(node) {
-while (node.firstChild) node.removeChild(node.firstChild);
-}
+function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
 
 function timeAgo(ts) {
 if (!ts) return '';
@@ -50,9 +45,13 @@ var h = Math.floor(m / 60); if (h < 24) return h + T.ta_h;
 return Math.floor(h / 24) + T.ta_d;
 }
 
-/* ---------------------------------------------------------------
-Last-visit tracking
---------------------------------------------------------------- */
+function icon(name, size) {
+if (window.PanelIcons && window.PanelIcons.element) {
+var n = window.PanelIcons.element(name, size);
+if (n) return n;
+}
+return document.createElement('span');
+}
 
 function readLast() {
 try {
@@ -73,44 +72,136 @@ function saveLast() {
 try { localStorage.setItem(KEY_LAST, String(Date.now())); } catch (e) {}
 }
 
-/* ---------------------------------------------------------------
-Render
---------------------------------------------------------------- */
-
 function render() {
 var list = document.getElementById('event-log-list');
 if (!list) return;
-
 var data = window.currentData;
 if (!data) return;
 
 var events = data.event_log || [];
 var now = Date.now();
-var floor = now - WINDOW_MS;
+var floor = now - WIN;
 var cutoff = lastVisit > 0 ? Math.max(lastVisit, floor) : floor;
 
 var fresh = [];
 for (var i = 0; i < events.length; i++) {
 var e = events[i];
-if (e && typeof e.ts === 'number' && e.ts > cutoff) {
-fresh.push(e);
-}
+if (e && typeof e.ts === 'number' && e.ts > cutoff) fresh.push(e);
 }
 
 clear(list);
 
 if (fresh.length === 0) {
 renderEmpty(list);
-ensureMoreLink(list);
+ensureMore(list);
 return;
 }
 
-var limit = Math.min(fresh.length, MAX_DISPLAY);
-for (var j = 0; j < limit; j++) {
-list.appendChild(buildRow(fresh[j]));
+var lim = Math.min(fresh.length, MAX);
+for (var j = 0; j < lim; j++) list.appendChild(buildRow(fresh[j]));
+
+if (fresh.length > MAX) {
+var rest = fresh.length - MAX;
+var label = rest === 1 ? T.ev1 : T.evN;
+var h = el('div', 'event-log-empty', T.andMore + rest + ' ' + label);
+h.style.padding = '10px 8px';
+list.appendChild(h);
+}
+ensureMore(list);
 }
 
-if (fresh.length > MAX_DISPLAY) {
-var rest = fresh.length - MAX_DISPLAY;
-var label = rest === 1 ? T.ev1 : T.evN;
-var hint = el('div',
+function renderEmpty(list) {
+var box = el('div', 'event-log-empty');
+box.appendChild(document.createTextNode(T.empty));
+box.appendChild(document.createElement('br'));
+box.appendChild(el('small', null, T.moreHint));
+list.appendChild(box);
+}
+
+function buildRow(e) {
+var row = el('div', 'event-log-item event-type-' + (e.type || 'info'));
+var ic = el('div', 'event-log-icon');
+ic.textContent = txt(e.icon || '-');
+row.appendChild(ic);
+
+var body = el('div', 'event-log-body');
+body.appendChild(el('div', 'event-log-msg', txt(e.message)));
+body.appendChild(el('div', 'event-log-time', timeAgo(e.ts)));
+row.appendChild(body);
+return row;
+}
+
+function ensureMore(list) {
+if (!list) return;
+var next = list.nextElementSibling;
+if (next && next.classList.contains('event-log-more')) return;
+
+var wrap = el('div', 'event-log-more');
+var a = document.createElement('a');
+a.href = '#';
+a.id = 'event-log-more-link';
+a.appendChild(icon('scroll', 14));
+a.appendChild(document.createTextNode(' ' + T.more));
+a.appendChild(icon('arrowright', 14));
+wrap.appendChild(a);
+
+if (list.nextSibling) list.parentNode.insertBefore(wrap, list.nextSibling);
+else list.parentNode.appendChild(wrap);
+
+a.addEventListener('click', function (ev) {
+ev.preventDefault();
+var btn = document.querySelector('.main-nav .nav-btn[data-tab="chronicles"]');
+if (btn) btn.click();
+});
+}
+
+function tick() {
+try {
+var d = window.currentData;
+if (d && d.updated_at && d.updated_at !== lastUpdated) {
+lastUpdated = d.updated_at;
+setTimeout(render, 250);
+}
+} catch (e) {}
+setTimeout(tick, 1500);
+}
+
+function installOverride() {
+if (window.__renderEventLogPatched) return true;
+var orig = window.renderEventLog;
+if (typeof orig !== 'function') return false;
+window.__renderEventLogPatched = true;
+window.renderEventLog = function () { render(); };
+return true;
+}
+
+function boot() {
+lastVisit = readLast();
+try {
+if (!sessionStorage.getItem(KEY_SESS)) {
+sessionStorage.setItem(KEY_SESS, String(lastVisit || Date.now()));
+}
+} catch (e) {}
+
+var tries = 0;
+function tryPatch() {
+tries++;
+if (installOverride()) { console.log('[EventLog24h] v3.3 ready'); return; }
+if (tries < 50) setTimeout(tryPatch, 100);
+}
+tryPatch();
+render();
+tick();
+window.addEventListener('beforeunload', saveLast);
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'hidden') saveLast();
+});
+}
+
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', boot);
+} else { boot(); }
+
+window.EventLog24h = { refresh: render };
+
+})();
