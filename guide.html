@@ -3,106 +3,104 @@
   Подгружается через app.js:loadGuide() в #guide-content.
   CSS-классы берутся из общего style.css (.guide-section, .guide-nav, .cmd-grid и т.д.).
   Правки: только этот файл. index.html и app.js менять не нужно.
--->
 
-<div class="guide-content">
-
-    <article class="guide-section" id="guide-start">
+  Обновление v9.0 (13.10.2026):
+  - guide-country: добавлены подразделы «Создание страны», «Переименование»,
+    «Банк страны» и «Соправители» через GUI + ChatInputManager.
+  - guide-chronicles: НОВАЯ секция про вкладку «Хроники мира» на панели.
+  - guide-casino: убрано устаревшее упоминание Апгрейдера (удалён в v2.5).
+  - guide-changelog: дополнено записями 13.10.2026 и 10.10.2026.
+  - guide-faq: добавлены вопросы про чат-ввод, банк и Хроники.
+--><div class="guide-content">    <article class="guide-section" id="guide-start">
         <h2 data-guide-title>🌱 С чего начать</h2>
         <p>Ты только что зашёл на сервер — держи пошаговый план первых 30 минут.</p>
         <ol class="guide-steps">
             <li>Получи стартовый баланс от администрации или из магазина.</li>
-            <li>Создай свою страну: <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code></li>
-            <li>Захвати первый чанк: встань в нужное место и введи <code data-copy="/c claim">/c claim</code></li>
-            <li>Поставь точку дома: <code data-copy="/sethome">/sethome</code></li>
-            <li>Выбери профессию: <code data-copy="/jobs browse">/jobs browse</code></li>
-            <li>Начни торговать: <code data-copy="/shop">/shop</code></li>
-            <li>Установи столицу: <code data-copy="/c capital set">/c capital set</code></li>
+            <li>Создай свою страну: <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code> (или через GUI: <code>/c</code> → «Создать страну» → напиши имя в чат).</li>
+            <li>Захвати первый чанк: встань в нужное место и введи <code data-copy="/c claim">/c claim</code>.</li>
+            <li>Поставь точку дома: <code data-copy="/sethome">/sethome</code>.</li>
+            <li>Выбери профессию: <code data-copy="/jobs browse">/jobs browse</code>.</li>
+            <li>Начни торговать: <code data-copy="/shop">/shop</code>.</li>
+            <li>Установи столицу: <code data-copy="/c capital set">/c capital set</code>.</li>
         </ol>
         <p class="guide-note">💡 <b>Совет:</b> не трать всю энергию на один захват. Энергия восстанавливается медленно — лучше захвати небольшой ровный участок.</p>
-    </article>
-
-    <article class="guide-section" id="guide-country">
+        <p class="guide-note">💬 <b>Про ввод текста:</b> с версии Sovereignty v3.25 многие действия делаются через <b>клик в GUI → ввод в чат</b> — без команд. Если случайно нажал не туда, напиши в чат <code>отмена</code> или <code>cancel</code>.</p>
+    </article>    <article class="guide-section" id="guide-country">
         <h2 data-guide-title>🏛️ Государство (Sovereignty)</h2>
-        <p>Главное меню: <code data-copy="/c">/c</code>. Алиасы: <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>.</p>
-
-        <h3>🏛️ Столица</h3>
+        <p>Главное меню: <code data-copy="/c">/c</code>. Алиасы: <code data-copy="/country">/country</code>, <code data-copy="/sov">/sov</code>.</p>        <p class="guide-note">💬 <b>Ввод текста без команд.</b> Кликнул кнопку в GUI → написал ответ в чат → действие выполнилось. Работает для: создания страны, переименования, банка, приглашения соправителя. Отмена: <code>отмена</code> или <code>cancel</code>. Таймаут 30 секунд.</p>        <h3>🎬 Создание страны</h3>
+        <ul class="guide-list">
+            <li><b>Через GUI:</b> <code>/c</code> → кнопка «Создать страну» → пиши название в чат.</li>
+            <li><b>Через команду:</b> <code data-copy="/c create МояСтрана">/c create &lt;название&gt;</code></li>
+            <li>Название: 2–16 символов, буквы/цифры/пробел/-/_.</li>
+        </ul>        <h3>✏️ Переименование страны</h3>
+        <ul class="guide-list">
+            <li><b>Через GUI:</b> <code>/c</code> → «Управление страной» → «Переименовать страну» → пиши новое имя в чат.</li>
+            <li><b>Через команду:</b> <code data-copy="/c rename НовоеНазвание">/c rename &lt;новое&gt;</code></li>
+            <li>Только лидер страны.</li>
+        </ul>        <h3>🏛️ Столица</h3>
         <p>Столица — «сердце» страны. Установить может только лидер, стоя на своей территории: <code data-copy="/c capital set">/c capital set</code>.</p>
         <ul class="guide-list">
             <li><b>Визуально:</b> на карте отмечена <b>геральдическим щитом с золотой короной</b>.</li>
             <li><b>Стратегически:</b> захват столицы врагом = <b>мгновенная капитуляция</b> и 20% казны в репарациях.</li>
             <li>Управление: <code data-copy="/c capital">/c capital</code> — информация, <code data-copy="/c capital remove">/c capital remove</code> — снять.</li>
         </ul>
-        <p class="guide-note">⚠️ Не ставьте столицу на границе! Её легко захватить первым ударом.</p>
-
-        <h3>⚡ Энергия</h3>
+        <p class="guide-note">⚠️ Не ставьте столицу на границе! Её легко захватить первым ударом.</p>        <h3>⚡ Энергия</h3>
         <ul class="guide-list">
             <li><b>Старт:</b> 10 ⚡ | <b>Захват чанка:</b> −2 ⚡ | <b>Смерть:</b> −1 ⚡</li>
             <li><b>Купить:</b> <code data-copy="/c buyenergy 10">/c buyenergy &lt;кол-во&gt;</code></li>
             <li><b>Буст:</b> <code data-copy="/c boost">/c boost</code> — 5000 монет, +2 ⚡/час на 1 час</li>
-        </ul>
-
-        <h3>🗺️ Захват территории</h3>
+        </ul>        <h3>🗺️ Захват территории</h3>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/c claim">/c claim</code><span>Захватить чанк (2 ⚡)</span></div>
             <div class="cmd-row"><code data-copy="/c unclaim">/c unclaim</code><span>Освободить чанк</span></div>
             <div class="cmd-row"><code data-copy="/c autoclaim">/c autoclaim</code><span>Автозахват при беге</span></div>
         </div>
-        <p class="guide-note">🛡 Если ты встал на <b>свой</b> чанк и ввёл <code>/c claim</code> — плагин не спишет энергию и напишет «Этот чанк уже принадлежит вашей стране».</p>
-
-        <h3>🏗️ Типы чанков</h3>
+        <p class="guide-note">🛡 Если ты встал на <b>свой</b> чанк и ввёл <code>/c claim</code> — плагин не спишет энергию и напишет «Этот чанк уже принадлежит вашей стране».</p>        <h3>🏗️ Типы чанков</h3>
         <ul class="guide-list">
-            <li>🌾 <b>Ферма</b> — доход (+150/час)</li>
+            <li>🌾 <b>Ферма</b> — доход (+75/час за чанк, растёт со ступенчатой шкалой)</li>
             <li>⛏ <b>Шахта</b> — усиливает Спешку</li>
             <li>⚔ <b>Военный</b> — защита и урон</li>
-            <li>💰 <b>Торговый</b> — +10% к соседним фермам</li>
+            <li>💰 <b>Торговый</b> — бонус к соседним фермам (cap ×1.4)</li>
             <li>🛡 <b>Защитный</b> — щит (2500 монет)</li>
         </ul>
-
-        <h3>💎 Прокачка</h3>
-        <p>Меню: <code data-copy="/c upgrade">/c upgrade</code>. 4 ветки: энергия, регенерация, лимит чанков, доход ферм.</p>
-
-        <h3>🔬 Технологии</h3>
-        <p>Меню: <code data-copy="/c research">/c research</code>. 8 технологий.</p>
-
-        <h3>🏦 Банк страны</h3>
+        <p class="guide-note">📉 <b>Diminishing returns.</b> Первые 20 чанков одного типа работают на 100%, чанки 21–50 — на 50%, дальше — на 25%. Это не даёт «квадратичной экспоненте» сломать экономику.</p>        <h3>💎 Прокачка</h3>
+        <p>Меню: <code data-copy="/c upgrade">/c upgrade</code>. 4 ветки: энергия, регенерация, лимит чанков, доход ферм.</p>        <h3>🔬 Технологии</h3>
+        <p>Меню: <code data-copy="/c research">/c research</code>. 8 технологий.</p>        <h3>🏦 Банк страны</h3>
+        <p>Открывается из главного меню: <code>/c</code> → «🏦 Банк страны».</p>        <p><b>Внутри GUI есть:</b></p>
+        <ul class="guide-list">
+            <li><b>💰 Внести деньги</b> — открывается <b>чат-ввод суммы</b>. Или клик по пресету: <b>+1k</b> / <b>+10k</b> / <b>+100k</b> / <b>+1M</b> / <b>+10M</b> — деньги уйдут в казну сразу.</li>
+            <li><b>💸 Снять деньги</b> — чат-ввод суммы. Доступно лидеру и соправителям.</li>
+            <li><b>💎 Снять всё</b> — забрать всю казну разом (только лидеру / соправителю).</li>
+            <li><b>Инфо-панель</b> — баланс казны, долг страны, ваш личный баланс.</li>
+        </ul>        <p>Альтернатива — команды:</p>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/c bank deposit 5000">/c bank deposit &lt;сумма&gt;</code><span>Внести</span></div>
             <div class="cmd-row"><code data-copy="/c bank withdraw 5000">/c bank withdraw &lt;сумма&gt;</code><span>Снять</span></div>
             <div class="cmd-row"><code data-copy="/c bank withdraw all">/c bank withdraw all</code><span>Забрать всё</span></div>
-        </div>
-
-        <h3>👥 Соправители</h3>
-        <div class="cmd-grid">
+        </div>        <h3>👥 Соправители</h3>
+        <ul class="guide-list">
+            <li><b>Через GUI:</b> <code>/c</code> → «Пригласить соправителя» (слот с головой игрока) → пиши ник в чат.</li>
+            <li><b>Через команду:</b> <code data-copy="/c invite Steve">/c invite &lt;ник&gt;</code></li>
+        </ul>        <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/c invite Steve">/c invite &lt;ник&gt;</code><span>Пригласить</span></div>
             <div class="cmd-row"><code data-copy="/c kick Steve">/c kick &lt;ник&gt;</code><span>Исключить</span></div>
             <div class="cmd-row"><code data-copy="/c accept">/c accept</code><span>Принять</span></div>
             <div class="cmd-row"><code data-copy="/c decline">/c decline</code><span>Отклонить</span></div>
-        </div>
-
-        <h3>🗺️ Утилиты</h3>
+        </div>        <h3>🗺️ Утилиты</h3>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/c seechunk">/c seechunk</code><span>Границы частицами</span></div>
             <div class="cmd-row"><code data-copy="/c map">/c map</code><span>ASCII-карта</span></div>
             <div class="cmd-row"><code data-copy="/c unstuck">/c unstuck</code><span>Телепорт с чужой территории</span></div>
             <div class="cmd-row"><code data-copy="/c achievements">/c achievements</code><span>Список достижений</span></div>
         </div>
-    </article>
-
-    <article class="guide-section" id="guide-map">
-        <h2 data-guide-title>🗺️ Карта — стиль «Antique Atlas» <span style="color:var(--success);">(v5.0)</span></h2>
-
-        <p>Карта оформлена как <b>старинный атлас в пиксель-арт стиле</b> — тёплые земляные тона, компас-роза, вьющиеся орнаменты. При этом сохранены все технические слои — контуры, свет, битвы.</p>
-
-        <h3>🎨 Пиксель-арт база</h3>
+    </article>    <article class="guide-section" id="guide-map">
+        <h2 data-guide-title>🗺️ Карта — стиль «Antique Atlas» <span style="color:var(--success);">(v5.0)</span></h2>        <p>Карта оформлена как <b>старинный атлас в пиксель-арт стиле</b> — тёплые земляные тона, компас-роза, вьющиеся орнаменты. При этом сохранены все технические слои — контуры, свет, битвы.</p>        <h3>🎨 Пиксель-арт база</h3>
         <ul class="guide-list">
             <li>Тёплая палитра: охра, охра-жёлтый, коричневый, оливковый.</li>
             <li>Вода — мшисто-синяя, приглушённая.</li>
             <li>Снег — кремовый, а не чисто белый.</li>
             <li>Шрифт названий стран — Serif (Georgia), как в старых книгах.</li>
-        </ul>
-
-        <h3>📜 Старинные украшения</h3>
+        </ul>        <h3>📜 Старинные украшения</h3>
         <ul class="guide-list">
             <li><b>Компас-роза</b> в правом верхнем углу — 8 лучей, подписи N/E/S/W.</li>
             <li><b>Угловые орнаменты</b> — вьющиеся линии в 4 углах карты.</li>
@@ -110,21 +108,43 @@
             <li><b>Пергаментная виньетка</b> — края уходят в тёплый бежевый туман.</li>
             <li><b>Волны на воде</b> — короткие дуги, как на старинных морских картах.</li>
             <li><b>Морские змеи</b> в зонах тумана войны.</li>
-        </ul>
-
-        <h3>💡 Ночной режим (v5.7)</h3>
-        <p>Ночью источники света рисуются <b>маленькими пиксельными точками</b>. Каждый источник имеет маску видимости 5×5 — если сверху что-то лежит, эта часть пятна не показывается. Поэтому плотная крыша не закроет обзор всей карты.</p>
-
-        <h3>🔍 Управление</h3>
+        </ul>        <h3>💡 Ночной режим (v5.7)</h3>
+        <p>Ночью источники света рисуются <b>маленькими пиксельными точками</b>. Каждый источник имеет маску видимости 5×5 — если сверху что-то лежит, эта часть пятна не показывается. Поэтому плотная крыша не закроет обзор всей карты.</p>        <h3>🔍 Управление</h3>
         <ul class="guide-list">
             <li><b>Мышь:</b> перетаскивание — панорама, колесо — зум</li>
             <li><b>Слои:</b> Игроки / Сетка чанков / День-Ночь (кнопка 🎨)</li>
             <li><b>Клик по стране</b> — открывает детали</li>
             <li><b>⛶ Полный экран</b> — разворот карты</li>
         </ul>
-    </article>
-
-    <article class="guide-section" id="guide-diplomacy">
+    </article>    <article class="guide-section" id="guide-chronicles">
+        <h2 data-guide-title>📜 Хроники мира (веб-панель) <span style="color:var(--success);">(v6.0)</span></h2>
+        <p>Полная летопись всех событий сервера во вкладке <b>«📜 Хроники»</b> на панели. Открывается кликом в верхнем меню или через нижний nav-bar на мобилке.</p>        <h3>🎯 Что внутри</h3>
+        <ul class="guide-list">
+            <li>Все события сгруппированы <b>по дням</b>: «Сегодня», «Вчера», «N дн назад».</li>
+            <li>Каждое событие: иконка, текст, время (HH:MM).</li>
+            <li>Цветная полоса слева — тип события.</li>
+        </ul>        <h3>🎨 Цвета событий</h3>
+        <ul class="guide-list">
+            <li>🔴 <b>Красный</b> — войны, капитуляции, захват столиц.</li>
+            <li>🟢 <b>Зелёный</b> — создание/удаление/переименование стран, установка столицы.</li>
+            <li>🟡 <b>Золотой</b> — пакты, решения суда.</li>
+            <li>🟣 <b>Фиолетовый</b> — ивенты, убийства боссов.</li>
+        </ul>        <h3>🔍 Фильтры</h3>
+        <p>Над лентой — кнопки-фильтры:</p>
+        <ul class="guide-list">
+            <li><b>Все</b> — без фильтра</li>
+            <li><b>⚔ Войны</b> — только боевые события</li>
+            <li><b>🏛 Страны</b> — создание, переименование, удаление</li>
+            <li><b>🤝 Дипломатия</b> — пакты, суд</li>
+            <li><b>🎁 Ивенты</b> — глобальные события</li>
+        </ul>        <p class="guide-note">📱 На мобилке фильтры — горизонтальный скролл (пиллы). На главной странице панели в правой колонке — <b>короткая лента событий за 24 часа</b> со ссылкой «📜 Полная летопись →» внизу.</p>        <h3>🔗 Deep-links</h3>
+        <ul class="guide-list">
+            <li><code>?tab=chronicles</code> — сразу открыть Хроники</li>
+            <li><code>?country=deadspace</code> — открыть паспорт страны</li>
+            <li><code>?compare=A,B</code> — сравнить две страны</li>
+            <li><code>?player=Ник</code> — открыть модалку игрока</li>
+        </ul>
+    </article>    <article class="guide-section" id="guide-diplomacy">
         <h2 data-guide-title>🤝 Дипломатия и войны</h2>
         <p>Меню: <code data-copy="/c">/c</code> → Дипломатия.</p>
         <h3>Отношения</h3>
@@ -146,9 +166,7 @@
             <li>Потеря 40% → авто-победа</li>
             <li>Сдаться: <code data-copy="/c surrender">/c surrender</code></li>
         </ol>
-    </article>
-
-    <article class="guide-section" id="guide-court">
+    </article>    <article class="guide-section" id="guide-court">
         <h2 data-guide-title>⚖️ Международный суд</h2>
         <p>Меню: <code data-copy="/c court">/c court</code>. Жалоба: <code data-copy="/c court file Steve Причина">/c court file &lt;ник&gt; &lt;причина&gt;</code></p>
         <h3>3 санкции</h3>
@@ -157,46 +175,36 @@
             <li>🚫 Эмбарго — рвутся торговые пакты</li>
             <li>🕊 Дипбан — альянсы рвутся, дипломатия на 2ч</li>
         </ul>
-    </article>
-
-    <article class="guide-section" id="guide-casino">
-        <h2 data-guide-title>🎰 Казино (RollGame) <span style="color:var(--success);">(v2.4+)</span></h2>
+    </article>    <article class="guide-section" id="guide-casino">
+        <h2 data-guide-title>🎰 Казино (RollGame) <span style="color:var(--success);">(v2.6)</span></h2>
         <p>Хаб: <code data-copy="/roll">/roll</code>.</p>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/roll slots 1000">/roll slots &lt;ставка&gt;</code><span>Слоты — до x200</span></div>
             <div class="cmd-row"><code data-copy="/roll crash 1000">/roll crash &lt;ставка&gt;</code><span>Crash</span></div>
-            <div class="cmd-row"><code data-copy="/roll upgrade">/roll upgrade</code><span>Апгрейдер</span></div>
             <div class="cmd-row"><code data-copy="/roll stairs 1000">/roll stairs &lt;ставка&gt;</code><span>Лестница — до x42</span></div>
             <div class="cmd-row"><code data-copy="/roll duel 1000">/roll duel &lt;ставка&gt;</code><span>Дуэль</span></div>
-            <div class="cmd-row"><code data-copy="/roll mines 1000 3 5">/roll mines &lt;ставка&gt; &lt;мины&gt; &lt;размер&gt;</code><span>Мины</span></div>
+            <div class="cmd-row"><code data-copy="/roll mines 1000 3 5">/roll mines &lt;ставка&gt; &lt;мины&gt; &lt;размер&gt;</code><span>Мины (прямая команда)</span></div>
             <div class="cmd-row"><code data-copy="/roll wheel 1000">/roll wheel &lt;ставка&gt;</code><span>Колесо — до x5</span></div>
             <div class="cmd-row"><code data-copy="/roll poker">/roll poker</code><span>Покер</span></div>
             <div class="cmd-row"><code data-copy="/roll bet 1000">/roll bet &lt;ставка&gt;</code><span>Классика</span></div>
-        </div>
-
-        <h3>🪟 Окна больше не закрываются сами</h3>
-        <p>С версии 2.4+ <b>все окна казино остаются открытыми</b> после результата: Chance-апгрейдер, Лестница, Crash. Ты видишь итог и можешь сразу нажать «Повторить ставку» или другую кнопку — не нужно переоткрывать заново.</p>
-
-        <h3>🎁 Авто-выдача награды</h3>
-        <p>Если в Item-апгрейдере ты выиграл, но не успел нажать «Забрать предметы» и вышел — награда <b>автоматически выдаётся в инвентарь</b>. Больше не теряется.</p>
-
-        <h3>🔮 Апгрейдер v3.7</h3>
-        <p>Множитель: ×1 (базовый), ×2 (выход ×2, шанс ÷2), ×3 (выход ×3, шанс ÷3).</p>
-        <p>Пример: 64 палки с ×3 при победе = 192 огненных стержня. RTP = 95%.</p>
-
-        <h3>🎯 Честная рулетка</h3>
-        <p>Указатель <b>всегда</b> останавливается на панели, соответствующей исходу.</p>
-    </article>
-
-    <article class="guide-section" id="guide-tax">
+        </div>        <h3>🪟 Окна больше не закрываются сами</h3>
+        <p>С версии 2.4+ <b>все окна казино остаются открытыми</b> после результата: Лестница, Crash, Мины. Ты видишь итог и можешь сразу нажать «Повторить ставку» — не нужно переоткрывать заново.</p>        <h3>🎁 Авто-выдача награды</h3>
+        <p>Если в мини-игре ты выиграл, но не успел забрать и вышел — награда <b>автоматически выдаётся</b> в инвентарь. Больше не теряется.</p>        <h3>🎯 Мины v2.6 — настройка через GUI</h3>
+        <p>Раньше после выбора ставки нужно было вводить параметры командой. Теперь открывается отдельный экран <code>MinesSetupGUI</code>: сетка 3×3 / 4×4 / 5×5, кнопки ±мин, кнопка «Играть».</p>        <h3>🎰 Множители и RTP</h3>
+        <ul class="guide-list">
+            <li>Слоты: RTP ≈ 94.5%, макс ×200</li>
+            <li>Колесо: RTP ≈ 95.8%, макс ×5</li>
+            <li>Лестница: 12 ступеней до ×42, fail-chance растёт</li>
+            <li>Дуэль: P(win) = 47.5% → RTP 95%</li>
+            <li>Crash: множитель = 0.95 / (1 - rand), RTP 95%</li>
+        </ul>
+    </article>    <article class="guide-section" id="guide-tax">
         <h2 data-guide-title>💸 Налоги</h2>
         <p>Каждые 5 игровых дней. Меню: <code data-copy="/tax">/tax</code>.</p>
         <p>Формула: <code>100 + 100 × чанков + 200 × (чанков / 5)</code>.</p>
         <p>Списание: казна → личный счёт владельца → долг. <b>3 просрочки = потеря чанка.</b></p>
-    </article>
-
-    <article class="guide-section" id="guide-market">
-        <h2 data-guide-title>🏪 Рынок между игроками <span style="color:var(--success);">(v1.2)</span></h2>
+    </article>    <article class="guide-section" id="guide-market">
+        <h2 data-guide-title>🏪 Рынок между игроками <span style="color:var(--success);">(v1.3)</span></h2>
         <p>Меню: <code data-copy="/shop">/shop</code>.</p>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/shop add money 500">/shop add money &lt;сумма&gt;</code><span>За деньги</span></div>
@@ -205,16 +213,10 @@
             <div class="cmd-row"><code data-copy="/shop add money 500 for Steve">/shop add money &lt;сумма&gt; for &lt;ник&gt;</code><span>Личный лот</span></div>
         </div>
         <p class="guide-note">📦 Если продавец оффлайн и покупатель платит предметами — оплата <b>сохраняется</b> и выдаётся продавцу при входе, даже после рестарта сервера.</p>
-    </article>
-
-    <article class="guide-section" id="guide-auction">
-        <h2 data-guide-title>🔨 Аукцион <span style="color:var(--success);">(v2.0)</span></h2>
-        <p>Меню: <code data-copy="/auc">/auc</code>. Внутри — категории, мгновенный выкуп, ставки предметами.</p>
-
-        <h3>🎯 Категории</h3>
-        <p>В верхней части GUI — 7 иконок: <b>Все</b>, <b>Блоки</b>, <b>Оружие</b>, <b>Броня</b>, <b>Инструменты</b>, <b>Еда</b>, <b>Ресурсы</b>, <b>Прочее</b>. Клик — фильтр.</p>
-
-        <h3>📝 Как выставить лот</h3>
+    </article>    <article class="guide-section" id="guide-auction">
+        <h2 data-guide-title>🔨 Аукцион <span style="color:var(--success);">(v2.3)</span></h2>
+        <p>Меню: <code data-copy="/auc">/auc</code>. Внутри — категории, мгновенный выкуп, ставки предметами, «Мои лоты».</p>        <h3>🎯 Категории</h3>
+        <p>В верхней части GUI — 7 иконок: <b>Все</b>, <b>Блоки</b>, <b>Оружие</b>, <b>Броня</b>, <b>Инструменты</b>, <b>Еда</b>, <b>Ресурсы</b>, <b>Прочее</b>. Клик — фильтр.</p>        <h3>📝 Как выставить лот</h3>
         <p>Держите предмет в руке, потом команда. За <b>деньги</b>:</p>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/auc add 1000">/auc add &lt;цена&gt;</code><span>60 минут по умолчанию</span></div>
@@ -225,32 +227,23 @@
         <p>За <b>предметы</b>:</p>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/auc add DIAMOND 5">/auc add &lt;материал&gt; &lt;кол-во&gt;</code><span>ставки только этим материалом</span></div>
-        </div>
-
-        <h3>💰 Ставки</h3>
+        </div>        <h3>💰 Ставки</h3>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/auc bid 1 1500">/auc bid &lt;id&gt; &lt;сумма&gt;</code><span>денежная ставка</span></div>
             <div class="cmd-row"><code data-copy="/auc biditem 1 DIAMOND 10">/auc biditem &lt;id&gt; &lt;материал&gt; &lt;кол-во&gt;</code><span>ставка предметами</span></div>
             <div class="cmd-row"><code data-copy="/auc buy 1">/auc buy &lt;id&gt;</code><span>мгновенный выкуп по buyout-цене</span></div>
-        </div>
-
-        <h3>⚡ Anti-snipe</h3>
-        <p>Если кто-то делает ставку в последние 60 секунд — лот <b>продлевается на 60 секунд</b>. Это не даёт вырвать лот последней секундой.</p>
-
-        <h3>👁️ GUI обновляется сам</h3>
-        <p>Если открыт GUI аукциона и другой игрок ставит — ты увидишь обновление через 3 секунды, не нужно переоткрывать.</p>
-
-        <h3>🖱 В GUI</h3>
+        </div>        <h3>⚡ Anti-snipe</h3>
+        <p>Если кто-то делает ставку в последние 60 секунд — лот <b>продлевается на 60 секунд</b>. Это не даёт вырвать лот последней секундой.</p>        <h3>👁️ Кнопка «Мои лоты» (v2.3)</h3>
+        <p>В футере GUI есть переключатель <b>«Только мои лоты»</b> — показывает лишь ваши лоты. Больше не надо искать их глазами в общем списке.</p>        <h3>👁️ GUI обновляется сам</h3>
+        <p>Если открыт GUI аукциона и другой игрок ставит — ты увидишь обновление через 3 секунды, не нужно переоткрывать.</p>        <h3>🖱 В GUI</h3>
         <ul>
             <li><b>ЛКМ</b> по лоту — быстрый <code>/auc info</code></li>
             <li><b>ПКМ</b> по лоту — выкупить сразу (если есть buyout)</li>
             <li><b>Клик</b> по иконке категории — фильтр</li>
             <li><b>Клик</b> по воронке — сортировка (новые / старые)</li>
         </ul>
-    </article>
-
-    <article class="guide-section" id="guide-bounty">
-        <h2 data-guide-title>💀 Наёмники <span style="color:var(--success);">(v1.2)</span></h2>
+    </article>    <article class="guide-section" id="guide-bounty">
+        <h2 data-guide-title>💀 Наёмники <span style="color:var(--success);">(v1.3)</span></h2>
         <p>Награда за голову игрока. При убийстве цели — вся накопленная сумма уходит убийце.</p>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/bounty Steve 10000">/bounty &lt;ник&gt; &lt;сумма&gt;</code><span>Награда</span></div>
@@ -258,10 +251,9 @@
             <div class="cmd-row"><code data-copy="/bounty menu">/bounty menu</code><span>GUI со списком целей</span></div>
             <div class="cmd-row"><code data-copy="/bounty remove Steve">/bounty remove &lt;ник&gt;</code><span>Снять свою ставку (возврат)</span></div>
         </div>
-        <p class="guide-note">🤝 Награды <b>складываются</b>: если игрок A поставил 100, потом B поставил 200 — на цели теперь 300. Каждый может снять только свою долю, и вернуть именно её.</p>
-    </article>
-
-    <article class="guide-section" id="guide-pvp">
+        <p class="guide-note">🤝 Награды <b>складываются</b>: если игрок A поставил 100, потом B поставил 200 — на цели теперь 300. Каждый может снять только свою долю, и вернуть именно её.</p>        <h3>🖱 Установка через GUI (v1.3)</h3>
+        <p>В главном окне наёмников — кнопка <b>«⚔ Установить награду»</b>. Открывается список онлайн-игроков (головы), клик по голове → экран выбора суммы с пресетами 1k / 5k / 10k / 50k / 100k / 500k / 1M.</p>
+    </article>    <article class="guide-section" id="guide-pvp">
         <h2 data-guide-title>⚔️ PvP и защита</h2>
         <ul class="guide-list">
             <li>🔴 Нейтралы: PvP разрешён</li>
@@ -274,9 +266,7 @@
             <li>🌵 Засуха, 🌊 Наводнение, ☠ Чума — негативные</li>
             <li>🌾 Урожайный сезон, 💰 Торговый бум, ⛏ Горный бум, ⚡ Энергетический всплеск, 🕊 Мирное время — позитивные</li>
         </ul>
-    </article>
-
-    <article class="guide-section" id="guide-economy">
+    </article>    <article class="guide-section" id="guide-economy">
         <h2 data-guide-title>💰 Экономика и профессии</h2>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/bal">/bal</code><span>Баланс</span></div>
@@ -287,31 +277,23 @@
             <div class="cmd-row"><code data-copy="/tpa Steve">/tpa &lt;ник&gt;</code><span>Телепорт к игроку</span></div>
             <div class="cmd-row"><code data-copy="/spawn">/spawn</code><span>На спавн</span></div>
         </div>
-    </article>
-
-    <article class="guide-section" id="guide-skins">
+    </article>    <article class="guide-section" id="guide-skins">
         <h2 data-guide-title>🎨 Скины</h2>
         <div class="cmd-grid">
             <div class="cmd-row"><code data-copy="/skin Steve">/skin &lt;ник&gt;</code><span>Установить скин</span></div>
             <div class="cmd-row"><code data-copy="/skin clear">/skin clear</code><span>Убрать скин</span></div>
         </div>
         <p class="guide-note">💡 На панели есть свой 3D-просмотрщик — клик по игроку в разделе <b>Игроки</b>.</p>
-    </article>
-
-    <article class="guide-section" id="guide-panel-skins">
-        <h2 data-guide-title>🖼️ Скины на панели (admin)</h2>
-        <p>В offline-mode панель раньше показывала всем игрокам одинаковые «серые головы Steve», потому что внешние сервисы (mc-heads, crafatar) не знают пиратских ников. Теперь Sovereignty <b>сам выгружает настоящие PNG-скины</b> из SkinsRestorer на GitHub в <code>data/skins/{ник}.png</code>, а панель их подхватывает.</p>
-
-        <h3>⚙️ Как работает</h3>
+    </article>    <article class="guide-section" id="guide-panel-skins">
+        <h2 data-guide-title>🖼️ Скины на панели (admin) <span style="color:var(--success);">(v3.26)</span></h2>
+        <p>В offline-mode панель раньше показывала всем игрокам одинаковые «серые головы Steve», потому что внешние сервисы (mc-heads, crafatar) не знают пиратских ников. Теперь Sovereignty <b>сам выгружает настоящие PNG-скины</b> из SkinsRestorer на GitHub в <code>data/skins/{ник}.png</code>, а панель их подхватывает.</p>        <h3>⚙️ Как работает</h3>
         <ol class="guide-steps">
             <li>Игрок заходит на сервер.</li>
             <li>Через 3 секунды Sovereignty проверяет, есть ли у него скин в SkinsRestorer.</li>
             <li>Если скин есть и его hash не менялся последние 24 часа — пропуск.</li>
             <li>Если скин новый — скачивается PNG, выгружается на GitHub в репо панели.</li>
             <li>Панель при следующей загрузке видит <code>data/skins/{ник}.png</code> и рисует голову игрока.</li>
-        </ol>
-
-        <h3>🔧 Админ-команды</h3>
+        </ol>        <h3>🔧 Админ-команды</h3>
         <div class="cmd-grid">
             <div class="cmd-row">
                 <code data-copy="/c panel skins upload Steve">/c panel skins upload &lt;ник&gt;</code>
@@ -326,12 +308,14 @@
                 <span>Показать размер кэша и статус SkinsRestorer</span>
             </div>
             <div class="cmd-row">
+                <code data-copy="/c panel skins test Steve">/c panel skins test &lt;ник&gt;</code>
+                <span>Диагностика reflection в консоль</span>
+            </div>
+            <div class="cmd-row">
                 <code data-copy="/c panel skins clear">/c panel skins clear</code>
                 <span>Очистить локальный кэш — следующий join перезагрузит все скины</span>
             </div>
-        </div>
-
-        <h3>⚙️ Настройки</h3>
+        </div>        <h3>⚙️ Настройки</h3>
         <p>В <code>plugins/Sovereignty/config.yml</code>:</p>
         <div class="cmd-grid">
             <div class="cmd-row">
@@ -350,81 +334,73 @@
                 <code data-copy="skins.skip-default-skins: true">skins.skip-default-skins</code>
                 <span>Не выгружать дефолтные скины (Steve/Alex)</span>
             </div>
-        </div>
-
-        <p class="guide-note">📁 Все скины складываются в репозиторий панели: <code>data/skins/{ник}.png</code>. Ник должен совпадать с ником игрока. Если ник содержит <code>:</code> или <code>/</code> — заменяются на <code>_</code>.</p>
-    </article>
-
-    <article class="guide-section" id="guide-changelog">
-        <h2 data-guide-title>📋 Что нового</h2>
-
-        <h3>10.10.2026</h3>
+        </div>        <p class="guide-note">📁 Все скины складываются в репозиторий панели: <code>data/skins/{ник}.png</code>. Ник должен совпадать с ником игрока. Если ник содержит <code>:</code> или <code>/</code> — заменяются на <code>_</code>.</p>
+    </article>    <article class="guide-section" id="guide-changelog">
+        <h2 data-guide-title>📋 Что нового</h2>        <h3>13.10.2026</h3>
         <ul class="guide-list">
-            <li>🖼️ <b>Панель — скины</b>: Sovereignty выгружает PNG-скины игроков из SkinsRestorer в <code>data/skins/</code>.</li>
-            <li>🔧 <b>Новые админ-команды</b>: <code>/c panel skins upload|upload-all|status|clear</code>.</li>
-            <li>📝 <b>UX</b>: BankGUI, ChatInputManager для создания/переименования страны.</li>
-        </ul>
-
-        <h3>17.09.2026</h3>
+            <li>📜 <b>Панель v6.0</b> — вкладка «Хроники мира», паспорт страны, сравнение двух стран, таймлайн событий, тёмная/светлая/авто тема, топ стран карточками.</li>
+            <li>📊 <b>JsonBuilder v1.4</b> — в JSON добавлены <code>wars[]</code> (активные войны) и <code>claims_history[7]</code> per country.</li>
+            <li>📈 <b>CountrySnapshotManager v2.0</b> — метод <code>getClaimsHistory7d()</code> для мини-графиков на карточках.</li>
+            <li>🏦 <b>BankGUI</b> — банк страны через GUI: кнопки «Внести / Снять / Снять всё» + 5 пресетов (+1k / +10k / +100k / +1M / +10M).</li>
+            <li>💬 <b>ChatInputManager v1.1</b> — ввод текста через чат без команд. Работает для создания/переименования страны, банка, приглашения соправителя. Отмена: <code>отмена</code>, таймаут 30 сек.</li>
+            <li>🖼️ <b>SkinUploader v1.3</b> — выгрузка PNG-скинов игроков из SkinsRestorer на GitHub Pages.</li>
+            <li>🗡️ <b>ClaimGUI v3.11</b> — прямые вызовы API вместо <code>performCommand</code>.</li>
+        </ul>        <h3>10.10.2026</h3>
         <ul class="guide-list">
-            <li>🔨 <b>AuctionHouse v2.0</b> — категории, buyout, ставки предметами, anti-snipe, авто-обновление GUI.</li>
-            <li>💀 <b>Bounty v1.2</b> — награды теперь складываются от нескольких игроков.</li>
-            <li>🏪 <b>MarketGUI v1.2</b> — отложенные платежи переживают рестарт.</li>
-            <li>🎰 <b>RollGame</b> — окна Chance/Лестница/Crash больше не закрываются сами.</li>
-            <li>🏛️ <b>Sovereignty</b> — повторный claim своего чанка не тратит энергию.</li>
-        </ul>
-
-        <h3>14.09.2026</h3>
+            <li>🖼️ <b>Sovereignty v3.26</b>: автопостинг скинов из SkinsRestorer на GitHub в <code>data/skins/</code>.</li>
+            <li>🔧 <b>Админ-команды</b>: <code>/c panel skins upload|upload-all|status|test|clear</code>.</li>
+            <li>💬 <b>ChatInputManager</b> — сервис чат-ввода для GUI-полей.</li>
+            <li>🏦 <b>BankGUI</b> — экран банка страны с пресетами.</li>
+        </ul>        <h3>17.09.2026</h3>
+        <ul class="guide-list">
+            <li>🔨 <b>AuctionHouse v2.0</b> — категории, buyout, ставки предметами, anti-snipe, авто-обновление GUI. Позже (v2.3) добавлена кнопка «Мои лоты».</li>
+            <li>💀 <b>Bounty v1.3</b> — награды складываются от нескольких игроков. BountySetGUI для установки награды через клики.</li>
+            <li>🏪 <b>MarketGUI v1.3</b> — отложенные платежи переживают рестарт.</li>
+            <li>🎰 <b>RollGame v2.6</b> — окна игр больше не закрываются сами; <b>Апгрейдер удалён</b>; MinesSetupGUI для настройки мин.</li>
+            <li>🏛️ <b>Sovereignty v3.13</b> — экономическая реформа: diminishing returns на фермы/торговлю, luxury tax, territory upkeep.</li>
+        </ul>        <h3>14.09.2026</h3>
         <ul class="guide-list">
             <li>🗺️ <b>Карта v5.0</b> — стилизация «Antique Atlas»: компас-роза, орнаменты, морские змеи.</li>
             <li>🌙 <b>Ночной режим v5.7</b> — источники света с маской видимости 5×5.</li>
         </ul>
-    </article>
-
-    <article class="guide-section" id="guide-faq">
-        <h2 data-guide-title>❓ FAQ</h2>
-
-        <details class="faq-item">
+    </article>    <article class="guide-section" id="guide-faq">
+        <h2 data-guide-title>❓ FAQ</h2>        <details class="faq-item">
             <summary>Почему карта выглядит как старинный атлас?</summary>
             <p>Так задумано — <b>стиль "Antique Atlas"</b>. Тёплая земляная палитра, компас-роза, угловые орнаменты, пергаментная виньетка. При этом все технические слои сохранены (туман, контуры, свет, битвы, дороги).</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Что за компас в углу?</summary>
             <p><b>Компас-роза</b> — старинный навигационный инструмент. 8 лучей: 4 главных (N/E/S/W), 4 промежуточных.</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Что за светящиеся пятна на карте ночью?</summary>
             <p><b>Ночной режим</b> — источники света в ваших странах. Каждое пятно имеет маску видимости 5×5: если сверху что-то лежит — эта часть пятна не показывается. Поэтому даже плотная крыша не закроет обзор.</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Что за тонкие коричневые линии на карте?</summary>
             <p><b>Топографические контуры</b> — горизонтали одинаковой высоты. Рисуются каждые 10 блоков.</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
+            <summary>Как переименовать страну через GUI?</summary>
+            <p><code>/c</code> → «Управление страной» → «Переименовать страну». Откроется чат-ввод — напиши новое имя в чат. Отмена: <code>отмена</code>. Только лидер.</p>
+        </details>        <details class="faq-item">
+            <summary>Как быстро внести деньги в казну?</summary>
+            <p><code>/c</code> → «🏦 Банк страны» → в футере 5 кнопок-пресетов: <b>+1k / +10k / +100k / +1M / +10M</b>. Один клик — деньги в казне, без команд и чат-ввода.</p>
+        </details>        <details class="faq-item">
+            <summary>Я случайно нажал «Создать страну» и мне предложили писать в чат. Что делать?</summary>
+            <p>Напиши <code>отмена</code> или <code>cancel</code> — запрос закроется. Также запрос сам пропадёт через 30 секунд бездействия.</p>
+        </details>        <details class="faq-item">
+            <summary>Что такое «Хроники мира» на панели?</summary>
+            <p>Это вкладка «📜 Хроники» — полная летопись всех событий сервера (войны, создание стран, пакты, ивенты), сгруппированная по дням и с фильтрами по типу. На главной панели в правой колонке — короткая версия за 24 часа.</p>
+        </details>        <details class="faq-item">
             <summary>Почему окно казино не закрывается после игры?</summary>
-            <p>Так задумано в v2.4+. Раньше после выпадения/краха окно закрывалось само, и надо было заново открывать. Теперь ты видишь результат и можешь сразу нажать «Повторить ставку» или сыграть другую игру.</p>
-        </details>
-
-        <details class="faq-item">
-            <summary>Я выиграл в апгрейдере, но не успел забрать — пропало?</summary>
-            <p>Нет. С v3.8 награда выдаётся автоматически при выходе из GUI или при disconnect.</p>
-        </details>
-
-        <details class="faq-item">
+            <p>Так задумано в v2.4+. Раньше после выпадения/краха окно закрывалось само, и надо было заново открывать. Теперь ты видишь результат и можешь сразу нажать «Повторить ставку».</p>
+        </details>        <details class="faq-item">
+            <summary>Я выиграл в мини-игре казино, но не успел забрать — пропало?</summary>
+            <p>Нет. При выходе из GUI награда выдаётся автоматически в инвентарь.</p>
+        </details>        <details class="faq-item">
             <summary>Как выставить лот на аукцион за предметы, а не за деньги?</summary>
             <p>Возьми предмет в руку, введи <code>/auc add DIAMOND 5</code> — это значит «лот принимает ставки только изумрудами, старт 5 шт». Победитель отдаст 5 изумрудов, получит предмет.</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Что значит "buyout" в аукционе?</summary>
             <p>Цена мгновенного выкупа. Покупатель может не ждать конца аукциона, а сразу выкупить лот по buyout-цене.</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Не могу захватить чанк — почему?</summary>
             <ul>
                 <li>Есть ли страна? <code>/c info</code></li>
@@ -434,33 +410,20 @@
                 <li>Если чанк чужой — объявлена ли война? <code>/c enemy &lt;ник&gt;</code></li>
                 <li>Не действует ли пакт о ненападении?</li>
             </ul>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Я захватил свой же чанк — почему не списалась энергия?</summary>
             <p>С версии 3.10 плагин видит, что чанк уже ваш, и не тратит энергию. Сообщение: «Этот чанк уже принадлежит вашей стране».</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Как получать больше энергии?</summary>
             <p>Купить (<code>/c buyenergy</code>), прокачать регенерацию (<code>/c upgrade</code>), купить буст (<code>/c boost</code>).</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Что делать, если застрял на чужой территории?</summary>
             <p><code>/c unstuck</code> — телепортирует на 50-100 блоков.</p>
-        </details>
-
-        <details class="faq-item">
-            <summary>Как переименовать страну?</summary>
-            <p>Через GUI: <code>/c</code> → «Управление страной» → «Переименовать». Напиши новое имя в чат — готово.</p>
-        </details>
-
-        <details class="faq-item">
+        </details>        <details class="faq-item">
             <summary>Как установить панель как приложение?</summary>
             <p>Chrome/Edge: три точки → «Установить Sovereignty Panel». Появится иконка на рабочем столе.</p>
+        </details>        <details class="faq-item">
+            <summary>Почему на панели игрок выглядит как цветной квадрат с буквой?</summary>
+            <p>Значит у игрока ещё не выгружен PNG-скин. Sovereignty выгружает скины на GitHub, но это происходит асинхронно — либо у игрока просто нет скина в SkinsRestorer, либо выгрузка ещё не успела завершиться. Админ может ускорить командой <code>/c panel skins upload &lt;ник&gt;</code>.</p>
         </details>
-    </article>
-
-</div>
-
+    </article></div>
