@@ -1,122 +1,148 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · WORLD-TIMELINE.CSS v1.0
-   ============================================================
-   Таймлайн событий под графиком онлайна (24 часа).
-   ============================================================ */
+SOVEREIGNTY PANEL · WORLD-TIMELINE.CSS v1.1
+============================================================
+Таймлайн событий под графиком онлайна (24 часа).
+
+ИЗМЕНЕНИЯ v1.1 (13.10.2026):
+
+- .wt-tooltip теперь position: fixed — не клипается родительским
+overflow и позиционируется относительно вьюпорта. Инструмент
+всегда рядом с курсором, а не «улетает» к углу панели.
+- Убран overflow: hidden у .world-timeline-canvas-wrap — он больше
+не нужен и мог обрезать всплывающие элементы.
+============================================================ */
 
 .world-timeline {
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(168, 138, 72, 0.35);
+margin-top: 18px;
+padding-top: 16px;
+border-top: 1px solid rgba(168, 138, 72, 0.35);
 }
 
 .world-timeline-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 10px;
-    gap: 12px;
-    flex-wrap: wrap;
+display: flex;
+justify-content: space-between;
+align-items: baseline;
+margin-bottom: 10px;
+gap: 12px;
+flex-wrap: wrap;
 }
 
 .world-timeline-title {
-    font-family: 'IM Fell English', Georgia, serif;
-    font-size: 15px;
-    color: var(--ink, #2A1A0F);
-    letter-spacing: 0.02em;
+font-family: 'IM Fell English', Georgia, serif;
+font-size: 15px;
+color: var(--ink, #2A1A0F);
+letter-spacing: 0.02em;
 }
 
 .world-timeline-hint {
-    font-family: 'EB Garamond', Georgia, serif;
-    font-style: italic;
-    font-size: 11.5px;
-    color: var(--ink-faded, #6B5138);
+font-family: 'EB Garamond', Georgia, serif;
+font-style: italic;
+font-size: 11.5px;
+color: var(--ink-faded, #6B5138);
 }
 
+/* v1.1: без overflow:hidden — не нужен, tooltip вынесен в body. */
 .world-timeline-canvas-wrap {
-    position: relative;
-    width: 100%;
-    height: 56px;
-    background: rgba(201, 168, 96, 0.06);
-    border: 1px solid var(--brass, #A88A48);
-    border-radius: 2px;
-    overflow: hidden;
+position: relative;
+width: 100%;
+height: 56px;
+background: rgba(201, 168, 96, 0.06);
+border: 1px solid var(--brass, #A88A48);
+border-radius: 2px;
 }
 
 .world-timeline-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
+display: block;
+width: 100%;
+height: 100%;
 }
 
-/* Тултип */
+/* ============================================================
+TOOLTIP — v1.1: position: fixed
+============================================================
+Приклеен к курсору через JS (left/top в px от вьюпорта).
+position: fixed нужен, чтобы никакой предок с transform/filter/
+overflow не влиял на координаты.
+============================================================ */
 .wt-tooltip {
-    position: absolute;
-    pointer-events: none;
-    background: rgba(30, 20, 8, 0.96);
-    color: #F4EBD3;
-    border: 1px solid var(--brass, #A88A48);
-    border-radius: 3px;
-    padding: 6px 10px;
-    font-family: 'EB Garamond', Georgia, serif;
-    font-size: 12px;
-    line-height: 1.35;
-    max-width: 280px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
-    z-index: 10;
-    opacity: 0;
-    transition: opacity .12s;
-    white-space: normal;
+position: fixed;
+top: -9999px;
+left: -9999px;
+pointer-events: none;
+background: rgba(42, 30, 16, 0.97);
+color: #F4EBD3;
+border: 1px solid var(--brass, #C9A860);
+border-radius: 3px;
+padding: 6px 10px;
+font-family: 'EB Garamond', Georgia, serif;
+font-size: 12.5px;
+line-height: 1.35;
+max-width: 300px;
+box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+z-index: 2000;
+opacity: 0;
+transition: opacity .12s;
+white-space: normal;
+word-break: break-word;
 }
 .wt-tooltip.visible { opacity: 1; }
 
 .wt-tooltip-icon {
-    display: inline-block;
-    margin-right: 4px;
+display: inline-block;
+margin-right: 4px;
 }
 .wt-tooltip-time {
-    display: block;
-    font-style: italic;
-    font-size: 11px;
-    color: #C9A860;
-    margin-top: 3px;
+display: block;
+font-style: italic;
+font-size: 11px;
+color: #C9A860;
+margin-top: 3px;
 }
 
 /* Легенда типов */
 .wt-legend {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-    font-family: 'EB Garamond', Georgia, serif;
-    font-size: 11.5px;
-    color: var(--ink-faded, #6B5138);
+display: flex;
+gap: 12px;
+flex-wrap: wrap;
+margin-top: 8px;
+font-family: 'EB Garamond', Georgia, serif;
+font-size: 11.5px;
+color: var(--ink-faded, #6B5138);
 }
 .wt-legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+display: inline-flex;
+align-items: center;
+gap: 4px;
 }
 .wt-legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
+width: 8px;
+height: 8px;
+border-radius: 50%;
+display: inline-block;
 }
 
 /* Мобильная */
 @media (max-width: 768px) {
-    .world-timeline { margin-top: 14px; padding-top: 12px; }
-    .world-timeline-canvas-wrap { height: 48px; }
-    .world-timeline-hint { font-size: 10.5px; }
+.world-timeline { margin-top: 14px; padding-top: 12px; }
+.world-timeline-canvas-wrap { height: 48px; }
+.world-timeline-hint { font-size: 10.5px; }
+.wt-tooltip { font-size: 11.5px; padding: 5px 8px; max-width: 220px; }
 }
 
 /* Тёмная тема */
-:root[data-theme="dark"] .world-timeline { border-top-color: rgba(201, 168, 96, 0.25); }
+:root[data-theme="dark"] .world-timeline {
+border-top-color: rgba(201, 168, 96, 0.25);
+}
 :root[data-theme="dark"] .world-timeline-title { color: var(--ink); }
 :root[data-theme="dark"] .world-timeline-hint { color: var(--ink-faded); }
 :root[data-theme="dark"] .world-timeline-canvas-wrap {
-    background: rgba(201, 168, 96, 0.04);
-    border-color: var(--brass);
+background: rgba(201, 168, 96, 0.04);
+border-color: var(--brass);
 }
 :root[data-theme="dark"] .wt-legend { color: var(--ink-faded); }
+:root[data-theme="dark"] .wt-tooltip {
+background: rgba(30, 20, 8, 0.98);
+color: var(--ink);
+border-color: var(--brass-light);
+}
+:root[data-theme="dark"] .wt-tooltip-time { color: var(--brass-light); }

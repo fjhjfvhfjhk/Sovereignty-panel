@@ -1,31 +1,30 @@
 /* ============================================================
-SOVEREIGNTY PANEL · EVENT-LOG-24H.JS v1.1
+SOVEREIGNTY PANEL · EVENT-LOG-24H.JS v1.2
 ============================================================
-Блок «✨ Свежие события» в правой колонке главной страницы.
+Правая колонка главной — блок «✨ Свежие события».
+
+ИЗМЕНЕНИЯ v1.2 (13.10.2026):
+
+- ФИКС: если пользователь не заходил давно, в блок попадали
+ВСЕ события со дня последнего визита (вплоть до 6 дней).
+Теперь окно строго ограничено СНИЗУ 24 часами:
+cutoff = max(lastVisitTs, now - 24h)
+То есть — «что нового с прошлого визита, но не более чем
+за сутки». Это устраняет дубль с таймлайном под графиком
+и одновременно даёт осмысленный срез при долгом отсутствии.
 
 ИСТОРИЯ:
-v1.0 — показывал события за 24 часа, что ДУБЛИРОВАЛО
-«Летопись 24 часов» (timeline под графиком онлайна).
-v1.1 — репурпоз: показывает только события, произошедшие
-С ПРОШЛОГО ВИЗИТА игрока. Полностью отличается от
-timeline'а — тот визуальный за 24ч, этот текстовый
-«что нового с тех пор, как ты последний раз заходил».
-
-ЛОГИКА «прошлого визита»:
-
-- localStorage.panel_last_visit — timestamp последнего закрытия.
-- sessionStorage.panel_session_start — timestamp начала текущей
-сессии (tab). Нужен, чтобы F5 НЕ обнулял «свежесть».
-- На unload → обновляем localStorage.
-- При открытии: если sessionStorage пуст → читаем из
-localStorage. Иначе — используем то, что было в начале сессии.
+v1.0 — фильтр по «24 часа» (дублировало Timeline).
+v1.1 — «с прошлого визита», но без верхнего лимита по времени.
+v1.2 — «с прошлого визита, но не более 24 ч назад».
 ============================================================ */
 (function () {
 'use strict';
 
 var STORAGE_LAST_VISIT = 'panel_last_visit';
 var STORAGE_SESSION_START = 'panel_session_start';
-var MAX_DISPLAY = 15;
+var MAX_DISPLAY = 12;
+var FRESH_WINDOW_MS = 24 * 3600 * 1000;
 
 var lastVisitTs = 0;
 var lastRenderedUpdatedAt = 0;
@@ -50,7 +49,7 @@ return Math.floor(h / 24) + ' дн назад';
 }
 
 // ============================================================
-// 2. Чтение/запись «последнего визита»
+// 2. «Последний визит»
 // ============================================================
 function readLastVisitTs() {
 try {
@@ -86,23 +85,28 @@ var data = window.currentData;
 if (!data) return;
 
 var events = data.event_log || [];
+var now = Date.now();
 
-// Фильтр «свежие с прошлого визита».
-// Если lastVisitTs == 0 (первый визит) — показываем последние 5
-// событий из тех, что есть.
-var fresh;
+// v1.2: cutoff = max(lastVisit, now - 24h).
+// Если пользователь не заходил давно — всё равно смотрим только
+// за последние сутки, иначе получим простыню на 6 дней.
+var hardFloor = now - FRESH_WINDOW_MS;
+var cutoff;
 if (lastVisitTs > 0) {
-fresh = events.filter(function (e) {
-return e && typeof e.ts === 'number' && e.ts > lastVisitTs;
-});
+cutoff = Math.max(lastVisitTs, hardFloor);
 } else {
-fresh = events.slice(0, 5);
+// Первый визит — просто показываем последние 24ч.
+cutoff = hardFloor;
 }
+
+var fresh = events.filter(function (e) {
+return e && typeof e.ts === 'number' && e.ts > cutoff;
+});
 
 if (fresh.length === 0) {
 list.innerHTML =
 '<div class="event-log-empty">' +
-'С прошлого визита ничего не произошло.' +
+'За последние сутки событий не было.' +
 '
 <small>Полная летопись — во вкладке 📜 Хроники.</small>' +
 '</div>';
@@ -122,7 +126,6 @@ return '<div class="event-log-item ' + typeClass + '">' +
 '</div>';
 }).join('');
 
-// Если в блоке есть скрытые события — подскажем
 if (fresh.length > MAX_DISPLAY) {
 list.insertAdjacentHTML('beforeend',
 '<div class="event-log-empty" style="padding:10px 8px;">' +
@@ -155,14 +158,13 @@ if (btn) btn.click();
 }
 
 // ============================================================
-// 4. Tick — реагирует на обновление JSON
+// 4. Tick
 // ============================================================
 function tick() {
 try {
 var data = window.currentData;
 if (data && data.updated_at && data.updated_at !== lastRenderedUpdatedAt) {
 lastRenderedUpdatedAt = data.updated_at;
-// Небольшая задержка, чтобы app.js успел отработать safeRender
 setTimeout(renderFreshEvents, 250);
 }
 } catch (e) {}
@@ -170,9 +172,7 @@ setTimeout(tick, 1500);
 }
 
 // ============================================================
-// 5. Override renderEventLog (app.js) — чтобы на каждой перерисовке
-//    мы сразу показывали свой отфильтрованный список, а не мелькали
-//    «все 20 подряд».
+// 5. Override renderEventLog
 // ============================================================
 function installOverride() {
 if (window.__renderEventLogPatched) return;
@@ -192,8 +192,6 @@ renderFreshEvents();
 // ============================================================
 function boot() {
 lastVisitTs = readLastVisitTs();
-// Фиксируем «начало сессии» только если его ещё нет
-// (т.е. это первая загрузка в этой вкладке).
 try {
 if (!sessionStorage.getItem(STORAGE_SESSION_START)) {
 markSessionStart(lastVisitTs || Date.now());
@@ -204,7 +202,6 @@ installOverride();
 renderFreshEvents();
 tick();
 
-// Обновляем «последний визит» при закрытии/уходе со страницы
 window.addEventListener('beforeunload', saveLastVisitOnUnload);
 document.addEventListener('visibilitychange', function () {
 if (document.visibilityState === 'hidden') {
@@ -212,7 +209,7 @@ saveLastVisitOnUnload();
 }
 });
 
-console.log('[EventLog24h] v1.1 ready (fresh-since-last-visit)');
+console.log('[EventLog24h] v1.2 ready (max 24h window)');
 }
 
 if (document.readyState === 'loading') {

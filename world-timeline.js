@@ -1,17 +1,18 @@
 /* ============================================================
-SOVEREIGNTY PANEL · WORLD-TIMELINE.JS v1.1
+SOVEREIGNTY PANEL · WORLD-TIMELINE.JS v1.2
 ============================================================
 Таймлайн мировых событий за 24 часа под графиком онлайна.
 
-ИЗМЕНЕНИЯ v1.1 (13.10.2026):
+ИЗМЕНЕНИЯ v1.2 (13.10.2026):
 
-- ФИКС: tooltip «уезжал» за правый край и обрезался
-родительским `overflow:hidden`. Теперь tooltip использует
-`position: fixed` и позиционируется относительно курсора
-с полным clample по вьюпорту (сверху/снизу/слева/справа).
-- Убран `overflow: hidden` из CSS-правила для canvas-wrap
-(см. world-timeline.css) — не нужен, tooltip уже fixed.
-- При скролле страницы tooltip скрывается, чтобы не «висел».
+- ФИКС «табличка улетает»: tooltip теперь полностью fixed-
+позиционируется относительно курсора. Ставим left/top от
+e.clientX/e.clientY напрямую, с clamp по вьюпорту.
+Причина прежнего бага: CSS-правило .wt-tooltip имело
+position:absolute, и координаты clientX/clientY интерпретировались
+относительно ближайшего positioned-ancestor, а не вьюпорта.
+- JS принудительно ставит style.position = 'fixed' при инициализации,
+чтобы фикс работал даже если CSS не подгрузился.
 
 ПОДКЛЮЧЕНИЕ: последним <script>.
 ============================================================ */
@@ -19,6 +20,9 @@ SOVEREIGNTY PANEL · WORLD-TIMELINE.JS v1.1
 'use strict';
 
 var TTL_MS = 24 * 3600 * 1000;
+var CURSOR_OFFSET_X = 16;
+var CURSOR_OFFSET_Y = 16;
+
 var lastUpdatedAt = 0;
 var hoveredEventIdx = -1;
 var canvasData = { points: [], width: 0, height: 0 };
@@ -65,7 +69,7 @@ return d.innerHTML;
 function pad2(n) { return n < 10 ? '0' + n : String(n); }
 
 // ============================================================
-// 1. Инжект контейнера в DOM
+// 1. Инжект контейнера
 // ============================================================
 function ensureContainer() {
 if (document.getElementById('world-timeline')) return;
@@ -91,13 +95,18 @@ wrap.innerHTML =
 
 sparkline.parentNode.insertBefore(wrap, sparkline.nextSibling);
 
-// Tooltip создаём ВНЕ .world-timeline-canvas-wrap и сразу
-// в body — тогда position: fixed работает даже если у
-// родителя появится transform/filter.
-var tooltip = document.createElement('div');
+// Tooltip в body: fixed + z-index 2000.
+var tooltip = document.getElementById('wt-tooltip');
+if (!tooltip) {
+tooltip = document.createElement('div');
 tooltip.id = 'wt-tooltip';
 tooltip.className = 'wt-tooltip';
+// v1.2: страховка. Даже если CSS не подгрузился (cache miss),
+// inline position: fixed гарантирует правильное поведение.
+tooltip.style.position = 'fixed';
+tooltip.style.pointerEvents = 'none';
 document.body.appendChild(tooltip);
+}
 
 var legend = wrap.querySelector('#wt-legend');
 legend.innerHTML = LEGEND.map(function (l) {
@@ -130,7 +139,6 @@ canvas.style.height = h + 'px';
 
 var ctx = canvas.getContext('2d');
 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
 ctx.clearRect(0, 0, w, h);
 
 var now = Date.now();
@@ -153,7 +161,6 @@ ctx.textAlign = i === 0 ? 'left' : (i === 8 ? 'right' : 'center');
 ctx.fillText(pad2(t.getHours()) + ':00', px, h - 2);
 }
 
-// События за 24 часа
 var events = (data.event_log || []).filter(function (e) {
 return e && e.ts >= start && e.ts <= now;
 });
@@ -194,7 +201,7 @@ canvasData.height = h;
 }
 
 // ============================================================
-// 3. Tooltip по hover (v1.1: position:fixed + полный clamp)
+// 3. Tooltip по hover
 // ============================================================
 function installHover() {
 var canvas = document.getElementById('world-timeline-canvas');
@@ -207,13 +214,12 @@ if (!tooltip) return;
 canvas.addEventListener('mousemove', function (e) {
 var rect = canvas.getBoundingClientRect();
 var mx = e.clientX - rect.left;
-var my = e.clientY - rect.top;
 
 var best = -1;
 var bestDist = 22;
 for (var i = 0; i < canvasData.points.length; i++) {
 var p = canvasData.points[i];
-var d = Math.hypot(p.x - mx, p.y - my);
+var d = Math.abs(p.x - mx);
 if (d < bestDist) { bestDist = d; best = i; }
 }
 
@@ -237,24 +243,27 @@ tooltip.innerHTML =
 escapeHtml(ev.message || '') + '</div>' +
 '<span class="wt-tooltip-time">' + timeStr + '</span>';
 
+// Сначала сделать видимым, потом измерить (для offsetWidth/H).
 tooltip.classList.add('visible');
+tooltip.style.left = '0px';
+tooltip.style.top = '0px';
 
-// v1.1: fixed-positioning relative to cursor + full clamp.
 var ttW = tooltip.offsetWidth;
 var ttH = tooltip.offsetHeight;
 var vw = window.innerWidth;
 var vh = window.innerHeight;
 
-var left = e.clientX + 14;
-var top  = e.clientY - ttH - 14;
+// v1.2: стартовая позиция — снизу-справа от курсора.
+var left = e.clientX + CURSOR_OFFSET_X;
+var top  = e.clientY + CURSOR_OFFSET_Y;
 
-// Если справа не влезает — показываем слева от курсора
-if (left + ttW > vw - 8) left = e.clientX - ttW - 14;
+// Не влезает справа — зеркалим влево.
+if (left + ttW > vw - 8) left = e.clientX - ttW - CURSOR_OFFSET_X;
+// Не влезает снизу — поднимаем вверх.
+if (top + ttH > vh - 8) top = e.clientY - ttH - CURSOR_OFFSET_Y;
+// Крайние clamp'ы.
 if (left < 8) left = 8;
-// Если сверху не влезает — показываем снизу
-if (top < 8) top = e.clientY + 18;
-// Если и снизу не влезает — прижимаем к нижнему краю
-if (top + ttH > vh - 8) top = vh - ttH - 8;
+if (top < 8) top = 8;
 
 tooltip.style.left = left + 'px';
 tooltip.style.top = top + 'px';
@@ -273,7 +282,7 @@ if (chr) chr.click();
 }
 });
 
-// Скрываем tooltip при скролле, чтобы не висел в странном месте
+// При скролле — прячем, чтобы не «висел».
 window.addEventListener('scroll', function () {
 if (tooltip.classList.contains('visible')) {
 tooltip.classList.remove('visible');
@@ -316,7 +325,7 @@ render();
 }, 3000);
 
 tick();
-console.log('[WorldTimeline] v1.1 ready (fixed tooltip)');
+console.log('[WorldTimeline] v1.2 ready (fixed tooltip position)');
 }
 
 if (document.readyState === 'loading') {

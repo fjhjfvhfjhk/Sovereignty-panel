@@ -1,22 +1,29 @@
 /* ============================================================
-SOVEREIGNTY PANEL · COUNTRY-PASSPORT.JS v1.1
+SOVEREIGNTY PANEL · COUNTRY-PASSPORT.JS v1.2
 ============================================================
 Модальное окно «Паспорт страны».
 
-ИЗМЕНЕНИЯ v1.1 (13.10.2026):
+ИЗМЕНЕНИЯ v1.2 (13.10.2026):
 
-- ФИКС: мини-карта «съезжала» — маркер столицы 🏛️ рисовался
-по центру контейнера, но `background-image` сдвигался так,
-что столица оказывалась в левом верхнем углу. Теперь вместо
-background-image используется <img> с `left/top:50%` и
-`transform:translate(-px*zoom, -pz*zoom)` — столица точно
-в центре.
+- ФИКС «паспорт перестал открываться». Причина: два плагина
+кликов по карточкам стран (inline onclick="showDetails()"
+из country-cards.js и мой capture-listener) конфликтовали,
+и в некоторых случаях capture проигрывал inline-обработчику.
+Теперь мы ПЕРЕОПРЕДЕЛЯЕМ window.showDetails — это работает
+железно, потому что inline onclick всегда ищет showDetails
+в window-скоупе в момент клика.
+- Capture-listener сохранён как страховка для случая, когда
+showDetails был переопределён кем-то ещё.
+- v1.1: мини-карта в паспорте не «съезжает» — маркер столицы
+🏛️ теперь точно под щитом. Использован <img> с translate
+вместо background-position.
 
 ОТКРЫВАЕТСЯ:
 
-- Клик по карточке страны (Top стран).
+- Клик по карточке страны в топе.
+- Клик по названию страны в ленте событий.
 - Кнопка «📖 Открыть паспорт» в inline-деталях.
-- URL параметр ?country=Ник при загрузке страницы.
+- URL параметр ?country=Ник.
 
 ПОДКЛЮЧЕНИЕ: последним <script> в index.html.
 ============================================================ */
@@ -91,23 +98,8 @@ return '<div class="pp-coa" style="--cc:' + escapeAttr(color) + ';">' +
 }
 
 // ============================================================
-// 3. Мини-карта (v1.1 — фикс съезда столицы)
+// 3. Мини-карта (v1.1 fix)
 // ============================================================
-/**
-
-- Ранее мы ставили background-position на -px*zoom, что размещало
-- столицу в ЛЕВОМ ВЕРХНЕМ углу контейнера, а маркер 🏛️ рисовался
-- по центру (top/left: 50% + translate(-50%, -50%)).
-- Результат — рассинхрон: маркер был по центру, а столица —
-- где-то в стороне.
-- 
-- Теперь используется <img> с left/top:50% и transform:translate(-X,-Y).
-- Математика:
-- - img.top-left находится в центре контейнера (50%,50%);
-- - сдвигаем img влево/вверх на (capPixelX, capPixelZ) * zoom;
-- - в результате пиксель (capPixelX, capPixelZ) карты оказывается
-- точно в центре контейнера — под маркером.
-*/
 function buildMiniMap(country) {
 var data = window.currentData;
 if (!data || !data.map_meta) {
@@ -135,7 +127,6 @@ var minBlockZ = meta.min_chunk_z * 16;
 var capBlockX = cap.chunk_x * 16 + 8;
 var capBlockZ = cap.chunk_z * 16 + 8;
 
-// Позиция столицы в пикселях исходного PNG
 var px = (capBlockX - minBlockX) * ppb;
 var pz = (capBlockZ - minBlockZ) * ppb;
 
@@ -156,7 +147,7 @@ var styleImg =
 
 return '<div class="pp-map">' +
 '<img class="pp-map-img" src="' + escapeAttr(url) + '" ' +
-'style="' + styleImg + '" alt="">' +
+'style="' + styleImg + '" alt="" draggable="false">' +
 '<span class="pp-map-capital">🏛️</span>' +
 '</div>';
 }
@@ -401,6 +392,11 @@ document.getElementById('pp-body').innerHTML = buildPassportHTML(country);
 m.classList.add('show');
 document.body.style.overflow = 'hidden';
 
+// Скрываем inline-панель деталей страны, если она была открыта —
+// чтобы не осталось «фона» от старого клика.
+var inline = document.getElementById('country-details');
+if (inline) inline.style.display = 'none';
+
 if (window.PanelAvatars && window.PanelAvatars.refresh) {
 setTimeout(window.PanelAvatars.refresh, 60);
 }
@@ -477,7 +473,48 @@ done(ok);
 }
 
 // ============================================================
-// 10. Перехват клика по карточкам стран (capture phase)
+// 10. v1.2: ПЕРЕОПРЕДЕЛЕНИЕ window.showDetails
+// ============================================================
+/**
+
+- Самая надёжная точка интеграции.
+- 
+- Все места, которые вызывают «показать детали страны», используют
+- глобальную функцию showDetails():
+- - inline onclick="showDetails('X')" в country-cards.js
+- - inline onclick="showDetails('X')" в panel-detail.js (override)
+- - gotoCountry() в app.js вызывает showDetails() для ленты событий
+- 
+- Если мы заменим window.showDetails на свой — все эти вызовы
+- попадут в openCountryPassport, независимо от порядка и
+- фазы всплытия. Никаких capture-конфликтов.
+- 
+- Также сохраняем оригинал под псевдонимом, чтобы при желании
+- вызвать старую inline-панель (например, для отладки).
+*/
+function installShowDetailsOverride() {
+if (window.__showDetailsPatched) return true;
+
+var orig = window.showDetails;
+if (typeof orig !== 'function') return false;
+
+window.__showDetailsPatched = true;
+window.__showDetailsOriginal = orig;
+
+window.showDetails = function (countryName) {
+try {
+openCountryPassport(countryName);
+} catch (e) {
+console.error('[CountryPassport] showDetails override:', e);
+// graceful fallback — вызываем оригинал
+try { orig.apply(this, arguments); } catch (e2) {}
+}
+};
+return true;
+}
+
+// ============================================================
+// 11. Capture-listener как страховка
 // ============================================================
 function installCardOverride() {
 document.addEventListener('click', function (e) {
@@ -487,6 +524,10 @@ var nameEl = card.querySelector('.ccm-name');
 if (!nameEl) return;
 var name = nameEl.textContent.replace(/🏛️/g, '').trim();
 if (!name) return;
+
+// Не трогаем, если клик по вложенному элементу с data-attrs (на будущее)
+if (e.target.closest('[data-pp-ignore]')) return;
+
 e.stopImmediatePropagation();
 e.preventDefault();
 openCountryPassport(name);
@@ -494,7 +535,7 @@ openCountryPassport(name);
 }
 
 // ============================================================
-// 11. Кнопка «Паспорт» в inline-деталях
+// 12. Кнопка «Паспорт» в inline-деталях
 // ============================================================
 function installDetailButton() {
 var panel = document.getElementById('country-details');
@@ -529,7 +570,7 @@ content.appendChild(btn);
 }
 
 // ============================================================
-// 12. URL deep-link ?country=...
+// 13. URL deep-link ?country=...
 // ============================================================
 function checkUrlCountry() {
 try {
@@ -551,14 +592,28 @@ clearInterval(iv);
 }
 
 // ============================================================
-// 13. Boot
+// 14. Boot
 // ============================================================
 function boot() {
 ensureModal();
+
+// v1.2: сначала override showDetails (ждём app.js), потом всё остальное.
+var attempts = 0;
+function tryPatch() {
+attempts++;
+if (installShowDetailsOverride()) {
+console.log('[CountryPassport] showDetails overridden');
+return;
+}
+if (attempts < 30) setTimeout(tryPatch, 100);
+else console.warn('[CountryPassport] showDetails не найден за 3 сек');
+}
+tryPatch();
+
 installCardOverride();
 installDetailButton();
 checkUrlCountry();
-console.log('[CountryPassport] v1.1 ready');
+console.log('[CountryPassport] v1.2 ready');
 }
 
 if (document.readyState === 'loading') {
