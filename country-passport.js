@@ -1,11 +1,14 @@
-/* SOVEREIGNTY PANEL - country-passport.js v3.2
-DOM-based, ASCII-only source.
-Fix: убран мигающий маркер столицы - карта просто центрируется.
-*/
+/* ============================================================
+SOVEREIGNTY PANEL / COUNTRY-PASSPORT.JS v3.3
+============================================================
+Паспорт страны. DOM-based, ASCII-only source.
+Все иконки — через PanelIcons (SVG), без emoji.
+============================================================ */
 (function () {
 'use strict';
 
 var MODAL_ID = 'country-modal';
+var SVG_NS = 'http://www.w3.org/2000/svg';
 
 /* ---------------------------------------------------------------
 
@@ -51,47 +54,24 @@ h |= 0;
 return Math.abs(h);
 }
 
-function cp() {
-var s = '';
-for (var i = 0; i < arguments.length; i++) {
-s += String.fromCodePoint(arguments[i]);
+/* Иконка через PanelIcons, безопасный fallback */
+function icon(name, size) {
+if (window.PanelIcons && typeof window.PanelIcons.element === 'function') {
+var node = window.PanelIcons.element(name, size);
+if (node) return node;
 }
-return s;
+var dummy = document.createElementNS(SVG_NS, 'svg');
+dummy.setAttribute('width', size);
+dummy.setAttribute('height', size);
+dummy.classList.add('panel-icon');
+return dummy;
 }
-
-var VS16 = 0xFE0F;
-
-var E_SWORDS = cp(0x2694, VS16);
-var E_SHIELD = cp(0x1F6E1, VS16);
-var E_CROWN  = cp(0x1F451);
-var E_LION   = cp(0x1F981);
-var E_EAGLE  = cp(0x1F985);
-var E_DRAGON = cp(0x1F409);
-var E_STAR   = cp(0x2B50);
-var E_MOON   = cp(0x1F319);
-var E_FIRE   = cp(0x1F525);
-var E_SNOW   = cp(0x2744, VS16);
-var E_WAVE   = cp(0x1F30A);
-var E_TREE   = cp(0x1F332);
-var E_DAGGER = cp(0x1F5E1, VS16);
-var E_ANCHOR = cp(0x2693);
-var E_CASTLE = cp(0x1F3F0);
-var E_SUN    = cp(0x2600, VS16);
-
-var E_CAPITAL  = cp(0x1F3DB, VS16);
-var E_MONEY    = cp(0x1F4B0);
-var E_MAP      = cp(0x1F5FA, VS16);
-var E_BOLT     = cp(0x26A1);
-var E_FARM     = cp(0x1F33E);
-var E_MINE     = cp(0x26CF, VS16);
-var E_WAR      = cp(0x2694, VS16);
-var E_TRADE    = cp(0x1F4B0);
 
 var CHARGES = [
-E_SWORDS, E_SHIELD, E_CROWN, E_LION,
-E_EAGLE, E_DRAGON, E_STAR, E_MOON,
-E_FIRE, E_SNOW, E_WAVE, E_TREE,
-E_DAGGER, E_ANCHOR, E_CASTLE, E_SUN
+'charge-sword', 'charge-shield', 'charge-crown', 'charge-star',
+'charge-moon', 'charge-sun', 'charge-flame', 'charge-snow',
+'charge-wave', 'charge-tree', 'charge-cross', 'charge-anchor',
+'charge-castle', 'charge-key', 'charge-hammer', 'charge-chalice'
 ];
 
 /* ---------------------------------------------------------------
@@ -101,9 +81,6 @@ E_DAGGER, E_ANCHOR, E_CASTLE, E_SUN
 
 var T = {
 leader:  '\u041b\u0438\u0434\u0435\u0440: ',
-bank:    '\u041a\u0430\u0437\u043d\u0430: ',
-claims:  '\u0427\u0430\u043d\u043a\u043e\u0432: ',
-energy:  '\u042d\u043d\u0435\u0440\u0433\u0438\u044f: ',
 terr:    '\u0422\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u044f \u0438 \u0441\u0442\u043e\u043b\u0438\u0446\u0430',
 metrics: '\u041c\u0435\u0442\u0440\u0438\u043a\u0438',
 comp:    '\u0421\u043e\u0441\u0442\u0430\u0432 \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0438',
@@ -113,7 +90,6 @@ noMap:   '\u041c\u0435\u0442\u0430\u0434\u0430\u043d\u043d\u044b\u0435 \u043a\u0
 noCap:   '\u0421\u0442\u043e\u043b\u0438\u0446\u0430 \u043d\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u0430',
 noMapPng:'\u041a\u0430\u0440\u0442\u0430 \u0435\u0449\u0451 \u043d\u0435 \u0441\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u043d\u0430',
 hintSet: '\u041f\u043e\u0441\u0442\u0430\u0432\u044c: /c capital set',
-mLeader: '\u041b\u0438\u0434\u0435\u0440',
 mChunks: '\u0427\u0430\u043d\u043a\u043e\u0432',
 mBank:   '\u041a\u0430\u0437\u043d\u0430',
 mDebt:   '\u0414\u043e\u043b\u0433',
@@ -150,16 +126,7 @@ openPP:  '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u0430\u0441\u043f\u0
 3. Coat of arms
 --------------------------------------------------------------- */
 
-function buildCoatOfArms(country) {
-var color = country.color || '#6366f1';
-var charge = CHARGES[hashName(country.name) % CHARGES.length];
-
-var wrap = el('div', 'pp-coa');
-wrap.style.setProperty('--cc', color);
-
-var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-svg.setAttribute('viewBox', '0 0 100 120');
-svg.innerHTML =
+var SHIELD_SVG =
 '<path d="M 12 7 L 92 7 L 92 62 Q 92 107 52 117 Q 12 107 12 62 Z" ' +
 'fill="rgba(0,0,0,0.28)" transform="translate(3,3)"/>' +
 '<path d="M 10 5 L 90 5 L 90 60 Q 90 105 50 115 Q 10 105 10 60 Z" ' +
@@ -169,14 +136,28 @@ svg.innerHTML =
 '<path d="M 18 13 L 82 13 L 82 56 Q 82 95 50 104 Q 18 95 18 56 Z" ' +
 'fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="0.8"/>';
 
-wrap.appendChild(svg);
-wrap.appendChild(el('span', 'pp-coa-charge', charge));
+function buildCoatOfArms(country) {
+var color = country.color || '#6366f1';
+var chargeName = CHARGES[hashName(country.name) % CHARGES.length];
+
+var wrap = el('div', 'pp-coa');
+wrap.style.setProperty('--cc', color);
+
+var shield = document.createElementNS(SVG_NS, 'svg');
+shield.setAttribute('viewBox', '0 0 100 120');
+shield.innerHTML = SHIELD_SVG;
+wrap.appendChild(shield);
+
+var charge = icon(chargeName, 38);
+charge.classList.add('pp-coa-charge');
+wrap.appendChild(charge);
+
 return wrap;
 }
 
 /* ---------------------------------------------------------------
 
-4. Mini-map (v3.2: без маркера-эмодзи)
+4. Mini-map
 --------------------------------------------------------------- */
 
 function buildMiniMap(country) {
@@ -188,12 +169,10 @@ return el('div', 'pp-no-map', T.noMap);
 var meta = data.map_meta;
 var cap = country.capital;
 
-var noCap = !cap ||
-cap.chunk_x == null || cap.chunk_z == null;
-
+var noCap = !cap || cap.chunk_x == null || cap.chunk_z == null;
 if (noCap) {
 var box = el('div', 'pp-no-map');
-box.appendChild(el('div', null, E_CAPITAL));
+box.appendChild(icon('capital', 28));
 box.appendChild(el('div', null, T.noCap));
 box.appendChild(el('small', null, T.hintSet));
 return box;
@@ -234,8 +213,9 @@ img.style.left = '50%';
 img.style.top = '50%';
 img.style.width = (imgW * zoom) + 'px';
 img.style.height = (imgH * zoom) + 'px';
-img.style.transform = 'translate(' + (-px * zoom) + 'px,' +
-(-pz * zoom) + 'px)';
+img.style.transform = 'translate(' + (-px * zoom) + 'px,'
+
+- (-pz * zoom) + 'px)';
 img.style.imageRendering = 'pixelated';
 img.style.maxWidth = 'none';
 img.style.pointerEvents = 'none';
@@ -259,9 +239,12 @@ m.appendChild(b);
 return m;
 }
 
-function ttype(label, value) {
+function ttype(iconName, labelText, value) {
 var t = el('div', 'pp-ttype');
-t.appendChild(el('span', null, label));
+var head = el('span');
+head.appendChild(icon(iconName, 16));
+head.appendChild(document.createTextNode(' ' + labelText));
+t.appendChild(head);
 t.appendChild(el('b', null, txt(value)));
 return t;
 }
@@ -392,7 +375,10 @@ return wrap;
 
 function buildChronicleRow(e) {
 var item = el('div', 'pp-chr-item');
-item.appendChild(el('div', 'pp-chr-icon', txt(e.icon || '-')));
+var iconWrap = el('div', 'pp-chr-icon');
+iconWrap.textContent = txt(e.icon || '-');
+item.appendChild(iconWrap);
+
 var body = el('div', 'pp-chr-body');
 body.appendChild(el('div', 'pp-chr-msg', txt(e.message)));
 body.appendChild(el('div', 'pp-chr-time', timeAgo(e.ts)));
@@ -402,16 +388,16 @@ return item;
 
 /* ---------------------------------------------------------------
 
-8. Full passport render
+8. Full passport
 --------------------------------------------------------------- */
 
 function sectionHeader(text) {
 return el('h3', 'pp-section-title', text);
 }
 
-function quickStat(icon, value) {
+function quickStat(iconName, value) {
 var s = el('span');
-s.appendChild(document.createTextNode(icon + ' '));
+s.appendChild(icon(iconName, 14));
 s.appendChild(el('b', null, value));
 return s;
 }
@@ -441,17 +427,17 @@ sub.appendChild(el('b', null, txt(country.owner || '?')));
 titleBlock.appendChild(sub);
 
 var qs = el('div', 'pp-quick-stats');
-qs.appendChild(quickStat(E_MONEY, money(country.bank || 0)));
-qs.appendChild(quickStat(E_MAP,
+qs.appendChild(quickStat('money', money(country.bank || 0)));
+qs.appendChild(quickStat('map',
 (country.claims || 0) + ' / ' + (country.max_claims || '?')));
-qs.appendChild(quickStat(E_BOLT,
+qs.appendChild(quickStat('bolt',
 (country.energy || 0).toFixed(1) + ' / ' +
 (country.max_energy || 0).toFixed(1)));
 titleBlock.appendChild(qs);
 hero.appendChild(titleBlock);
 root.appendChild(hero);
 
-/* GRID: map + metrics */
+/* GRID */
 var grid = el('div', 'pp-grid');
 
 var secMap = el('section', 'pp-section');
@@ -496,10 +482,10 @@ root.appendChild(grid);
 var secComp = el('section', 'pp-section');
 secComp.appendChild(sectionHeader(T.comp));
 var terr = el('div', 'pp-territory');
-terr.appendChild(ttype(E_FARM + ' ' + T.tFarm, country.chunks_farm || 0));
-terr.appendChild(ttype(E_MINE + ' ' + T.tMine, country.chunks_mining || 0));
-terr.appendChild(ttype(E_WAR + ' ' + T.tMil, country.chunks_military || 0));
-terr.appendChild(ttype(E_TRADE + ' ' + T.tTrade, country.chunks_trade || 0));
+terr.appendChild(ttype('farm', T.tFarm, country.chunks_farm || 0));
+terr.appendChild(ttype('mine', T.tMine, country.chunks_mining || 0));
+terr.appendChild(ttype('war', T.tMil, country.chunks_military || 0));
+terr.appendChild(ttype('trade', T.tTrade, country.chunks_trade || 0));
 secComp.appendChild(terr);
 root.appendChild(secComp);
 
@@ -517,9 +503,22 @@ root.appendChild(secChr);
 
 /* ACTIONS */
 var actions = el('div', 'pp-actions');
-if (country.capital) actions.appendChild(actionBtn('capital', T.bCapital));
-actions.appendChild(actionBtn('map', T.bMap));
-actions.appendChild(actionBtn('link', T.bLink));
+if (country.capital) {
+var bCap = actionBtn('capital', T.bCapital);
+bCap.insertBefore(icon('capital', 16), bCap.firstChild);
+bCap.insertBefore(document.createTextNode(' '), bCap.firstChild.nextSibling);
+actions.appendChild(bCap);
+}
+var bMap = actionBtn('map', T.bMap);
+bMap.insertBefore(icon('map', 16), bMap.firstChild);
+bMap.insertBefore(document.createTextNode(' '), bMap.firstChild.nextSibling);
+actions.appendChild(bMap);
+
+var bLink = actionBtn('link', T.bLink);
+bLink.insertBefore(icon('scroll', 16), bLink.firstChild);
+bLink.insertBefore(document.createTextNode(' '), bLink.firstChild.nextSibling);
+actions.appendChild(bLink);
+
 root.appendChild(actions);
 
 return root;
@@ -542,9 +541,12 @@ overlay.setAttribute('data-pp-close', '1');
 
 var content = el('div', 'modal-content pp-modal-content');
 
-var closeBtn = el('button', 'modal-close', '\u2715');
+var closeBtn = document.createElement('button');
+closeBtn.className = 'modal-close';
 closeBtn.setAttribute('data-pp-close', '1');
 closeBtn.setAttribute('type', 'button');
+closeBtn.setAttribute('aria-label', 'Close');
+closeBtn.appendChild(icon('close', 16));
 
 var body = el('div');
 body.id = 'pp-body';
@@ -760,7 +762,8 @@ var title = document.getElementById('detail-title');
 var content = document.getElementById('detail-content');
 if (!title || !content) return;
 
-var name = txt(title.textContent).replace(/[\uD83C\uDFDB\uFE0F]/g, '').trim();
+var name = txt(title.textContent)
+.replace(/[\uD83C\uDFDB\uFE0F]/g, '').trim();
 if (!name) return;
 
 var btn = el('button', 'pp-open-btn map-btn', T.openPP);
@@ -803,7 +806,7 @@ var tries = 0;
 function tryPatch() {
 tries++;
 if (installOverride()) {
-console.log('[CountryPassport] v3.2 ready');
+console.log('[CountryPassport] v3.3 ready (svg icons)');
 return;
 }
 if (tries < 50) setTimeout(tryPatch, 100);
