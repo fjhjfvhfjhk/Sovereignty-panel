@@ -1,0 +1,386 @@
+/* ============================================================
+SOVEREIGNTY PANEL · PANEL-SETTINGS.CSS v1.0
+============================================================
+Кнопка-шестерёнка в шапке + модалка настроек + Discord-бейдж.
+============================================================ */
+
+/* ------------------------------------------------------------
+
+1. GEAR BUTTON
+------------------------------------------------------------ */
+.ps-btn {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 34px;
+height: 34px;
+padding: 0;
+border-radius: 50%;
+border: 1px solid var(--brass, #A88A48);
+background: linear-gradient(180deg, var(--parch-1, #F4EBD3), var(--parch-3, #DCCBA8));
+color: var(--ink, #2A1A0F);
+cursor: pointer;
+line-height: 1;
+font-family: inherit;
+box-shadow:
+inset 0 1px 0 rgba(255, 255, 255, 0.25),
+0 1px 2px rgba(0, 0, 0, 0.15);
+transition: transform .15s cubic-bezier(.34, 1.56, .64, 1),
+box-shadow .15s;
+user-select: none;
+-webkit-tap-highlight-color: transparent;
+}
+.ps-btn:hover {
+transform: scale(1.08);
+box-shadow:
+inset 0 1px 0 rgba(255, 255, 255, 0.35),
+0 2px 6px rgba(0, 0, 0, 0.22);
+}
+.ps-btn:active { transform: scale(0.94); }
+.ps-btn svg {
+display: block;
+pointer-events: none;
+}
+
+/* ------------------------------------------------------------
+
+2. DISCORD BADGE
+------------------------------------------------------------ */
+.discord-badge {
+text-decoration: none;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+background: linear-gradient(180deg,
+rgba(88, 101, 242, 0.18),
+rgba(88, 101, 242, 0.08)) !important;
+border-color: rgba(88, 101, 242, 0.5) !important;
+color: #A8B2FF !important;
+}
+.discord-badge:hover {
+background: #5865F2 !important;
+color: #FFFFFF !important;
+border-color: #5865F2 !important;
+}
+
+/* ------------------------------------------------------------
+
+3. MODAL
+------------------------------------------------------------ */
+.ps-modal {
+display: none;
+position: fixed;
+inset: 0;
+z-index: 2000;
+}
+.ps-modal.show { display: block; }
+
+.ps-overlay {
+position: absolute;
+inset: 0;
+background: rgba(42, 26, 15, 0.78);
+backdrop-filter: blur(6px);
+animation: psOverlayIn .18s ease-out;
+}
+@keyframes psOverlayIn {
+from { opacity: 0; }
+to   { opacity: 1; }
+}
+
+.ps-content {
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+width: calc(100% - 40px);
+max-width: 480px;
+max-height: 90vh;
+overflow-y: auto;
+background-color: var(--parch-1, #F4EBD3);
+background-image:
+url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='psp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23psp)'/></svg>");
+border: 2px solid var(--brass, #A88A48);
+border-radius: 3px;
+box-shadow:
+0 0 0 4px var(--parch-2, #EADFC2),
+0 0 0 5px var(--brass-dark, #6E5828),
+0 12px 48px rgba(0, 0, 0, 0.55);
+padding: 22px 24px 18px;
+color: var(--ink, #2A1A0F);
+animation: psIn .22s cubic-bezier(.2, 1, .3, 1);
+}
+@keyframes psIn {
+from { opacity: 0; transform: translate(-50%, -45%) scale(.96); }
+to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.ps-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 14px;
+padding-bottom: 12px;
+border-bottom: 1px solid var(--brass, #A88A48);
+}
+
+.ps-title {
+font-family: 'IM Fell English', Georgia, serif;
+font-size: 22px;
+font-weight: 400;
+margin: 0;
+color: var(--ink, #2A1A0F);
+letter-spacing: 0.02em;
+}
+
+.ps-close {
+width: 32px;
+height: 32px;
+border-radius: 50%;
+border: 1px solid var(--brass, #A88A48);
+background: var(--parch-3, #DCCBA8);
+color: var(--ink-soft, #4A3520);
+font-size: 14px;
+cursor: pointer;
+display: grid;
+place-items: center;
+font-family: inherit;
+transition: background .15s, color .15s, border-color .15s;
+}
+.ps-close:hover {
+background: var(--wax, #8B2020);
+color: #F4EBD3;
+border-color: var(--wax);
+}
+
+/* ------------------------------------------------------------
+
+4. ROWS
+------------------------------------------------------------ */
+.ps-rows { display: flex; flex-direction: column; }
+
+.ps-row {
+display: flex;
+align-items: center;
+gap: 16px;
+padding: 12px 4px;
+border-bottom: 1px dashed rgba(168, 138, 72, 0.35);
+min-height: 54px;
+}
+.ps-row:last-child { border-bottom: none; }
+
+.ps-row-left {
+flex: 1;
+min-width: 0;
+}
+
+.ps-row-title {
+font-family: 'IM Fell English', Georgia, serif;
+font-size: 15px;
+color: var(--ink, #2A1A0F);
+line-height: 1.2;
+margin-bottom: 2px;
+}
+
+.ps-row-desc {
+font-family: 'EB Garamond', Georgia, serif;
+font-style: italic;
+font-size: 12px;
+color: var(--ink-faded, #6B5138);
+line-height: 1.3;
+}
+
+/* ------------------------------------------------------------
+
+5. TOGGLE
+------------------------------------------------------------ */
+.ps-toggle {
+position: relative;
+width: 48px;
+height: 26px;
+border-radius: 13px;
+background: var(--parch-3, #DCCBA8);
+border: 1px solid var(--brass, #A88A48);
+cursor: pointer;
+padding: 0;
+flex-shrink: 0;
+transition: background .2s, border-color .2s;
+box-shadow: inset 0 1px 2px rgba(42, 26, 15, 0.15);
+}
+.ps-toggle.on {
+background: linear-gradient(180deg, var(--olive, #52682A), #3E5218);
+border-color: var(--olive, #52682A);
+}
+.ps-toggle-knob {
+position: absolute;
+top: 2px;
+left: 2px;
+width: 20px;
+height: 20px;
+border-radius: 50%;
+background: var(--parch-1, #F4EBD3);
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+transition: transform .22s cubic-bezier(.34, 1.56, .64, 1);
+}
+.ps-toggle.on .ps-toggle-knob {
+transform: translateX(22px);
+}
+
+/* ------------------------------------------------------------
+
+6. SEGMENTED CONTROL (тема)
+------------------------------------------------------------ */
+.ps-seg {
+display: inline-flex;
+border-radius: 3px;
+border: 1px solid var(--brass, #A88A48);
+overflow: hidden;
+flex-shrink: 0;
+background: var(--parch-3, #DCCBA8);
+}
+
+.ps-seg-btn {
+background: transparent;
+border: none;
+padding: 6px 10px;
+font-family: 'IM Fell English', Georgia, serif;
+font-size: 12px;
+color: var(--ink-soft, #4A3520);
+cursor: pointer;
+transition: background .15s, color .15s;
+white-space: nowrap;
+letter-spacing: 0.02em;
+}
+.ps-seg-btn:not(:last-child) {
+border-right: 1px solid var(--brass, #A88A48);
+}
+.ps-seg-btn:hover {
+background: var(--parch-1, #F4EBD3);
+}
+.ps-seg-btn.active {
+background: linear-gradient(180deg, var(--brass-light, #C9A860), var(--brass, #A88A48));
+color: #2A1A0F;
+font-weight: 500;
+}
+
+/* ------------------------------------------------------------
+
+7. FOOTER
+------------------------------------------------------------ */
+.ps-footer {
+margin-top: 14px;
+padding-top: 12px;
+border-top: 1px solid var(--brass, #A88A48);
+display: flex;
+justify-content: flex-end;
+gap: 10px;
+}
+
+.ps-reset {
+background: transparent;
+border: 1px solid var(--wax, #8B2020);
+color: var(--wax, #8B2020);
+padding: 8px 14px;
+border-radius: 3px;
+font-family: 'IM Fell English', Georgia, serif;
+font-size: 13px;
+cursor: pointer;
+letter-spacing: 0.03em;
+transition: all .15s;
+}
+.ps-reset:hover,
+.ps-reset.armed {
+background: var(--wax, #8B2020);
+color: #F4EBD3;
+}
+
+/* ------------------------------------------------------------
+
+8. NO-ANIMATIONS MODE
+
+---
+
+Класс навешивается на <html> (см. inline в head + panel-settings.js).
+Гасит все анимации и переходы, скрывает ambient/particles/ripple.
+------------------------------------------------------------ */
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after {
+animation-duration: 0.001ms !important;
+animation-iteration-count: 1 !important;
+transition-duration: 0.001ms !important;
+}
+html.no-animations #ambient,
+html.no-animations #particles,
+html.no-animations .panel-ripple {
+display: none !important;
+}
+
+/* ------------------------------------------------------------
+
+9. MOBILE
+------------------------------------------------------------ */
+@media (max-width: 768px) {
+.ps-content {
+width: calc(100% - 24px);
+padding: 18px 16px 14px;
+}
+.ps-title { font-size: 19px; }
+.ps-row-title { font-size: 14px; }
+.ps-row-desc { font-size: 11.5px; }
+.ps-row { min-height: 48px; padding: 10px 2px; }
+}
+
+/* ------------------------------------------------------------
+
+10. DARK THEME
+------------------------------------------------------------ */
+:root[data-theme="dark"] .ps-btn {
+background: linear-gradient(180deg, #3A2818, #1E1408);
+border-color: var(--brass);
+color: #E0C080;
+}
+:root[data-theme="dark"] .ps-content {
+background-color: var(--parch-1);
+background-image:
+url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='psd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23psd)'/></svg>");
+border-color: var(--brass);
+box-shadow:
+0 0 0 4px var(--parch-2),
+0 0 0 5px var(--brass-dark),
+0 12px 48px rgba(0, 0, 0, 0.85);
+}
+:root[data-theme="dark"] .ps-title,
+:root[data-theme="dark"] .ps-row-title { color: var(--ink); }
+:root[data-theme="dark"] .ps-row-desc { color: var(--ink-faded); }
+:root[data-theme="dark"] .ps-toggle {
+background: var(--parch-3);
+border-color: var(--brass);
+}
+:root[data-theme="dark"] .ps-toggle-knob {
+background: var(--parch-1);
+}
+:root[data-theme="dark"] .ps-seg {
+background: var(--parch-3);
+border-color: var(--brass);
+}
+:root[data-theme="dark"] .ps-seg-btn {
+color: var(--ink-soft);
+border-right-color: var(--brass);
+}
+:root[data-theme="dark"] .ps-seg-btn:hover {
+background: var(--parch-1);
+}
+:root[data-theme="dark"] .ps-header,
+:root[data-theme="dark"] .ps-footer { border-color: var(--brass); }
+:root[data-theme="dark"] .ps-close {
+background: var(--parch-3);
+border-color: var(--brass);
+color: var(--ink-soft);
+}
+:root[data-theme="dark"] .discord-badge {
+background: linear-gradient(180deg,
+rgba(88, 101, 242, 0.22),
+rgba(88, 101, 242, 0.10)) !important;
+border-color: rgba(88, 101, 242, 0.6) !important;
+color: #C4CCFF !important;
+}

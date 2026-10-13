@@ -1,0 +1,63 @@
+/* ============================================================
+SOVEREIGNTY PANEL · PANEL-EXPORT.CSS v1.0
+============================================================
+Кнопки экспорта: CSV топ стран + PNG карты.
+============================================================ */
+
+.export-btn {
+display: inline-flex;
+align-items: center;
+gap: 6px;
+padding: 6px 12px;
+font-size: 12px;
+letter-spacing: 0.03em;
+font-family: 'IM Fell English', Georgia, serif;
+background: var(--parch-3, #DCCBA8);
+border: 1px solid var(--brass, #A88A48);
+color: var(--ink, #2A1A0F);
+border-radius: 3px;
+cursor: pointer;
+transition: background .15s, color .15s, border-color .15s;
+white-space: nowrap;
+text-decoration: none;
+-webkit-tap-highlight-color: transparent;
+}
+.export-btn:hover {
+background: var(--brass, #A88A48);
+color: #F4EBD3;
+border-color: var(--brass-dark, #6E5828);
+}
+.export-btn:active {
+transform: scale(0.97);
+}
+
+/* Кнопка CSV в панели "Топ стран" — прижата вправо */
+#top-countries-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 12px;
+}
+#top-countries-header h2 {
+margin: 0;
+}
+
+/* Мобилка */
+@media (max-width: 640px) {
+.export-btn {
+padding: 5px 10px;
+font-size: 11px;
+}
+}
+
+/* Тёмная тема */
+:root[data-theme="dark"] .export-btn {
+background: var(--parch-3);
+border-color: var(--brass);
+color: var(--ink);
+}
+:root[data-theme="dark"] .export-btn:hover {
+background: var(--brass);
+color: #1A1208;
+border-color: var(--brass-light);
+}

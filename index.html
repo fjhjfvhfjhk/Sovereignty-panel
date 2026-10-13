@@ -16,6 +16,14 @@
             document.documentElement.setAttribute('data-theme', 'light');
         }
     })();
+    </script>    <script>
+    (function () {
+        try {
+            if (localStorage.getItem('panel_animations') === '0') {
+                document.documentElement.classList.add('no-animations');
+            }
+        } catch (e) {}
+    })();
     </script>    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/svg+xml" href="favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="favicon.svg">
@@ -46,6 +54,8 @@
     <link rel="stylesheet" href="active-wars.css?v=1.0">
     <link rel="stylesheet" href="country-compare.css?v=1.0">
     <link rel="stylesheet" href="country-sparkline.css?v=1.0">
+    <link rel="stylesheet" href="panel-settings.css?v=1.0">
+    <link rel="stylesheet" href="panel-export.css?v=1.0">
 </head>
 <body>
     <div id="ambient" aria-hidden="true"></div>
@@ -65,9 +75,16 @@
             </div>
             <div class="header-meta">
                 <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему">🌓</button>
+                <button class="ps-btn" id="panel-settings-btn" type="button" aria-label="Настройки" title="Настройки">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
                 <span class="badge" id="online-badge">Онлайн: —</span>
                 <span class="badge" id="updated-badge">Обновлено: —</span>
                 <button class="badge btn-badge" id="refresh-btn">Обновить</button>
+                <a class="badge btn-badge discord-badge" href="https://discord.gg/DqmwdpBp3" target="_blank" rel="noopener" title="Discord сервера">💬 Discord</a>
             </div>
         </div>
     </header>    <main class="container">
@@ -91,7 +108,9 @@
                         </div>
                         <div class="sparkline-wrap"><canvas id="sparkline-canvas"></canvas></div>
                     </section>                    <section class="panel">
-                        <h2>🏆 Топ стран</h2>
+                        <div class="panel-header" id="top-countries-header">
+                            <h2>🏆 Топ стран</h2>
+                        </div>
                         <div class="tabs">
                             <button class="tab active" data-sort="claims">По территории</button>
                             <button class="tab" data-sort="bank">По казне</button>
@@ -329,5 +348,5 @@
                 </div>
             </div>
         </div>
-    </div>    <script src="map-layers.js?v=1.2"></script>    <script src="skin3d.js?v=4.7"></script>    <script src="legend.js?v=1.1"></script>    <script src="panel-icons.js?v=1.1"></script>    <script src="app.js?v=5.9"></script>    <script src="panel-fixes.js?v=1.0"></script>    <script src="avatars.js?v=1.0"></script>    <script src="sparkline.js?v=1.1"></script>    <script src="panel-ambient.js?v=1.0"></script>    <script src="panel-loading.js?v=1.0"></script>    <script src="panel-detail.js?v=1.3"></script>    <script src="map-enhance.js?v=1.0"></script>    <script src="mobile.js?v=1.2"></script>    <script src="country-cards.js?v=1.0"></script>    <script src="theme-switcher.js?v=1.0"></script>    <script src="country-passport.js?v=3.5"></script>    <script src="chronicles.js?v=1.0"></script>    <script src="guide-enhance.js?v=1.2"></script>    <script src="event-log-24h.js?v=3.3"></script>    <script src="world-timeline.js?v=1.2"></script>    <script src="active-wars.js?v=1.0"></script>    <script src="country-compare.js?v=1.0"></script>    <script src="country-sparkline.js?v=1.0"></script>    <script src="deep-links.js?v=1.0"></script>    <script src="panel-emoji-replacer.js?v=1.0"></script></body>
+    </div>    <script src="map-layers.js?v=1.2"></script>    <script src="skin3d.js?v=4.7"></script>    <script src="legend.js?v=1.1"></script>    <script src="panel-icons.js?v=1.1"></script>    <script src="app.js?v=5.9"></script>    <script src="panel-fixes.js?v=1.0"></script>    <script src="avatars.js?v=1.0"></script>    <script src="sparkline.js?v=1.1"></script>    <script src="panel-ambient.js?v=1.0"></script>    <script src="panel-loading.js?v=1.0"></script>    <script src="panel-detail.js?v=1.3"></script>    <script src="map-enhance.js?v=1.0"></script>    <script src="mobile.js?v=1.2"></script>    <script src="country-cards.js?v=1.0"></script>    <script src="theme-switcher.js?v=1.0"></script>    <script src="country-passport.js?v=3.5"></script>    <script src="chronicles.js?v=1.0"></script>    <script src="guide-enhance.js?v=1.2"></script>    <script src="event-log-24h.js?v=3.3"></script>    <script src="world-timeline.js?v=1.2"></script>    <script src="active-wars.js?v=1.0"></script>    <script src="country-compare.js?v=1.0"></script>    <script src="country-sparkline.js?v=1.0"></script>    <script src="deep-links.js?v=1.0"></script>    <script src="panel-settings.js?v=1.0"></script>    <script src="panel-export.js?v=1.0"></script>    <script src="panel-emoji-replacer.js?v=1.0"></script></body>
 </html>
