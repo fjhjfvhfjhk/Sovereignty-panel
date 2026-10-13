@@ -1,287 +1,148 @@
-/* ============================================================
-SOVEREIGNTY PANEL / EVENT-LOG-24H.JS v2.0
-============================================================
-Правая колонка - "Свежие события".
-
-ЧТО ИЗМЕНИЛОСЬ В v2.0:
-Полная переработка структуры ради устранения любых ошибок
-парсинга при передаче файла:
-
-- Никаких не-ASCII символов в исходнике.
-- Все строки - короткие, атомарные (не длиннее ~50 символов).
-- Длинные HTML-блоки - через массив строк и join.
-- Никаких unicode-escape-последовательностей в литералах.
-- Все русские тексты проверены на отсутствие тире, точек
-многоточия и emoji.
-
-ЛОГИКА:
-Показывает события за окно max(последний визит, now - 24ч).
-Хранится в localStorage panel_last_visit и sessionStorage
-panel_session_start (чтобы F5 не обнулял "свежесть").
-============================================================ */
-
+/* SOVEREIGNTY PANEL - event-log-24h.js v3.0
+Minimal, DOM-based, ASCII-only.
+Right column: fresh events (max 24h window).
+*/
 (function () {
 'use strict';
 
-var STORAGE_LAST_VISIT = 'panel_last_visit';
-var STORAGE_SESSION_START = 'panel_session_start';
-var MAX_DISPLAY = 12;
-var FRESH_WINDOW_MS = 24 * 3600 * 1000;
+var KEY_LAST = 'panel_last_visit';
+var KEY_SESS = 'panel_session_start';
+var MAX = 12;
+var WINDOW = 24 * 3600 * 1000;
 
-var lastVisitTs = 0;
-var lastRenderedUpdatedAt = 0;
+var lastVisit = 0;
+var lastUpdated = 0;
 
-/* ------------------------------------------------------------------
-
-1. Утилиты
------------------------------------------------------------------- */
-
-function escapeHtml(s) {
-if (s === null || s === undefined) return '';
-var d = document.createElement('div');
-d.textContent = String(s);
-return d.innerHTML;
-}
+function txt(s) { return s == null ? '' : String(s); }
 
 function timeAgo(ts) {
 if (!ts) return '';
 var s = Math.floor((Date.now() - ts) / 1000);
-if (s < 60) return 'только что';
-var m = Math.floor(s / 60);
-if (m < 60) return m + ' мин назад';
-var h = Math.floor(m / 60);
-if (h < 24) return h + ' ч назад';
-var d = Math.floor(h / 24);
-return d + ' дн назад';
+if (s < 60) return 'now';
+var m = Math.floor(s / 60); if (m < 60) return m + 'm';
+var h = Math.floor(m / 60); if (h < 24) return h + 'h';
+return Math.floor(h / 24) + 'd';
 }
 
-/* ------------------------------------------------------------------
-
-2. Чтение/запись "последнего визита"
------------------------------------------------------------------- */
-
-function readLastVisitTs() {
+function readLast() {
 try {
-var session = sessionStorage.getItem(
-STORAGE_SESSION_START);
-if (session !== null) {
-var v = parseInt(session, 10);
-return isNaN(v) ? 0 : v;
-}
+var v = sessionStorage.getItem(KEY_SESS);
+if (v !== null) { var n = parseInt(v, 10); return isNaN(n) ? 0 : n; }
 } catch (e) {}
-
 try {
-var stored = localStorage.getItem(STORAGE_LAST_VISIT);
-var n = parseInt(stored || '0', 10);
-return isNaN(n) ? 0 : n;
-} catch (e) {
-return 0;
-}
+var s = localStorage.getItem(KEY_LAST);
+var p = parseInt(s || '0', 10);
+return isNaN(p) ? 0 : p;
+} catch (e) { return 0; }
 }
 
-function markSessionStart(ts) {
-try {
-sessionStorage.setItem(
-STORAGE_SESSION_START, String(ts));
-} catch (e) {}
+function saveLast() {
+try { localStorage.setItem(KEY_LAST, String(Date.now())); } catch (e) {}
 }
 
-function saveLastVisitOnUnload() {
-try {
-localStorage.setItem(
-STORAGE_LAST_VISIT, String(Date.now()));
-} catch (e) {}
-}
-
-/* ------------------------------------------------------------------
-
-3. Рендер блока "Свежие события"
------------------------------------------------------------------- */
-
-function renderFreshEvents() {
+function render() {
 var list = document.getElementById('event-log-list');
 if (!list) return;
+var d = window.currentData;
+if (!d) return;
 
-var data = window.currentData;
-if (!data) return;
-
-var events = data.event_log || [];
+var events = d.event_log || [];
 var now = Date.now();
-
-var hardFloor = now - FRESH_WINDOW_MS;
-var cutoff;
-if (lastVisitTs > 0) {
-cutoff = Math.max(lastVisitTs, hardFloor);
-} else {
-cutoff = hardFloor;
-}
+var floor = now - WINDOW;
+var cutoff = lastVisit > 0 ? Math.max(lastVisit, floor) : floor;
 
 var fresh = [];
 for (var i = 0; i < events.length; i++) {
 var e = events[i];
-if (!e) continue;
-if (typeof e.ts !== 'number') continue;
-if (e.ts > cutoff) {
-fresh.push(e);
+if (e && typeof e.ts === 'number' && e.ts > cutoff) fresh.push(e);
 }
-}
+
+list.textContent = '';
 
 if (fresh.length === 0) {
-renderEmpty(list);
+var empty = document.createElement('div');
+empty.className = 'event-log-empty';
+empty.textContent = 'No events in last 24h';
+list.appendChild(empty);
 return;
 }
 
-var limit = Math.min(fresh.length, MAX_DISPLAY);
-var parts = [];
+var limit = Math.min(fresh.length, MAX);
 for (var j = 0; j < limit; j++) {
-parts.push(buildEventRow(fresh[j]));
-}
-list.innerHTML = parts.join('');
+var ev = fresh[j];
+var item = document.createElement('div');
+item.className = 'event-log-item event-type-' + (ev.type || 'info');
 
-if (fresh.length > MAX_DISPLAY) {
-var rest = fresh.length - MAX_DISPLAY;
-var restLabel = (rest === 1) ? 'событие' : 'событий';
-var hint = '<div class="event-log-empty" ';
-hint += 'style="padding:10px 8px;">';
-hint += 'и ещё ' + rest + ' ' + restLabel;
-hint += '</div>';
-list.insertAdjacentHTML('beforeend', hint);
-}
+var icon = document.createElement('div');
+icon.className = 'event-log-icon';
+icon.textContent = txt(ev.icon || '-');
 
-ensureMoreLink(list);
-}
+var body = document.createElement('div');
+body.className = 'event-log-body';
 
-function renderEmpty(list) {
-var parts = [];
-parts.push('<div class="event-log-empty">');
-parts.push('За последние сутки событий не было.');
-parts.push('
-');
-parts.push('<small>');
-parts.push('Полная летопись - во вкладке Хроники.');
-parts.push('</small>');
-parts.push('</div>');
-list.innerHTML = parts.join('');
-ensureMoreLink(list);
+var msg = document.createElement('div');
+msg.className = 'event-log-msg';
+msg.textContent = txt(ev.message);
+
+var time = document.createElement('div');
+time.className = 'event-log-time';
+time.textContent = timeAgo(ev.ts);
+
+body.appendChild(msg);
+body.appendChild(time);
+item.appendChild(icon);
+item.appendChild(body);
+list.appendChild(item);
 }
 
-function buildEventRow(e) {
-var type = e.type || 'info';
-var typeClass = 'event-type-' + type;
-var icon = e.icon || '-';
-var msg = e.message || '';
-var ta = timeAgo(e.ts);
-
-var out = [];
-out.push('<div class="event-log-item ' + typeClass + '">');
-out.push('<div class="event-log-icon">');
-out.push(escapeHtml(icon));
-out.push('</div>');
-out.push('<div class="event-log-body">');
-out.push('<div class="event-log-msg">');
-out.push(escapeHtml(msg));
-out.push('</div>');
-out.push('<div class="event-log-time">');
-out.push(escapeHtml(ta));
-out.push('</div>');
-out.push('</div>');
-out.push('</div>');
-return out.join('');
+console.log('[EventLog24h] v3.0 ready, rendered ' + limit + ' events');
 }
-
-function ensureMoreLink(list) {
-if (!list) return;
-var next = list.nextElementSibling;
-if (next && next.classList.contains('event-log-more')) {
-return;
-}
-
-var more = document.createElement('div');
-more.className = 'event-log-more';
-more.innerHTML =
-'<a href="#" id="event-log-more-link">' +
-'Полная летопись</a>';
-
-if (list.nextSibling) {
-list.parentNode.insertBefore(more, list.nextSibling);
-} else {
-list.parentNode.appendChild(more);
-}
-
-var link = document.getElementById('event-log-more-link');
-if (link) {
-link.addEventListener('click', function (ev) {
-ev.preventDefault();
-var btn = document.querySelector(
-'.main-nav .nav-btn[data-tab="chronicles"]');
-if (btn) btn.click();
-});
-}
-}
-
-/* ------------------------------------------------------------------
-
-4. Tick
------------------------------------------------------------------- */
 
 function tick() {
 try {
-var data = window.currentData;
-if (data && data.updated_at &&
-data.updated_at !== lastRenderedUpdatedAt) {
-lastRenderedUpdatedAt = data.updated_at;
-setTimeout(renderFreshEvents, 250);
+var d = window.currentData;
+if (d && d.updated_at && d.updated_at !== lastUpdated) {
+lastUpdated = d.updated_at;
+setTimeout(render, 250);
 }
 } catch (e) {}
 setTimeout(tick, 1500);
 }
 
-/* ------------------------------------------------------------------
-
-5. Override window.renderEventLog
------------------------------------------------------------------- */
-
+/* override window.renderEventLog from app.js */
 function installOverride() {
-if (window.__renderEventLogPatched) return;
+if (window.__renderEventLogPatched) return true;
 var orig = window.renderEventLog;
-if (typeof orig !== 'function') {
-setTimeout(installOverride, 200);
-return;
-}
+if (typeof orig !== 'function') return false;
 window.__renderEventLogPatched = true;
-window.renderEventLog = function () {
-renderFreshEvents();
-};
+window.renderEventLog = function () { render(); };
+return true;
 }
-
-/* ------------------------------------------------------------------
-
-6. Boot
------------------------------------------------------------------- */
 
 function boot() {
-lastVisitTs = readLastVisitTs();
-
+lastVisit = readLast();
 try {
-if (!sessionStorage.getItem(STORAGE_SESSION_START)) {
-markSessionStart(lastVisitTs || Date.now());
+if (!sessionStorage.getItem(KEY_SESS)) {
+sessionStorage.setItem(KEY_SESS, String(lastVisit || Date.now()));
 }
 } catch (e) {}
 
-installOverride();
-renderFreshEvents();
+var tries = 0;
+function tryPatch() {
+tries++;
+if (!installOverride() && tries < 50) setTimeout(tryPatch, 100);
+}
+tryPatch();
+
+render();
 tick();
 
-window.addEventListener(
-'beforeunload', saveLastVisitOnUnload);
-
+window.addEventListener('beforeunload', saveLast);
 document.addEventListener('visibilitychange', function () {
-if (document.visibilityState === 'hidden') {
-saveLastVisitOnUnload();
-}
+if (document.visibilityState === 'hidden') saveLast();
 });
 
-console.log('[EventLog24h] v2.0 ready (bulletproof)');
+console.log('[EventLog24h] v3.0 init');
 }
 
 if (document.readyState === 'loading') {
@@ -290,5 +151,6 @@ document.addEventListener('DOMContentLoaded', boot);
 boot();
 }
 
-window.EventLog24h = { refresh: renderFreshEvents };
+window.EventLog24h = { refresh: render };
+
 })();
