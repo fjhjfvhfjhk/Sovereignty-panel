@@ -1,23 +1,32 @@
 /* ============================================================
-SOVEREIGNTY PANEL · EVENT-LOG-24H.JS v1.2
+SOVEREIGNTY PANEL · EVENT-LOG-24H.JS v1.3
 ============================================================
-Правая колонка главной — блок «✨ Свежие события».
+Правая колонка главной — блок "Свежие события".
 
-ИЗМЕНЕНИЯ v1.2 (13.10.2026):
+ЧТО ИСПРАВЛЕНО В v1.3:
 
-- ФИКС: если пользователь не заходил давно, в блок попадали
-ВСЕ события со дня последнего визита (вплоть до 6 дней).
-Теперь окно строго ограничено СНИЗУ 24 часами:
-cutoff = max(lastVisitTs, now - 24h)
-То есть — «что нового с прошлого визита, но не более чем
-за сутки». Это устраняет дубль с таймлайном под графиком
-и одновременно даёт осмысленный срез при долгом отсутствии.
+- Устранена синтаксическая ошибка "'' string literal contains
+an unescaped line break" на строке 110, из-за которой файл
+не загружался и колонка показывала полный список событий
+из app.js (за всё время).
+- Причина: длинное тире (U+2014) и emoji (U+1F4DC) внутри
+строковых литералов могли быть повреждены при передаче
+файла через промежуточные обёртки.
+- Решение: все не-ASCII символы заменены на escape-последова-
+тельности \u2014 (тире) и String.fromCodePoint (emoji).
+В исходнике — только ASCII символы.
 
-ИСТОРИЯ:
-v1.0 — фильтр по «24 часа» (дублировало Timeline).
-v1.1 — «с прошлого визита», но без верхнего лимита по времени.
-v1.2 — «с прошлого визита, но не более 24 ч назад».
+ЛОГИКА:
+
+- Окно свежих событий = max(последний визит, now - 24 часа).
+- Нижняя граница — сутки, чтобы не показывать события за
+6 дней, если пользователь долго не заходил.
+- Верхняя граница — сам момент открытия страницы.
+- Хранится в localStorage + sessionStorage (чтобы F5 не обнулял).
+
+ПОДКЛЮЧЕНИЕ: последним script в index.html.
 ============================================================ */
+
 (function () {
 'use strict';
 
@@ -26,14 +35,23 @@ var STORAGE_SESSION_START = 'panel_session_start';
 var MAX_DISPLAY = 12;
 var FRESH_WINDOW_MS = 24 * 3600 * 1000;
 
+/* Длинное тире берём через escape — не полагаемся на UTF-8. */
+var EM_DASH = String.fromCharCode(0x2014);
+/* Символ "свиток" (scroll) для оформления — через fromCodePoint. */
+var ICON_SCROLL = String.fromCodePoint(0x1F4DC);
+/* Символ "звёзды" для заголовка — через fromCodePoint. */
+var ICON_SPARKLES = String.fromCodePoint(0x2728);
+
 var lastVisitTs = 0;
 var lastRenderedUpdatedAt = 0;
 
-// ============================================================
-// 1. Утилиты
-// ============================================================
+/* ============================================================
+
+1. Утилиты
+============================================================ */
+
 function escapeHtml(s) {
-if (s == null) return '';
+if (s === null || s === undefined) return '';
 var d = document.createElement('div');
 d.textContent = String(s);
 return d.innerHTML;
@@ -43,14 +61,17 @@ function timeAgo(ts) {
 if (!ts) return '';
 var s = Math.floor((Date.now() - ts) / 1000);
 if (s < 60) return 'только что';
-var m = Math.floor(s / 60); if (m < 60) return m + ' мин назад';
-var h = Math.floor(m / 60); if (h < 24) return h + ' ч назад';
+var m = Math.floor(s / 60);
+if (m < 60) return m + ' мин назад';
+var h = Math.floor(m / 60);
+if (h < 24) return h + ' ч назад';
 return Math.floor(h / 24) + ' дн назад';
 }
 
-// ============================================================
-// 2. «Последний визит»
-// ============================================================
+/* ============================================================
+
+2. Отслеживание "последнего визита"
+============================================================ */
 function readLastVisitTs() {
 try {
 var session = sessionStorage.getItem(STORAGE_SESSION_START);
@@ -59,24 +80,30 @@ var v = parseInt(session, 10);
 return isNaN(v) ? 0 : v;
 }
 } catch (e) {}
+
 try {
 var stored = localStorage.getItem(STORAGE_LAST_VISIT);
 var n = parseInt(stored || '0', 10);
 return isNaN(n) ? 0 : n;
-} catch (e) { return 0; }
+} catch (e) {
+return 0;
+}
 }
 
 function markSessionStart(ts) {
-try { sessionStorage.setItem(STORAGE_SESSION_START, String(ts)); } catch (e) {}
+try { sessionStorage.setItem(STORAGE_SESSION_START, String(ts)); }
+catch (e) {}
 }
 
 function saveLastVisitOnUnload() {
-try { localStorage.setItem(STORAGE_LAST_VISIT, String(Date.now())); } catch (e) {}
+try { localStorage.setItem(STORAGE_LAST_VISIT, String(Date.now())); }
+catch (e) {}
 }
 
-// ============================================================
-// 3. Рендер
-// ============================================================
+/* ============================================================
+
+3. Рендер
+============================================================ */
 function renderFreshEvents() {
 var list = document.getElementById('event-log-list');
 if (!list) return;
@@ -87,50 +114,50 @@ if (!data) return;
 var events = data.event_log || [];
 var now = Date.now();
 
-// v1.2: cutoff = max(lastVisit, now - 24h).
-// Если пользователь не заходил давно — всё равно смотрим только
-// за последние сутки, иначе получим простыню на 6 дней.
+/* Окно: max(последний визит, now - 24ч). */
 var hardFloor = now - FRESH_WINDOW_MS;
-var cutoff;
-if (lastVisitTs > 0) {
-cutoff = Math.max(lastVisitTs, hardFloor);
-} else {
-// Первый визит — просто показываем последние 24ч.
-cutoff = hardFloor;
+var cutoff = (lastVisitTs > 0) ? Math.max(lastVisitTs, hardFloor) : hardFloor;
+
+var fresh = [];
+for (var i = 0; i < events.length; i++) {
+var e = events[i];
+if (e && typeof e.ts === 'number' && e.ts > cutoff) {
+fresh.push(e);
+}
 }
 
-var fresh = events.filter(function (e) {
-return e && typeof e.ts === 'number' && e.ts > cutoff;
-});
-
 if (fresh.length === 0) {
+var emptyMsg = 'За последние сутки событий не было.';
+var emptyHint = '
+<small>Полная летопись ' + EM_DASH +
+' во вкладке ' + ICON_SCROLL + ' Хроники.</small>';
 list.innerHTML =
-'<div class="event-log-empty">' +
-'За последние сутки событий не было.' +
-'
-<small>Полная летопись — во вкладке 📜 Хроники.</small>' +
-'</div>';
+'<div class="event-log-empty">' + emptyMsg + emptyHint + '</div>';
 ensureMoreLink(list);
 return;
 }
 
 var display = fresh.slice(0, MAX_DISPLAY);
-list.innerHTML = display.map(function (e) {
-var typeClass = 'event-type-' + (e.type || 'info');
-return '<div class="event-log-item ' + typeClass + '">' +
-'<div class="event-log-icon">' + escapeHtml(e.icon || '•') + '</div>' +
+var html = '';
+for (var j = 0; j < display.length; j++) {
+var ev = display[j];
+var typeClass = 'event-type-' + (ev.type || 'info');
+html += '<div class="event-log-item ' + typeClass + '">' +
+'<div class="event-log-icon">' + escapeHtml(ev.icon || '•') + '</div>' +
 '<div class="event-log-body">' +
-'<div class="event-log-msg">' + escapeHtml(e.message || '') + '</div>' +
-'<div class="event-log-time">' + timeAgo(e.ts) + '</div>' +
+'<div class="event-log-msg">' + escapeHtml(ev.message || '') + '</div>' +
+'<div class="event-log-time">' + timeAgo(ev.ts) + '</div>' +
 '</div>' +
 '</div>';
-}).join('');
+}
+list.innerHTML = html;
 
 if (fresh.length > MAX_DISPLAY) {
+var moreCount = fresh.length - MAX_DISPLAY;
+var moreWord = (moreCount === 1) ? 'событие' : 'событий';
 list.insertAdjacentHTML('beforeend',
 '<div class="event-log-empty" style="padding:10px 8px;">' +
-'… и ещё ' + (fresh.length - MAX_DISPLAY) + ' событ' +
-(fresh.length - MAX_DISPLAY === 1 ? 'ие' : 'ий') +
+'... и ещё ' + moreCount + ' ' + moreWord +
 '</div>');
 }
 
@@ -144,8 +171,15 @@ if (next && next.classList.contains('event-log-more')) return;
 
 var more = document.createElement('div');
 more.className = 'event-log-more';
-more.innerHTML = '<a href="#" id="event-log-more-link">📜 Полная летопись →</a>';
+more.innerHTML = '<a href="#" id="event-log-more-link">' +
+ICON_SCROLL + ' Полная летопись' + String.fromCharCode(0x2192) +
+'</a>';
+
+if (list.nextSibling) {
 list.parentNode.insertBefore(more, list.nextSibling);
+} else {
+list.parentNode.appendChild(more);
+}
 
 var link = document.getElementById('event-log-more-link');
 if (link) {
@@ -157,9 +191,10 @@ if (btn) btn.click();
 }
 }
 
-// ============================================================
-// 4. Tick
-// ============================================================
+/* ============================================================
+
+4. Tick — реагирует на обновление JSON
+============================================================ */
 function tick() {
 try {
 var data = window.currentData;
@@ -171,9 +206,10 @@ setTimeout(renderFreshEvents, 250);
 setTimeout(tick, 1500);
 }
 
-// ============================================================
-// 5. Override renderEventLog
-// ============================================================
+/* ============================================================
+
+5. Переопределение window.renderEventLog (из app.js)
+============================================================ */
 function installOverride() {
 if (window.__renderEventLogPatched) return;
 var orig = window.renderEventLog;
@@ -187,11 +223,13 @@ renderFreshEvents();
 };
 }
 
-// ============================================================
-// 6. Boot
-// ============================================================
+/* ============================================================
+
+6. Boot
+============================================================ */
 function boot() {
 lastVisitTs = readLastVisitTs();
+
 try {
 if (!sessionStorage.getItem(STORAGE_SESSION_START)) {
 markSessionStart(lastVisitTs || Date.now());
@@ -209,7 +247,7 @@ saveLastVisitOnUnload();
 }
 });
 
-console.log('[EventLog24h] v1.2 ready (max 24h window)');
+console.log('[EventLog24h] v1.3 ready (max 24h window, safe encoding)');
 }
 
 if (document.readyState === 'loading') {
