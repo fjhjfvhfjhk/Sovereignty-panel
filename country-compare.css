@@ -1,0 +1,271 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · COUNTRY-COMPARE.CSS v1.0
+   ============================================================
+   Сравнение двух стран side-by-side — модальное окно.
+   ============================================================ */
+
+.cmp-modal .cmp-modal-content {
+    max-width: 880px;
+    padding: 28px 32px 24px;
+    background-color: var(--parch-1, #F4EBD3);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='cmpp'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23cmpp)'/></svg>");
+    border: 2px solid var(--brass, #A88A48);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 4px var(--parch-2, #EADFC2),
+        0 0 0 5px var(--brass-dark, #6E5828),
+        0 12px 48px rgba(0, 0, 0, 0.55);
+    color: var(--ink, #2A1A0F);
+}
+
+.cmp-title {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 26px;
+    font-weight: 400;
+    color: var(--ink, #2A1A0F);
+    text-align: center;
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+.cmp-subtitle {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--ink-faded, #6B5138);
+    text-align: center;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--brass, #A88A48);
+    position: relative;
+}
+.cmp-subtitle::after {
+    content: "❦";
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    transform: translateX(-50%);
+    background: var(--parch-1, #F4EBD3);
+    color: var(--brass, #A88A48);
+    font-size: 14px;
+    padding: 0 10px;
+    line-height: 1;
+}
+
+.cmp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-bottom: 20px;
+}
+@media (max-width: 640px) {
+    .cmp-grid { grid-template-columns: 1fr; gap: 14px; }
+}
+
+/* Карточка одной страны */
+.cmp-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cmp-side-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(168, 138, 72, 0.4);
+}
+.cmp-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+}
+.cmp-side-name {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 20px;
+    color: var(--ink, #2A1A0F);
+    word-break: break-word;
+    min-width: 0;
+}
+
+.cmp-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Строка метрики — может быть на разных уровнях, для сравнения
+   используется .cmp-row, где обе стороны рендерятся одним блоком. */
+
+/* Общая двухколоночная сетка метрик */
+.cmp-table {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 4px 12px;
+    align-items: center;
+}
+@media (max-width: 640px) {
+    .cmp-table { grid-template-columns: 1fr; gap: 8px; }
+}
+
+.cmp-cell {
+    padding: 8px 10px;
+    background: rgba(201, 168, 96, 0.08);
+    border-radius: 2px;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 14.5px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft, #4A3520);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+.cmp-cell.left {
+    text-align: left;
+    justify-content: flex-start;
+}
+.cmp-cell b {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-weight: 400;
+    font-size: 16px;
+    color: var(--ink, #2A1A0F);
+    white-space: nowrap;
+}
+.cmp-cell.better {
+    background: rgba(82, 104, 42, 0.15);
+}
+.cmp-cell.worse {
+    background: rgba(184, 48, 48, 0.10);
+}
+.cmp-cell.better b { color: var(--olive, #52682A); }
+.cmp-cell.worse b  { color: var(--wax, #8B2020); }
+
+.cmp-row-label {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink-faded, #6B5138);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+    padding: 8px 4px;
+    white-space: nowrap;
+}
+@media (max-width: 640px) {
+    .cmp-row-label {
+        text-align: left;
+        padding: 4px 0 2px;
+        grid-column: 1;
+        border-bottom: 1px dashed rgba(168, 138, 72, 0.3);
+    }
+}
+
+/* Стрелка «лучше» между ячейками */
+.cmp-arrow {
+    display: inline-block;
+    font-size: 12px;
+    line-height: 1;
+}
+.cmp-arrow.left { color: var(--olive, #52682A); }
+.cmp-arrow.right { color: var(--olive, #52682A); }
+
+/* Футер */
+.cmp-footer {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid var(--brass, #A88A48);
+}
+.cmp-footer .map-btn {
+    flex: 1 1 auto;
+    min-width: 160px;
+    font-family: 'IM Fell English', Georgia, serif;
+    letter-spacing: 0.03em;
+}
+
+/* Селектор второй страны (когда сравниваешь из паспорта) */
+.cmp-picker-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+.cmp-picker-list::-webkit-scrollbar { width: 6px; }
+.cmp-picker-list::-webkit-scrollbar-thumb {
+    background: var(--brass, #A88A48);
+    border-radius: 3px;
+}
+
+.cmp-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(201, 168, 96, 0.10);
+    border: 1px solid var(--brass, #A88A48);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.cmp-picker-item:hover {
+    background: rgba(201, 168, 96, 0.20);
+    border-color: var(--brass-dark, #6E5828);
+}
+.cmp-picker-name {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 15px;
+    color: var(--ink, #2A1A0F);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Мобильная */
+@media (max-width: 768px) {
+    .cmp-modal .cmp-modal-content {
+        padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
+    }
+    .cmp-title { font-size: 22px; }
+    .cmp-cell { font-size: 13.5px; padding: 6px 8px; }
+    .cmp-cell b { font-size: 15px; }
+}
+
+/* Тёмная тема */
+:root[data-theme="dark"] .cmp-modal-content {
+    background-color: var(--parch-1);
+    background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='cmpd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23cmpd)'/></svg>");
+    border-color: var(--brass);
+    box-shadow:
+        0 0 0 4px var(--parch-2),
+        0 0 0 5px var(--brass-dark),
+        0 12px 48px rgba(0, 0, 0, 0.85);
+}
+:root[data-theme="dark"] .cmp-title,
+:root[data-theme="dark"] .cmp-side-name { color: var(--ink); }
+:root[data-theme="dark"] .cmp-subtitle,
+:root[data-theme="dark"] .cmp-row-label,
+:root[data-theme="dark"] .cmp-picker-name { color: var(--ink-faded); }
+:root[data-theme="dark"] .cmp-cell { background: rgba(201, 168, 96, 0.06); color: var(--ink-soft); }
+:root[data-theme="dark"] .cmp-cell b { color: var(--ink); }
+:root[data-theme="dark"] .cmp-cell.better { background: rgba(122, 160, 72, 0.15); }
+:root[data-theme="dark"] .cmp-cell.worse { background: rgba(184, 48, 48, 0.15); }
+:root[data-theme="dark"] .cmp-picker-item {
+    background: rgba(201, 168, 96, 0.06);
+    border-color: var(--brass);
+}
+:root[data-theme="dark"] .cmp-picker-item:hover {
+    background: rgba(201, 168, 96, 0.14);
+}

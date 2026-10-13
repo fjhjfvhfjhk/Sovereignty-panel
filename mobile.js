@@ -1,8 +1,15 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · MOBILE.JS v1.1
+   SOVEREIGNTY PANEL · MOBILE.JS v1.2
    ============================================================
-   Мобильные улучшения. ИЗМЕНЕНИЯ v1.1:
+   Мобильные улучшения.
 
+   ИЗМЕНЕНИЯ v1.2 (13.10.2026):
+     В TABS добавлена вкладка «Хроники» (id: chronicles).
+     Раньше массив знал только про 6 вкладок, из-за чего в
+     bottom-nav-bar кнопка «📜 Хроники» не появлялась, хотя
+     в верхнем меню она уже была.
+
+   ИЗМЕНЕНИЯ v1.1:
      - УБРАНЫ свайпы между вкладками (мешали скроллу).
      - Pull-to-refresh не работает при фокусе на input.
      - Память скролла per-tab.
@@ -16,12 +23,13 @@
     'use strict';
 
     var TABS = [
-        { key: 'overview', icon: '🏠', label: 'Обзор' },
-        { key: 'map',      icon: '🗺️', label: 'Карта' },
-        { key: 'players',  icon: '👥', label: 'Игроки' },
-        { key: 'guide',    icon: '📖', label: 'Гайд' },
-        { key: 'commands', icon: '⌨️', label: 'Команды' },
-        { key: 'bonus',    icon: '🎁', label: 'Бонусы' }
+        { key: 'overview',   icon: '🏠', label: 'Обзор' },
+        { key: 'map',        icon: '🗺️', label: 'Карта' },
+        { key: 'players',    icon: '👥', label: 'Игроки' },
+        { key: 'chronicles', icon: '📜', label: 'Хроники' },
+        { key: 'guide',      icon: '📖', label: 'Гайд' },
+        { key: 'commands',   icon: '⌨️', label: 'Команды' },
+        { key: 'bonus',      icon: '🎁', label: 'Бонусы' }
     ];
 
     var STORAGE_SCROLL = 'panel_scroll_memory';
@@ -56,7 +64,12 @@
     // 2. BOTTOM NAVIGATION BAR
     // ============================================================
     function installBottomNav() {
-        if (!isMobile()) return;
+        if (!isMobile()) {
+            // Если ранее был создан и мы на десктопе — убираем
+            var existing = document.getElementById('bottom-nav');
+            if (existing) existing.remove();
+            return;
+        }
         if (document.getElementById('bottom-nav')) return;
 
         var nav = document.createElement('nav');
@@ -86,13 +99,8 @@
         syncBottomNavWithTabs();
     }
 
-    /**
-     * v1.1: при переключении вкладки сохраняем scroll текущей,
-     * восстанавливаем scroll новой. Так пользователь возвращается
-     * туда, где был.
-     */
+    /** Переключение вкладки с сохранением/восстановлением scroll. */
     function switchTab(tabKey) {
-        // Сохраняем scroll текущей вкладки
         saveCurrentScroll();
 
         var topBtn = document.querySelector('.main-nav .nav-btn[data-tab="' + tabKey + '"]');
@@ -100,7 +108,6 @@
 
         syncBottomNavWithTabs();
 
-        // Восстанавливаем scroll новой
         setTimeout(function () {
             restoreScrollForTab(tabKey);
         }, 50);
@@ -194,7 +201,6 @@
 
         document.addEventListener('touchmove', function (e) {
             if (!pulling) return;
-            // v1.1: если пользователь сфокусировался на input в процессе
             if (isInputFocused()) { pulling = false; indicator.classList.remove('visible'); return; }
             currentY = e.touches[0].clientY;
             var dy = currentY - startY;
@@ -237,7 +243,7 @@
     }
 
     // ============================================================
-    // 4. КАРТОЧКИ СТРАН (mobile only)
+    // 4. КАРТОЧКИ СТРАН (hook)
     // ============================================================
     function installCountryCardsHook() {
         var tbody = document.getElementById('countries-body');
@@ -250,137 +256,6 @@
         container.id = 'country-cards-mobile';
         container.className = 'country-cards-mobile';
         wrap.parentNode.insertBefore(container, wrap.nextSibling);
-
-        if (typeof window.renderCountries === 'function' && !window.__mobileCardsHooked) {
-            window.__mobileCardsHooked = true;
-            var prevRender = window.renderCountries;
-            window.renderCountries = function () {
-                var result = prevRender.apply(this, arguments);
-                renderCountryCards();
-                return result;
-            };
-        }
-    }
-
-    function renderCountryCards() {
-        var container = document.getElementById('country-cards-mobile');
-        if (!container) return;
-        var data = window.currentData;
-        if (!data) return;
-
-        var countries = (data.countries || []).slice();
-        var sortMode = window.currentSort || 'claims';
-        countries.sort(function (a, b) {
-            if (sortMode === 'bank') return (b.bank || 0) - (a.bank || 0);
-            if (sortMode === 'energy') return (b.energy || 0) - (a.energy || 0);
-            if (sortMode === 'allies') return (b.allies || 0) - (a.allies || 0);
-            if (sortMode === 'activity') return (b.activity || 0) - (a.activity || 0);
-            return (b.claims || 0) - (a.claims || 0);
-        });
-
-        if (countries.length === 0) {
-            container.innerHTML = '<div class="empty-hint">Пока нет стран.</div>';
-            return;
-        }
-
-        var html = '';
-        for (var i = 0; i < countries.length; i++) {
-            html += buildCountryCard(countries[i], i);
-        }
-        container.innerHTML = html;
-
-        if (window.PanelAvatars && window.PanelAvatars.refresh) {
-            setTimeout(window.PanelAvatars.refresh, 100);
-        }
-    }
-
-    function buildCountryCard(c, idx) {
-        var rank = idx + 1;
-        var rankCls = idx === 0 ? 'top-1' : idx === 1 ? 'top-2' : idx === 2 ? 'top-3' : '';
-        var color = c.color || '#6366f1';
-
-        var owner = c.owner || '?';
-        var ownerName = String(owner);
-
-        var avatarSrc;
-        if (window.PanelAvatars && window.PanelAvatars.get) {
-            avatarSrc = window.PanelAvatars.get(ownerName, 32);
-        } else {
-            var letter = ownerName.charAt(0).toUpperCase();
-            avatarSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
-                    '<rect width="32" height="32" rx="4" fill="#6366f1"/>' +
-                    '<text x="16" y="22" text-anchor="middle" font-family="Georgia" ' +
-                           'font-size="17" font-weight="800" fill="white">' +
-                    letter + '</text></svg>');
-        }
-
-        var claims = (c.claims || 0);
-        var maxClaims = c.max_claims != null ? c.max_claims : '?';
-        var delta = c.claims_delta_7d || 0;
-        var deltaCls = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
-        var deltaStr = delta > 0 ? '▲ +' + delta
-                     : delta < 0 ? '▼ −' + Math.abs(delta)
-                     : '0';
-
-        var capIcon = c.capital ? ' 🏛️' : '';
-
-        return '<article class="ccm-card" style="--row-color:' + escapeAttr(color) + ';" ' +
-                   'onclick="if(typeof showDetails===\'function\')showDetails(\'' + escapeAttr(c.name) + '\')">' +
-            '<div class="ccm-head">' +
-                '<div class="ccm-rank ' + rankCls + '">#' + rank + '</div>' +
-                '<div class="ccm-name-block">' +
-                    '<div class="ccm-name">' + escapeHtml(c.name || '?') + capIcon + '</div>' +
-                    '<div class="ccm-owner">' +
-                        '<img class="ccm-avatar" src="' + escapeAttr(avatarSrc) + '" ' +
-                             'data-avatar-name="' + escapeAttr(ownerName) + '" alt="">' +
-                        '<span>' + escapeHtml(ownerName) + '</span>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div class="ccm-stats">' +
-                '<div class="ccm-stat">' +
-                    '<span class="ccm-stat-label">Чанков</span>' +
-                    '<span class="ccm-stat-value">' + claims + ' / ' + maxClaims + '</span>' +
-                '</div>' +
-                '<div class="ccm-stat">' +
-                    '<span class="ccm-stat-label">Рост 7д</span>' +
-                    '<span class="ccm-stat-value delta ' + deltaCls + '">' + deltaStr + '</span>' +
-                '</div>' +
-                '<div class="ccm-stat">' +
-                    '<span class="ccm-stat-label">Казна</span>' +
-                    '<span class="ccm-stat-value money">' + formatMoney(c.bank || 0) + '</span>' +
-                '</div>' +
-                '<div class="ccm-stat">' +
-                    '<span class="ccm-stat-label">Энергия</span>' +
-                    '<span class="ccm-stat-value energy">' + (c.energy || 0).toFixed(1) + '</span>' +
-                '</div>' +
-            '</div>' +
-        '</article>';
-    }
-
-    function formatMoney(a) {
-        if (a == null) return '0';
-        var abs = Math.abs(a);
-        if (abs >= 1000000) return (a / 1000000).toFixed(2) + 'M';
-        if (abs >= 1000) return (a / 1000).toFixed(1) + 'k';
-        return Math.round(a).toString();
-    }
-
-    function escapeHtml(s) {
-        if (s == null) return '';
-        var d = document.createElement('div');
-        d.textContent = String(s);
-        return d.innerHTML;
-    }
-
-    function escapeAttr(s) {
-        return s == null ? '' : String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
     }
 
     // ============================================================
@@ -451,23 +326,20 @@
     function installAndroidBack() {
         if (!isMobile()) return;
 
-        // Ставим фейковый стейт при загрузке, чтобы поймать back
         try {
             history.replaceState({ panel: 'home' }, '');
             history.pushState({ panel: 'nav' }, '');
         } catch (e) {}
 
         window.addEventListener('popstate', function (e) {
-            // 1. Открыта модалка — закрываем
             var modal = document.querySelector('.modal.show');
             if (modal) {
                 if (typeof window.closePlayerModal === 'function') window.closePlayerModal();
-                // Восстанавливаем стек
+                if (typeof window.closeCountryPassport === 'function') window.closeCountryPassport();
                 try { history.pushState({ panel: 'nav' }, ''); } catch (err) {}
                 return;
             }
 
-            // 2. Не на Обзоре — переходим на Обзор
             var active = document.querySelector('.main-nav .nav-btn.active');
             if (active && active.dataset.tab !== 'overview') {
                 switchTab('overview');
@@ -475,7 +347,6 @@
                 return;
             }
 
-            // 3. На Обзоре — позволяем выйти
             try { history.back(); } catch (err) {}
         });
     }
@@ -544,11 +415,10 @@
     }
 
     // ============================================================
-    // 8. SCROLL MEMORY — сохраняем при уходе со страницы
+    // 8. SCROLL MEMORY
     // ============================================================
     function installScrollMemory() {
         window.addEventListener('beforeunload', saveCurrentScroll);
-        // И при visibility-change (мобилки часто сворачивают таб)
         document.addEventListener('visibilitychange', function () {
             if (document.hidden) saveCurrentScroll();
         });
@@ -564,7 +434,11 @@
             var data = window.currentData;
             if (data && data.updated_at !== lastUpdatedAt) {
                 lastUpdatedAt = data.updated_at;
-                setTimeout(renderCountryCards, 400);
+                setTimeout(function () {
+                    if (typeof window.CountryCards !== 'undefined' && window.CountryCards.refresh) {
+                        window.CountryCards.refresh();
+                    }
+                }, 400);
             }
             syncBottomNavWithTabs();
         } catch (e) {}
@@ -585,23 +459,19 @@
         installLongPressCopy();
         installScrollMemory();
 
-        setTimeout(renderCountryCards, 700);
+        setTimeout(installBottomNav, 500);
+        setTimeout(installBottomNav, 1500);
         tick();
 
         var resizeTimer = null;
         window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
-                if (isMobile()) {
-                    installBottomNav();
-                } else {
-                    var nav = document.getElementById('bottom-nav');
-                    if (nav) nav.remove();
-                }
+                installBottomNav();
             }, 250);
         });
 
-        console.log('[Mobile] v1.1 ready (' + (isMobile() ? 'mobile' : 'desktop') + ')');
+        console.log('[Mobile] v1.2 ready (' + (isMobile() ? 'mobile' : 'desktop') + ')');
     }
 
     if (document.readyState === 'loading') {
@@ -613,7 +483,9 @@
     window.PanelMobile = {
         switchTab: switchTab,
         refresh: function () {
-            renderCountryCards();
+            if (typeof window.CountryCards !== 'undefined' && window.CountryCards.refresh) {
+                window.CountryCards.refresh();
+            }
             syncBottomNavWithTabs();
         },
         setHaptics: function (on) {

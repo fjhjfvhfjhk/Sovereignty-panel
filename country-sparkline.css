@@ -1,0 +1,47 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · COUNTRY-SPARKLINE.CSS v1.0
+   ============================================================
+   Мини-график за 7 дней на карточке страны.
+   ============================================================ */
+
+.ccm-sparkline-wrap {
+    position: relative;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(168, 138, 72, 0.35);
+    height: 30px;
+    display: block;
+}
+
+.ccm-sparkline-svg {
+    width: 100%;
+    height: 28px;
+    display: block;
+    overflow: visible;
+}
+
+.ccm-sparkline-label {
+    position: absolute;
+    top: 10px;
+    right: 0;
+    padding: 1px 6px;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 12px;
+    border-radius: 3px;
+    background: rgba(244, 235, 211, 0.7);
+    line-height: 1.3;
+}
+.ccm-sparkline-label.up   { color: var(--olive, #52682A); }
+.ccm-sparkline-label.down { color: var(--wax, #8B2020); }
+.ccm-sparkline-label.flat { color: var(--ink-pale, #8A7558); }
+
+/* Тёмная тема */
+:root[data-theme="dark"] .ccm-sparkline-wrap {
+    border-top-color: rgba(201, 168, 96, 0.25);
+}
+:root[data-theme="dark"] .ccm-sparkline-label {
+    background: rgba(30, 20, 8, 0.7);
+}
+:root[data-theme="dark"] .ccm-sparkline-label.up   { color: #A8C870; }
+:root[data-theme="dark"] .ccm-sparkline-label.down { color: #F09090; }
+:root[data-theme="dark"] .ccm-sparkline-label.flat { color: var(--ink-pale); }

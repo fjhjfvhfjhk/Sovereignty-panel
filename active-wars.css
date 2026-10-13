@@ -1,0 +1,122 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · ACTIVE-WARS.CSS v1.0
+   ============================================================
+   Блок активных войн на главной странице.
+   ============================================================ */
+
+.active-wars-panel {
+    margin-bottom: 24px;
+}
+
+.active-wars-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.aw-item {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 14px;
+    background: rgba(139, 32, 32, 0.08);
+    border-left: 3px solid var(--wax, #8B2020);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .15s, transform .12s;
+}
+.aw-item:hover {
+    background: rgba(139, 32, 32, 0.16);
+    transform: translateX(2px);
+}
+
+.aw-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    background: rgba(42, 26, 15, 0.10);
+    border: 1px solid rgba(139, 32, 32, 0.4);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.aw-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.aw-title {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 15px;
+    color: var(--ink, #2A1A0F);
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    word-break: break-word;
+}
+.aw-title b {
+    color: var(--wax, #8B2020);
+    font-weight: 500;
+}
+
+.aw-meta {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-faded, #6B5138);
+}
+
+.aw-duration {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 14px;
+    color: var(--wax, #8B2020);
+    white-space: nowrap;
+    padding: 4px 10px;
+    background: rgba(139, 32, 32, 0.12);
+    border: 1px solid rgba(139, 32, 32, 0.3);
+    border-radius: 2px;
+}
+
+/* Мобильная */
+@media (max-width: 768px) {
+    .aw-item {
+        grid-template-columns: 34px 1fr;
+        gap: 10px;
+        padding: 10px 12px;
+    }
+    .aw-icon { width: 34px; height: 34px; font-size: 17px; }
+    .aw-title { font-size: 14px; }
+    .aw-meta { font-size: 11px; }
+    .aw-duration {
+        grid-column: 2;
+        justify-self: start;
+        font-size: 12px;
+        padding: 2px 8px;
+        margin-top: 2px;
+    }
+}
+
+/* Тёмная тема */
+:root[data-theme="dark"] .aw-item {
+    background: rgba(184, 48, 48, 0.08);
+    border-left-color: var(--wax-light);
+}
+:root[data-theme="dark"] .aw-item:hover {
+    background: rgba(184, 48, 48, 0.16);
+}
+:root[data-theme="dark"] .aw-icon {
+    background: rgba(0, 0, 0, 0.35);
+    border-color: rgba(184, 48, 48, 0.4);
+}
+:root[data-theme="dark"] .aw-title { color: var(--ink); }
+:root[data-theme="dark"] .aw-title b { color: var(--wax-light); }
+:root[data-theme="dark"] .aw-meta { color: var(--ink-faded); }
+:root[data-theme="dark"] .aw-duration {
+    color: var(--wax-light);
+    background: rgba(184, 48, 48, 0.15);
+    border-color: rgba(184, 48, 48, 0.4);
+}
