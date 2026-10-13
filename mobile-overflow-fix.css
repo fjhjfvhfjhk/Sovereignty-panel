@@ -1,0 +1,205 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · MOBILE-OVERFLOW-FIX.CSS v1.0
+   ============================================================
+   Предохранитель от горизонтального overflow на мобилке.
+
+   ПРОБЛЕМА (диагностировано 13.10.2026):
+     viewport ≈ 360px. Три flex-контейнера-карусели выходят за
+     пределы экрана и раздувают родителя:
+       - .header-meta  (theme-toggle + 2 badge + refresh = ~500px)
+       - .stats-grid   (5 карточек по 160px = ~800px)
+       - .tabs         (5 табов + gap = ~550px)
+
+     У flex/grid-детей `min-width: auto` по умолчанию — они
+     не сжимаются меньше своего контента. Родитель становится
+     шире viewport → горизонтальный скролл всей страницы →
+     fixed-элементы (bottom-nav) визуально съезжают.
+
+   РЕШЕНИЕ:
+     1. `min-width: 0; max-width: 100%` на все обёртки —
+        чтобы flex/grid дети могли сжиматься.
+     2. `overflow-x: auto` остаётся только у САМИХ каруселей —
+        они скроллятся внутри себя, не пропуская ширину наружу.
+     3. `overflow-x: clip` на html/body — последний рубеж,
+        режет всё, что утекло. `clip` (не `hidden`) не создаёт
+        scroll-container → position: sticky у .guide-nav работает.
+     4. Fallback для старых браузеров без `clip`: `hidden` только
+        на html (не на body) — body без overflow не ломает sticky.
+
+   ПОДКЛЮЧЕНИЕ: последним после mobile.css.
+     <link rel="stylesheet" href="mobile-overflow-fix.css?v=1.0">
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. ГЛОБАЛЬНЫЙ ЗАЩИТНИК
+   ------------------------------------------------------------ */
+html {
+    overflow-x: clip; /* на html — не создаёт scroll-container */
+    max-width: 100vw;
+}
+
+body {
+    overflow-x: clip; /* тоже clip, не hidden — sticky работает */
+    max-width: 100vw;
+}
+
+/* Fallback: Safari < 16, Chrome < 90 не понимают clip.
+   `hidden` только на html, body НЕ трогаем — иначе sticky сломается. */
+@supports not (overflow: clip) {
+    html { overflow-x: hidden; }
+    body { overflow-x: visible; }
+}
+
+/* ------------------------------------------------------------
+   2. ВСЕ ОБЁРТКИ — min-width: 0 + max-width: 100%
+   ------------------------------------------------------------
+   Это ключевой фикс. Без min-width: 0 flex/grid-child имеет
+   неявное min-width: auto и не сжимается меньше содержимого.
+   ------------------------------------------------------------ */
+.container,
+main.container,
+header .container,
+.header-row,
+.header-meta,
+.main-nav,
+.tab-content,
+.panel,
+.panel-header,
+.overview-layout,
+.overview-main,
+.overview-side,
+.stats-grid,
+.tabs,
+.table-wrap,
+.players-grid,
+.players-controls,
+.map-controls,
+.map-viewport,
+.map-legend,
+.map-symbol-legend,
+.country-cards-mobile,
+.event-log-list,
+.chr-filters,
+.chr-feed,
+.guide-layout,
+.guide-nav,
+.guide-content,
+.player-modal-grid,
+.player-modal-info,
+.player-viewer-col,
+#player-modal .modal-content,
+.mobile-bottom-nav,
+.bottom-nav {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------
+   3. КАРУСЕЛИ — ВНУТРЕННИЙ СКРОЛЛ НА МОБИЛКЕ
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .header-meta,
+    .stats-grid,
+    .tabs,
+    .map-controls,
+    .chr-filters,
+    .players-controls {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        flex-wrap: nowrap;
+    }
+    .header-meta::-webkit-scrollbar,
+    .stats-grid::-webkit-scrollbar,
+    .tabs::-webkit-scrollbar,
+    .map-controls::-webkit-scrollbar,
+    .chr-filters::-webkit-scrollbar,
+    .players-controls::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Дети карусели — не сжимаются, чтобы контент не «сплющивался»
+       при попытке уместиться в вьюпорт. Иначе flex делает вид,
+       что overflow нет, но фактически контент выходит за края. */
+    .header-meta > *,
+    .stats-grid > *,
+    .tabs > *,
+    .map-controls > *,
+    .chr-filters > *,
+    .players-controls > * {
+        flex-shrink: 0;
+    }
+}
+
+/* ------------------------------------------------------------
+   4. ОТДЕЛЬНЫЕ ПРАВКИ ДЛЯ ПРОБЛЕМНЫХ МЕСТ (по дампу DOMRect)
+   ------------------------------------------------------------ */
+
+/* header-meta: 500px при вьюпорте 360 → скролл внутри контейнера */
+@media (max-width: 768px) {
+    .header-meta {
+        /* Убеждаемся, что контейнер НЕ растёт под контент */
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* На очень узких экранах от бейджей оставляем только онлайн */
+    @media (max-width: 400px) {
+        #updated-badge { display: none; }
+    }
+}
+
+/* stats-grid: карточки 160px × 5 = 800px → carousel */
+@media (max-width: 768px) {
+    .stats-grid {
+        display: flex;
+        width: 100%;
+        max-width: 100%;
+        scroll-snap-type: x proximity;
+        padding: 4px 0 12px;
+    }
+    .stat-card {
+        scroll-snap-align: start;
+    }
+}
+
+/* tabs (сортировка Топ стран): 5 табов → carousel */
+@media (max-width: 768px) {
+    .tabs {
+        display: flex;
+        width: 100%;
+        max-width: 100%;
+        padding-bottom: 4px;
+    }
+}
+
+/* ------------------------------------------------------------
+   5. FIX ДЛЯ BOTTOM-NAV — не должен съезжать при скролле
+   ------------------------------------------------------------ */
+.bottom-nav {
+    /* position: fixed не зависит от родителей — но добавляем
+       will-change для правильной работы на мобильных браузерах
+       с address-bar, который меняет высоту при скролле. */
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100vw;
+    will-change: transform;
+}
+
+/* ------------------------------------------------------------
+   6. ТЁМНАЯ ТЕМА — те же правила работают, но на всякий случай
+      дублируем clip, если dark-режим использует другой контекст.
+   ------------------------------------------------------------ */
+:root[data-theme="dark"] html,
+:root[data-theme="dark"] body {
+    overflow-x: clip;
+}
+@supports not (overflow: clip) {
+    :root[data-theme="dark"] html { overflow-x: hidden; }
+    :root[data-theme="dark"] body { overflow-x: visible; }
+}
