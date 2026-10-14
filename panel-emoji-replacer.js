@@ -1,37 +1,23 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-EMOJI-REPLACER.JS v2.0
+   SOVEREIGNTY PANEL · PANEL-EMOJI-REPLACER.JS v2.1
    ============================================================
-   v2.0 (14.10.2026):
-     - Расширенная карта: 70+ эмодзи → имена иконок PanelIcons.
-     - Все эмодзи внутри обычного текста заменяются на inline SVG.
-     - Размер SVG = 1em родителя (через CSS-класс .emoji-icon).
-     - Пропускает контент, приходящий от сервера: event_log
-       (icon + message), паспорт-хроники, гайд-заголовки — там
-       эмодзи осмысленны и приходят из JSON.
-     - Работает через MutationObserver на весь body.
+   v2.1 (14.10.2026):
+     - Добавлены эмодзи: 🚫 🎯 🪟 📝 👁️ 🎬 ⚠️ 💡.
+     - Убран skip для .event-log-icon и .pp-chr-icon — теперь
+       иконки в ленте событий и хрониках паспорта тоже
+       становятся SVG.
+     - Увеличен размер иконок в заголовках до 1.15em.
 
-   ЗАЧЕМ: чтобы НЕ править руками ни app.js, ни десяток других
-   файлов, где в шаблонах ещё сидят эмодзи.
-
-   ПОДКЛЮЧЕНИЕ: сразу после panel-icons.js.
-     <script src="panel-icons.js"></script>
-     <script src="panel-emoji-replacer.js"></script>
+   v2.0: расширенная карта 70+ эмодзи.
    ============================================================ */
 (function () {
     'use strict';
 
-    /* --------------------------------------------------------
-       Карта эмодзи → имя иконки в PanelIcons.
-       Ключи — эмодзи (в Unicode escape), значения — имена.
-       Порядок в объекте не важен, но при поиске идём
-       longest-first, чтобы составные эмодзи (с VS-16) ловились
-       раньше коротких.
-       -------------------------------------------------------- */
     var MAP = {
         /* Навигация */
         '\uD83C\uDFE0': 'home',           /* 🏠 */
         '\uD83D\uDDFA\uFE0F': 'map',      /* 🗺️ */
-        '\uD83D\uDDFA': 'map',            /* 🗺 */
+        '\uD83D\uDDFA': 'map',
         '\uD83D\uDC65': 'users',          /* 👥 */
         '\uD83D\uDCDC': 'scroll',         /* 📜 */
         '\uD83D\uDCD6': 'book',           /* 📖 */
@@ -68,6 +54,12 @@
         '\uD83C\uDFC6': 'trophy',         /* 🏆 */
         '\u2728': 'sparkles',             /* ✨ */
         '\uD83C\uDF31': 'sprout',         /* 🌱 */
+        '\uD83C\uDFAF': 'target',         /* 🎯 (v2.1) */
+        '\uD83D\uDCA1': 'bulb',           /* 💡 (v2.1) */
+        '\uD83D\uDC41\uFE0F': 'eye',      /* 👁️ (v2.1) */
+        '\uD83D\uDC41': 'eye',            /* 👁 (v2.1) */
+        '\uD83D\uDCDD': 'memo',           /* 📝 (v2.1) */
+        '\uD83E\uDE9F': 'window',         /* 🪟 (v2.1) */
 
         /* Действия */
         '\u2694\uFE0F': 'war',            /* ⚔️ */
@@ -114,6 +106,7 @@
         '\u2620': 'skull',
         '\uD83C\uDFB0': 'casino',         /* 🎰 */
         '\uD83C\uDFB2': 'casino',         /* 🎲 */
+        '\uD83C\uDFAC': 'movie',          /* 🎬 (v2.1) */
 
         /* Учёба / технологии */
         '\uD83D\uDD2C': 'microscope',     /* 🔬 */
@@ -123,6 +116,11 @@
         /* Магазин */
         '\uD83C\uDFEA': 'shop',           /* 🏪 */
         '\uD83D\uDED2': 'cart',           /* 🛒 */
+
+        /* Предупреждения / запреты */
+        '\uD83D\uDEAB': 'ban',            /* 🚫 (v2.1) */
+        '\u26A0\uFE0F': 'warning',        /* ⚠️ (v2.1) */
+        '\u26A0': 'warning',              /* ⚠ (v2.1) */
 
         /* Прочее */
         '\uD83C\uDFA8': 'palette',        /* 🎨 */
@@ -147,22 +145,19 @@
         '\u2753': 'info',                 /* ❓ */
         '\u2757': 'info',                 /* ❗ */
 
-        /* Стрелки и метки — оставим как текст, они не эмодзи */
-
         /* Замки */
         '\uD83D\uDD12': 'key',            /* 🔒 */
         '\uD83D\uDD13': 'key'             /* 🔓 */
     };
 
-    /* Сортируем ключи longest-first для корректного greedy match */
     var KEYS = Object.keys(MAP).sort(function (a, b) {
         return b.length - a.length;
     });
 
     /* --------------------------------------------------------
-       Селекторы контента, который НЕ трогаем.
-       Там эмодзи либо осмысленны (приходят из JSON как иконка),
-       либо это исходный текст, где замена сломает данные.
+       Что НЕ трогаем.
+       Убрали .event-log-icon и .pp-chr-icon — теперь в них
+       тоже генерим SVG.
        -------------------------------------------------------- */
     var SKIP_SELECTOR = [
         'script',
@@ -173,12 +168,8 @@
         'option',
         'code',
         'pre',
-        /* контент от сервера: */
-        '.event-log-icon',
-        '.event-log-msg',
-        '.pp-chr-icon',
+        '.event-log-msg',      /* текст сообщений — не портим */
         '.pp-chr-msg',
-        /* уже обработанное: */
         '.panel-icon',
         '[data-icon]',
         '[data-icon-done]'
@@ -189,10 +180,6 @@
         return !!el.closest(SKIP_SELECTOR);
     }
 
-    /* --------------------------------------------------------
-       Поиск всех эмодзи в строке — возвращает массив
-       { index, len, emoji }
-       -------------------------------------------------------- */
     function findEmojis(str) {
         var out = [];
         var i = 0;
@@ -215,15 +202,8 @@
         return out;
     }
 
-    /* --------------------------------------------------------
-       Построение inline-SVG для эмодзи.
-       Размер 1em через CSS-класс .emoji-icon.
-       -------------------------------------------------------- */
     function buildEmojiIcon(iconName) {
         if (!window.PanelIcons || !window.PanelIcons.element) return null;
-        /* Базовый размер 16 задаём в SVG-атрибутах.
-           CSS `.emoji-icon { width: 1em; height: 1em }` перебьёт его
-           и сделает иконку по размеру текста родителя. */
         var svg = window.PanelIcons.element(iconName, 16);
         if (!svg) return null;
         svg.classList.remove('panel-icon');
@@ -231,9 +211,6 @@
         return svg;
     }
 
-    /* --------------------------------------------------------
-       Замена в одном текстовом узле.
-       -------------------------------------------------------- */
     function replaceTextNode(textNode) {
         var str = textNode.nodeValue;
         if (!str) return;
@@ -260,7 +237,6 @@
                 frag.appendChild(svg);
                 replaced = true;
             } else {
-                /* Не нашли иконку — оставляем эмодзи как есть */
                 frag.appendChild(document.createTextNode(m.emoji));
             }
             cursor = m.index + m.len;
@@ -273,14 +249,9 @@
 
         try {
             parent.replaceChild(frag, textNode);
-        } catch (e) {
-            /* Нода могла исчезнуть — ок */
-        }
+        } catch (e) {}
     }
 
-    /* --------------------------------------------------------
-       Обход дерева и замена всех текстовых узлов.
-       -------------------------------------------------------- */
     function walk(root) {
         if (!root || root.nodeType !== 1) return;
         if (isSkipped(root)) return;
@@ -299,9 +270,6 @@
         for (var i = 0; i < nodes.length; i++) replaceTextNode(nodes[i]);
     }
 
-    /* --------------------------------------------------------
-       Наблюдение за DOM — новые узлы тоже обрабатываем.
-       -------------------------------------------------------- */
     function installObserver() {
         if (typeof MutationObserver === 'undefined') return;
 
@@ -327,22 +295,17 @@
         mo.observe(document.body, { childList: true, subtree: true });
     }
 
-    /* --------------------------------------------------------
-       Boot
-       -------------------------------------------------------- */
     function boot() {
         walk(document.body);
         installObserver();
 
-        /* Несколько повторных прогонов — на случай асинхронных рендеров */
         [300, 800, 1500, 3000, 6000].forEach(function (delay) {
             setTimeout(function () { walk(document.body); }, delay);
         });
 
-        console.log('[EmojiReplacer] v2.0 ready (' + KEYS.length + ' emoji mapped)');
+        console.log('[EmojiReplacer] v2.1 ready (' + KEYS.length + ' emoji mapped)');
     }
 
-    /* Ждём PanelIcons — он нужен для генерации SVG */
     function waitForIconsAndBoot() {
         if (window.PanelIcons && window.PanelIcons.element) {
             boot();
