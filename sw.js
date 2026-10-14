@@ -16,7 +16,7 @@
      TILES_VERSION  — только когда сервер перегенерировал карту
    ============================================================ */
 
-var STATIC_VERSION = 'v1';
+var STATIC_VERSION = 'v3';
 var TILES_VERSION  = 't1';
 
 var CACHE_STATIC = 'sovereignty-static-' + STATIC_VERSION;
