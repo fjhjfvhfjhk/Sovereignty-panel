@@ -22,6 +22,16 @@
     })();
     </script>
 
+    <script>
+    (function () {
+        try {
+            if (localStorage.getItem('panel_animations') === '0') {
+                document.documentElement.classList.add('no-animations');
+            }
+        } catch (e) {}
+    })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://mc-heads.net">
@@ -61,6 +71,7 @@
     <link rel="stylesheet" href="panel-export.css?v=1.0">
     <link rel="stylesheet" href="mobile.css?v=1.2">
     <link rel="stylesheet" href="mobile-overflow-fix.css?v=1.0">
+    <link rel="stylesheet" href="panel-animations.css?v=2.0">
     <link rel="stylesheet" href="theme-switcher.css?v=2.0">
 </head>
 <body>
@@ -356,5 +367,6 @@
     <script src="deep-links.js?v=1.0"></script>
     <script src="panel-settings.js?v=1.0"></script>
     <script src="panel-export.js?v=1.0"></script>
+    <script src="panel-animations.js?v=2.0"></script>
 </body>
 </html>

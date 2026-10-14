@@ -1,0 +1,509 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · PANEL-ANIMATIONS.CSS v2.0
+   ============================================================
+   Все 15 анимаций из песочницы, перенесённые на реальную панель.
+
+   Префикс классов — sa- (sovereignty animations).
+   Все анимации автоматически отключаются классом html.no-animations
+   (см. panel-settings.css).
+
+   v2.0 (15.10.2026):
+     - 3 пака: Перо и сургуч, Атлас в движении, Хроника событий
+     - 15 уникальных анимаций + 3 комбо-сцены
+   ============================================================ */
+
+/* ============================================================
+   ПАКЕТ 1 · ПЕРО И СУРГУЧ
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1.1 · Чернильная пропись заголовков
+   ------------------------------------------------------------
+   Заголовок <h2> раскрывается слева направо, как будто
+   перо ведёт линию. Применяется через .sa-ink-write при
+   переключении вкладки.
+   ------------------------------------------------------------ */
+@keyframes saInkWrite {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+}
+.sa-ink-write {
+    animation: saInkWrite 0.9s cubic-bezier(.65, 0, .35, 1) forwards;
+    will-change: clip-path;
+}
+
+/* ------------------------------------------------------------
+   1.2 · Сургучная печать
+   ------------------------------------------------------------
+   При открытии модалки появляется восковая печать в центре,
+   «впечатывается», потом растворяется. Работает через
+   .sa-wax-seal-overlay + .sa-wax-seal.
+   ------------------------------------------------------------ */
+.sa-wax-seal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    z-index: 1500;
+}
+.sa-wax-seal {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #A83030 0%, #8B2020 45%, #6E1010 100%);
+    box-shadow:
+        inset 0 2px 4px rgba(255, 200, 200, .3),
+        inset 0 -4px 8px rgba(0, 0, 0, .4),
+        0 8px 24px rgba(0, 0, 0, .5);
+    display: grid;
+    place-items: center;
+    color: #F4EBD3;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 52px;
+    text-shadow: 0 2px 3px rgba(0, 0, 0, .5);
+    position: relative;
+}
+.sa-wax-seal::before {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(244, 235, 211, .35);
+}
+@keyframes saWaxSeal {
+    0%   { opacity: 0; transform: scale(2.8) rotate(-18deg); }
+    18%  { opacity: 1; transform: scale(0.92) rotate(4deg); }
+    28%  { transform: scale(1.04) rotate(-2deg); }
+    38%  { transform: scale(1) rotate(0deg); }
+    75%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.08); }
+}
+.sa-wax-seal-anim {
+    animation: saWaxSeal 2s cubic-bezier(.2, 1, .3, 1) forwards;
+}
+@media (max-width: 768px) {
+    .sa-wax-seal { width: 100px; height: 100px; font-size: 40px; }
+    .sa-wax-seal::before { inset: 10px; }
+}
+
+/* ------------------------------------------------------------
+   1.3 · Капля чернил под активной вкладкой
+   ------------------------------------------------------------
+   При клике по nav-btn / bn-btn под активной кнопкой
+   расплывается чернильное пятно.
+   ------------------------------------------------------------ */
+@keyframes saInkDrop {
+    0%   { transform: translateX(-50%) scale(0); opacity: .9; }
+    60%  { opacity: .55; }
+    100% { transform: translateX(-50%) scale(4.5); opacity: 0; }
+}
+.sa-ink-drop {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+        rgba(74, 53, 32, .85) 0%,
+        rgba(74, 53, 32, .4) 55%,
+        transparent 75%);
+    pointer-events: none;
+    z-index: 5;
+    transform-origin: center;
+    animation: saInkDrop 0.75s cubic-bezier(.2, 1, .3, 1) forwards;
+}
+.nav-btn,
+.bn-btn,
+.tab {
+    position: relative;
+}
+
+/* ------------------------------------------------------------
+   1.4 · Счётчик-числитель
+   ------------------------------------------------------------
+   Числа .stat-value считаются с 0 до реального значения.
+   Логика в panel-animations.js — здесь только базовые стили.
+   ------------------------------------------------------------ */
+.stat-value.sa-counting {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------
+   1.5 · Загнутая страница
+   ------------------------------------------------------------
+   При hover карточка приподнимает правый нижний угол.
+   Только для карточек стран и игроков.
+   ------------------------------------------------------------ */
+.ccm-card,
+.player-card {
+    position: relative;
+    transition:
+        transform .25s cubic-bezier(.2, 1, .3, 1),
+        box-shadow .25s cubic-bezier(.2, 1, .3, 1),
+        border-color .2s,
+        background .2s;
+}
+.ccm-card::after,
+.player-card::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    background: linear-gradient(135deg,
+        transparent 48%,
+        rgba(168, 138, 72, .55) 50%,
+        var(--parch-3) 100%);
+    border-top-left-radius: 3px;
+    box-shadow: -2px -2px 4px rgba(42, 26, 15, .12);
+    transition: width .28s cubic-bezier(.2, 1, .3, 1),
+                height .28s cubic-bezier(.2, 1, .3, 1);
+    pointer-events: none;
+}
+.ccm-card:hover,
+.player-card:hover {
+    transform: translateX(2px) translateY(-2px);
+    box-shadow:
+        4px 4px 10px rgba(42, 26, 15, .22),
+        inset 0 1px 0 rgba(255, 240, 200, .6);
+}
+.ccm-card:hover::after,
+.player-card:hover::after {
+    width: 20px;
+    height: 20px;
+}
+
+/* ============================================================
+   ПАКЕТ 2 · АТЛАС В ДВИЖЕНИИ
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   2.1 · Компас-роза
+   ------------------------------------------------------------
+   SVG-компас в левом верхнем углу карты, покачивается ±15°
+   за 20 секунд. Вставляется через ::before, не мешает кликам.
+   ------------------------------------------------------------ */
+@keyframes saCompassWobble {
+    0%, 100% { transform: rotate(-15deg); }
+    50%      { transform: rotate(15deg); }
+}
+.map-viewport::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 52px;
+    height: 52px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='%23C9A860' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'><circle cx='32' cy='32' r='26' stroke-dasharray='2 4' opacity='.5'/><circle cx='32' cy='32' r='22' opacity='.8'/><path d='M32 8 L36 30 L32 34 L28 30 Z' fill='%238B2020' stroke='%238B2020'/><path d='M32 56 L28 34 L32 30 L36 34 Z' fill='%23C9A860' stroke='%23C9A860'/><path d='M8 32 L30 28 L34 32 L30 36 Z' fill='%23C9A860' stroke='%23C9A860' opacity='.7'/><path d='M56 32 L34 36 L30 32 L34 28 Z' fill='%23C9A860' stroke='%23C9A860' opacity='.7'/><text x='32' y='6' text-anchor='middle' font-size='6' fill='%23C9A860' font-family='serif'>N</text><text x='32' y='62' text-anchor='middle' font-size='6' fill='%23C9A860' font-family='serif'>S</text><text x='4' y='34' text-anchor='middle' font-size='6' fill='%23C9A860' font-family='serif'>W</text><text x='60' y='34' text-anchor='middle' font-size='6' fill='%23C9A860' font-family='serif'>E</text></g></svg>");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    pointer-events: none;
+    z-index: 12;
+    animation: saCompassWobble 20s ease-in-out infinite;
+    transform-origin: center;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55));
+    opacity: .85;
+    transition: opacity .3s;
+}
+.map-viewport:hover::before { opacity: 1; }
+@media (max-width: 768px) {
+    .map-viewport::before {
+        width: 40px;
+        height: 40px;
+        top: 8px;
+        left: 8px;
+    }
+}
+
+/* ------------------------------------------------------------
+   2.2 · Прорисовка графика онлайна
+   ------------------------------------------------------------
+   При первом рендере sparkline-wrap раскрывается слева
+   направо через clip-path — как будто линия себя чертит.
+   ------------------------------------------------------------ */
+@keyframes saChartDraw {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+}
+.sparkline-wrap.sa-chart-draw {
+    animation: saChartDraw 1.3s cubic-bezier(.4, 0, .3, 1) forwards;
+    will-change: clip-path;
+}
+
+/* ------------------------------------------------------------
+   2.3 · Дыхание маркеров игроков
+   ------------------------------------------------------------
+   Онлайн-маркеры мягко пульсируют — карта «живая».
+   Перебивает markerOnlinePulse из map-enhance.css.
+   ------------------------------------------------------------ */
+@keyframes saMarkerBreathe {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow:
+            0 3px 8px rgba(0, 0, 0, .7),
+            0 0 10px rgba(82, 104, 42, .55);
+    }
+    50% {
+        transform: scale(1.12);
+        box-shadow:
+            0 3px 8px rgba(0, 0, 0, .7),
+            0 0 20px rgba(82, 104, 42, .95);
+    }
+}
+.map-marker.online .map-marker-head {
+    animation: saMarkerBreathe 3s ease-in-out infinite !important;
+}
+
+/* ------------------------------------------------------------
+   2.4 · Плавный закат (день/ночь на карте)
+   ------------------------------------------------------------
+   Переход занимает 2 секунды вместо 0.3s — как настоящий
+   закат, а не резкий щелчок.
+   ------------------------------------------------------------ */
+.map-daynight {
+    transition:
+        background 2s cubic-bezier(.4, 0, .6, 1),
+        opacity 2s cubic-bezier(.4, 0, .6, 1) !important;
+}
+
+/* ------------------------------------------------------------
+   2.5 · Волна по границам карты
+   ------------------------------------------------------------
+   Световая волна пробегает по карте при переключении
+   на вкладку «Карта».
+   ------------------------------------------------------------ */
+@keyframes saBorderWave {
+    0%   { transform: translateX(-110%); opacity: 0; }
+    15%  { opacity: .9; }
+    85%  { opacity: .9; }
+    100% { transform: translateX(110%); opacity: 0; }
+}
+.sa-border-wave {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 14;
+}
+.sa-border-wave::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 45%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(201, 168, 96, .1) 30%,
+        rgba(201, 168, 96, .38) 50%,
+        rgba(201, 168, 96, .1) 70%,
+        transparent 100%);
+    animation: saBorderWave 1.4s cubic-bezier(.4, 0, .5, 1) forwards;
+}
+
+/* ============================================================
+   ПАКЕТ 3 · ХРОНИКА СОБЫТИЙ
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   3.1 · Событие падает сверху
+   ------------------------------------------------------------
+   Новая запись в ленте влетает сверху с лёгким подпрыгиванием.
+   ------------------------------------------------------------ */
+@keyframes saEventDrop {
+    0%   { opacity: 0; transform: translateY(-40px); }
+    55%  { opacity: 1; transform: translateY(5px); }
+    75%  { transform: translateY(-2px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.sa-event-drop {
+    animation: saEventDrop .65s cubic-bezier(.2, 1, .3, 1);
+}
+
+/* ------------------------------------------------------------
+   3.2 · Объявление войны — красная вспышка
+   ------------------------------------------------------------
+   При появлении нового события war_declared в JSON
+   весь экран заливается тёмно-красной дымкой.
+   ------------------------------------------------------------ */
+.sa-war-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%,
+        rgba(184, 48, 48, .55) 0%,
+        rgba(139, 32, 32, .85) 55%,
+        rgba(80, 10, 10, .95) 100%);
+    pointer-events: none;
+    z-index: 1400;
+    opacity: 0;
+}
+@keyframes saWarFlash {
+    0%   { opacity: 0; }
+    15%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+.sa-war-overlay.sa-war-flash {
+    animation: saWarFlash 1.2s cubic-bezier(.2, 1, .3, 1) forwards;
+}
+
+/* Тост «Объявление войны» — всплывает поверх */
+@keyframes saWarToast {
+    0%   { opacity: 0; transform: translate(-50%, 20px) scale(.9); }
+    20%  { opacity: 1; transform: translate(-50%, 0) scale(1.03); }
+    30%  { transform: translate(-50%, 0) scale(1); }
+    85%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -20px) scale(.95); }
+}
+.sa-war-toast {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #A83030 0%, #6E1010 100%);
+    color: #F4EBD3;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 15px;
+    letter-spacing: .04em;
+    padding: 12px 22px;
+    border: 2px solid #C9A860;
+    border-radius: 3px;
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, .55),
+        inset 0 1px 0 rgba(255, 200, 200, .3);
+    z-index: 1450;
+    pointer-events: none;
+    opacity: 0;
+    white-space: nowrap;
+    max-width: calc(100vw - 40px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sa-war-toast.sa-war-toast-show {
+    animation: saWarToast 3s cubic-bezier(.2, 1, .3, 1) forwards;
+}
+.sa-war-toast b { color: #F4D990; font-weight: 600; }
+
+/* ------------------------------------------------------------
+   3.3 · Мерцание свечи
+   ------------------------------------------------------------
+   Заголовок #server-name слегка меняет яркость —
+   как будто освещён свечой.
+   ------------------------------------------------------------ */
+@keyframes saCandleFlicker {
+    0%, 46%     { filter: brightness(1); }
+    47%         { filter: brightness(1.16); }
+    48%         { filter: brightness(1); }
+    49%         { filter: brightness(1.05); }
+    50%         { filter: brightness(1); }
+    70%         { filter: brightness(0.94); }
+    71%         { filter: brightness(1); }
+    88%         { filter: brightness(1.1); }
+    89%         { filter: brightness(1); }
+    100%        { filter: brightness(1); }
+}
+#server-name {
+    animation: saCandleFlicker 4.5s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------
+   3.4 · Разворот свитка
+   ------------------------------------------------------------
+   Лента Хроник раскрывается сверху вниз при входе
+   на вкладку.
+   ------------------------------------------------------------ */
+@keyframes saUnroll {
+    0%   { max-height: 0; opacity: 0; }
+    100% { max-height: 3000px; opacity: 1; }
+}
+#chr-feed.sa-unroll {
+    animation: saUnroll .8s cubic-bezier(.2, 1, .3, 1) forwards;
+    overflow: hidden;
+    will-change: max-height;
+}
+.event-log-list.sa-unroll {
+    animation: saUnroll .8s cubic-bezier(.2, 1, .3, 1) forwards;
+    will-change: max-height;
+}
+
+/* ------------------------------------------------------------
+   3.5 · Пульс «NEW»
+   ------------------------------------------------------------
+   Маленькая латунная точка рядом с новой записью,
+   пульсирует 2 раза и затихает.
+   ------------------------------------------------------------ */
+@keyframes saNewPulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(139, 32, 32, .55);
+    }
+    50% {
+        transform: scale(1.15);
+        box-shadow: 0 0 0 7px rgba(139, 32, 32, 0);
+    }
+}
+.sa-new-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--wax);
+    box-shadow: 0 0 0 0 rgba(139, 32, 32, .55);
+    pointer-events: none;
+}
+.sa-new-dot.sa-pulse {
+    animation: saNewPulse 1.6s ease-in-out 2;
+}
+.event-log-item,
+.chr-event {
+    position: relative;
+}
+
+/* ============================================================
+   ОТКЛЮЧЕНИЕ
+   ============================================================ */
+html.no-animations .sa-ink-write,
+html.no-animations .sa-wax-seal-anim,
+html.no-animations .sa-ink-drop,
+html.no-animations .sa-chart-draw,
+html.no-animations .sa-event-drop,
+html.no-animations .sa-war-flash,
+html.no-animations .sa-war-toast-show,
+html.no-animations .sa-unroll,
+html.no-animations .sa-pulse,
+html.no-animations .map-viewport::before,
+html.no-animations #server-name,
+html.no-animations .map-marker.online .map-marker-head {
+    animation: none !important;
+}
+html.no-animations .sa-wax-seal-overlay,
+html.no-animations .sa-war-overlay,
+html.no-animations .sa-war-toast,
+html.no-animations .sa-border-wave {
+    display: none !important;
+}
+html.no-animations #server-name {
+    filter: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sa-ink-write,
+    .sa-wax-seal-anim,
+    .sa-ink-drop,
+    .sa-chart-draw,
+    .sa-event-drop,
+    .sa-war-flash,
+    .sa-war-toast-show,
+    .sa-unroll,
+    .sa-pulse,
+    .map-viewport::before,
+    #server-name,
+    .map-marker.online .map-marker-head {
+        animation: none !important;
+    }
+}
