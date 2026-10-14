@@ -1,15 +1,14 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · MOBILE.CSS v1.1
+   SOVEREIGNTY PANEL · MOBILE.CSS v1.2
    ============================================================
-   Мобильная оптимизация. ИЗМЕНЕНИЯ v1.1:
-
-     - УБРАНЫ свайпы между вкладками (мешали при скролле).
-     - Bottom-nav: только иконки на очень узких экранах.
-     - Pull-to-refresh: не срабатывает при фокусе на input.
-     - Память скролла per-tab.
-     - Android back-button закрывает модалку → возврат на Обзор.
-     - Long-press на карточке игрока = копирование ника.
-     - Event-log мета — компактнее.
+   ИЗМЕНЕНИЯ v1.2 (14.10.2026):
+     - Нижняя навигация — антикварная (тёмно-коричневая кожа
+       с латунной окантовкой) вместо индиго-navy.
+     - Убран индиго-градиент шапки (#1e1b4b → #312e81).
+       Шапка теперь везде использует базовую коричневую палитру.
+     - Убраны все rgba(99, 102, 241, ...) и rgba(15, 17, 23, ...).
+     - Иконки .bn-icon теперь SVG (см. mobile.js v1.3), а не эмодзи.
+       Размер задаётся через width/height, а не font-size.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -23,16 +22,17 @@
         position: fixed;
         left: 0; right: 0; bottom: 0;
         z-index: 200;
-        background: rgba(15, 17, 23, .96);
-        border-top: 1px solid var(--border);
+        background: linear-gradient(180deg, #5E4224 0%, #3E2C18 100%);
+        border-top: 2px solid var(--brass);
         padding: 6px 4px calc(env(safe-area-inset-bottom, 0px) + 6px);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
         justify-content: space-around;
         gap: 2px;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 235, 190, 0.15),
+            0 -4px 12px rgba(42, 26, 15, 0.35);
     }
     .bottom-nav::-webkit-scrollbar { display: none; }
 
@@ -48,31 +48,40 @@
         padding: 8px 4px;
         background: transparent;
         border: none;
-        color: var(--text-dim);
-        font-family: inherit;
+        color: rgba(244, 231, 211, 0.65);
+        font-family: 'IM Fell English', Georgia, serif;
         font-size: 10px;
-        font-weight: 600;
+        font-weight: 400;
         letter-spacing: .02em;
         cursor: pointer;
-        border-radius: 10px;
+        border-radius: 3px;
         transition: color .15s, background .15s, transform .12s;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
     }
     .bottom-nav .bn-btn .bn-icon {
-        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
         line-height: 1;
         transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
+    }
+    .bottom-nav .bn-btn .bn-icon svg {
+        display: block;
+        width: 100%;
+        height: 100%;
     }
     .bottom-nav .bn-btn:active {
         transform: scale(.92);
     }
     .bottom-nav .bn-btn.active {
-        color: var(--accent-light);
-        background: rgba(99, 102, 241, .12);
+        color: #F4D990;
+        background: rgba(201, 168, 96, 0.15);
     }
     .bottom-nav .bn-btn.active .bn-icon {
-        transform: translateY(-1px) scale(1.1);
+        transform: translateY(-1px) scale(1.08);
     }
     .bottom-nav .bn-btn.active::after {
         content: "";
@@ -83,33 +92,35 @@
         width: 24px;
         height: 2px;
         border-radius: 0 0 3px 3px;
-        background: var(--accent-light);
-        box-shadow: 0 0 10px var(--accent-light);
+        background: var(--brass-light);
+        box-shadow: 0 0 10px var(--brass);
     }
 }
 
 /* Очень узкие экраны — только иконки */
 @media (max-width: 360px) {
-    .bottom-nav .bn-btn .bn-label {
-        display: none;
-    }
+    .bottom-nav .bn-btn .bn-label { display: none; }
     .bottom-nav .bn-btn {
         min-width: 44px;
         padding: 8px 2px;
     }
     .bottom-nav .bn-btn .bn-icon {
-        font-size: 22px;
+        width: 24px;
+        height: 24px;
     }
 }
 
 /* ------------------------------------------------------------
    2. КОМПАКТНАЯ ШАПКА НА МОБИЛКЕ
+   ------------------------------------------------------------
+   v1.2: убран индиго-градиент. Шапка наследует базовую коричневую
+   палитру из style.css — только уменьшаем паддинги и шрифт.
    ------------------------------------------------------------ */
 @media (max-width: 768px) {
     header {
         padding: 12px 0 10px;
         margin-bottom: 16px;
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+        /* background НЕ переопределяем — берём из style.css */
     }
     .header-row {
         margin-bottom: 0;
@@ -142,7 +153,6 @@
         white-space: nowrap;
         flex-shrink: 0;
     }
-    .header-meta .badge::before { font-size: 12px; }
 
     body {
         padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
@@ -180,9 +190,9 @@
     }
     .stat-card .stat-icon {
         width: 34px; height: 34px;
-        font-size: 17px;
-        border-radius: 10px;
+        border-radius: 50%;
     }
+    .stat-card .stat-icon svg { width: 18px; height: 18px; }
     .stat-card .stat-value { font-size: 24px; }
     .stat-card .stat-label { font-size: 10px; letter-spacing: .08em; }
     .stat-trend { top: 10px; right: 10px; font-size: 10px; padding: 2px 6px; }
@@ -208,9 +218,9 @@
 
 .ccm-card {
     position: relative;
-    background: linear-gradient(160deg, var(--bg-card), rgba(15, 17, 23, .6));
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: linear-gradient(160deg, var(--parch-1), var(--parch-2));
+    border: 1px solid var(--brass);
+    border-radius: 3px;
     padding: 12px 14px 12px 18px;
     overflow: hidden;
     transition: transform .15s, border-color .15s;
@@ -219,7 +229,7 @@
 }
 .ccm-card:active {
     transform: scale(.985);
-    border-color: var(--accent);
+    border-color: var(--brass-dark);
 }
 .ccm-card::before {
     content: "";
@@ -231,37 +241,37 @@
 .ccm-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .ccm-rank {
     width: 34px; height: 34px;
-    border-radius: 9px;
-    background: rgba(99, 102, 241, .12);
-    border: 1px solid rgba(99, 102, 241, .28);
-    display: grid; place-items: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%, var(--brass-dark));
+    border: 1px solid var(--brass-dark);
+    display: grid;
+    place-items: center;
+    font-family: 'IM Fell English', Georgia, serif;
     font-size: 13px;
-    font-weight: 800;
-    color: var(--accent-light);
+    color: #3A2810;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
 }
 .ccm-rank.top-1 {
-    background: linear-gradient(135deg, rgba(251, 191, 36, .22), rgba(251, 191, 36, .06));
-    border-color: rgba(251, 191, 36, .5);
-    color: #fbbf24;
-    box-shadow: 0 0 14px rgba(251, 191, 36, .2);
+    background: radial-gradient(circle at 35% 30%, #F4D990 0%, #C9A860 40%, #8A6E30 100%);
+    border-color: #6E5828;
+    color: #3A2810;
 }
 .ccm-rank.top-2 {
-    background: linear-gradient(135deg, rgba(203, 213, 225, .22), rgba(203, 213, 225, .06));
-    border-color: rgba(203, 213, 225, .45);
-    color: #cbd5e1;
+    background: radial-gradient(circle at 35% 30%, #DCDCE0 0%, #A8A8B0 40%, #666870 100%);
+    border-color: #55575E;
+    color: #2E2F33;
 }
 .ccm-rank.top-3 {
-    background: linear-gradient(135deg, rgba(217, 119, 6, .22), rgba(217, 119, 6, .06));
-    border-color: rgba(217, 119, 6, .45);
-    color: #f59e0b;
+    background: radial-gradient(circle at 35% 30%, #D9A06A 0%, #A0663A 40%, #6A3F1E 100%);
+    border-color: #5A3418;
+    color: #F4EBD3;
 }
 .ccm-name-block { flex: 1; min-width: 0; }
 .ccm-name {
+    font-family: 'IM Fell English', Georgia, serif;
     font-size: 15px;
-    font-weight: 700;
-    color: var(--text);
+    color: var(--ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -272,14 +282,17 @@
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: var(--text-dim);
+    color: var(--ink-faded);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
     min-width: 0;
 }
 .ccm-avatar {
     width: 16px; height: 16px;
-    border-radius: 3px;
+    border-radius: 2px;
     image-rendering: pixelated;
-    background: var(--bg-code);
+    background: var(--parch-3);
+    border: 1px solid var(--brass-dark);
     flex-shrink: 0;
 }
 .ccm-stats {
@@ -296,23 +309,24 @@
     padding: 4px 0;
 }
 .ccm-stat-label {
-    color: var(--text-dim);
+    color: var(--ink-faded);
     font-size: 10.5px;
     text-transform: uppercase;
     letter-spacing: .04em;
     white-space: nowrap;
+    font-style: italic;
 }
 .ccm-stat-value {
-    font-weight: 700;
-    color: var(--text);
+    font-family: 'IM Fell English', Georgia, serif;
+    color: var(--ink);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
-.ccm-stat-value.money { color: #10b981; }
-.ccm-stat-value.energy { color: #f59e0b; }
-.ccm-stat-value.delta.up { color: #6ee7b7; }
-.ccm-stat-value.delta.down { color: #fca5a5; }
-.ccm-stat-value.delta.flat { color: var(--text-dim); }
+.ccm-stat-value.money { color: var(--olive); }
+.ccm-stat-value.energy { color: var(--amber); }
+.ccm-stat-value.delta.up { color: var(--olive); }
+.ccm-stat-value.delta.down { color: var(--wax); }
+.ccm-stat-value.delta.flat { color: var(--ink-pale); }
 
 /* ------------------------------------------------------------
    5. КАРТОЧКИ ИГРОКОВ
@@ -326,10 +340,13 @@
         padding: 10px;
         gap: 10px;
         align-items: center;
-        border-radius: 10px;
+        border-radius: 3px;
         position: relative;
     }
-    .player-card-avatar img { width: 40px; height: 40px; border-radius: 8px; }
+    .player-card-avatar img {
+        width: 40px; height: 40px;
+        border-radius: 2px;
+    }
     .player-card-name { font-size: 13px; }
     .player-card-country { font-size: 11px; }
     .player-card-meta { gap: 4px; margin-top: 4px; }
@@ -374,18 +391,18 @@
    7. ПАНЕЛИ / ОТСТУПЫ
    ------------------------------------------------------------ */
 @media (max-width: 768px) {
-    .panel { padding: 16px 14px; border-radius: 10px; margin-bottom: 16px; }
+    .panel { padding: 16px 14px; border-radius: 3px; margin-bottom: 16px; }
     .panel h2 { font-size: 17px; margin-bottom: 14px; }
     .panel-header { margin-bottom: 14px; }
     .panel-header h2 { font-size: 16px; }
     .tabs {
-        gap: 6px;
+        gap: 0;
         margin-bottom: 14px;
         overflow-x: auto;
         flex-wrap: nowrap;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        padding-bottom: 4px;
+        padding-bottom: 0;
     }
     .tabs::-webkit-scrollbar { display: none; }
     .tab {
@@ -413,7 +430,7 @@
     .map-viewport {
         height: 62vh;
         min-height: 340px;
-        border-radius: 10px;
+        border-radius: 3px;
         touch-action: none;
     }
     .map-controls {
@@ -438,7 +455,11 @@
         font-size: 12px;
         top: 8px; right: 8px;
     }
-    .map-layers-restore { width: 44px; height: 44px; font-size: 20px; top: 8px; right: 8px; }
+    .map-layers-restore {
+        width: 44px; height: 44px;
+        font-size: 20px;
+        top: 8px; right: 8px;
+    }
     .map-legend { gap: 6px; margin-top: 12px; }
     .legend-item { padding: 5px 10px; font-size: 12px; }
     .map-online-counter {
@@ -472,6 +493,7 @@
         padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
         transform: none;
         animation: mobileModalIn .3s cubic-bezier(.2, 1, .3, 1);
+        box-shadow: none;
     }
     @keyframes mobileModalIn {
         from { opacity: 0; transform: translateY(20px); }
@@ -517,8 +539,9 @@
         overflow-x: auto;
         flex-wrap: nowrap;
         scrollbar-width: none;
-        background: var(--bg-card);
-        border-radius: 10px;
+        background: var(--parch-1);
+        border: 1px solid var(--brass);
+        border-radius: 3px;
         margin-bottom: 4px;
     }
     .guide-nav::-webkit-scrollbar { display: none; }
@@ -528,15 +551,17 @@
         font-size: 12px;
         white-space: nowrap;
         flex-shrink: 0;
-        background: rgba(0, 0, 0, .2);
-        border: 1px solid var(--border);
+        background: rgba(168, 138, 72, 0.10);
+        border: 1px solid var(--brass);
         border-radius: 20px;
         display: inline-block;
+        color: var(--ink-soft);
+        text-decoration: none;
     }
     .guide-nav a.active {
-        background: var(--accent);
-        color: #fff;
-        border-color: var(--accent);
+        background: linear-gradient(180deg, var(--brass-light), var(--brass));
+        color: #1A1208;
+        border-color: var(--brass-dark);
     }
     .guide-section {
         padding: 18px 14px;
@@ -590,7 +615,7 @@
 }
 
 /* ------------------------------------------------------------
-   14. PULL-TO-REFRESH ИНДИКАТОР
+   14. PULL-TO-REFRESH ИНДИКАТОР — антикварный
    ------------------------------------------------------------ */
 .ptr-indicator {
     position: fixed;
@@ -600,12 +625,12 @@
     z-index: 250;
     width: 44px; height: 44px;
     border-radius: 50%;
-    background: rgba(15, 17, 23, .96);
-    border: 1px solid var(--accent);
+    background: rgba(244, 235, 211, 0.96);
+    border: 1px solid var(--brass);
     display: grid;
     place-items: center;
-    color: var(--accent-light);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, .6);
+    color: var(--wax);
+    box-shadow: 0 6px 24px rgba(42, 26, 15, 0.5);
     opacity: 0;
     pointer-events: none;
     transition: transform .25s cubic-bezier(.2, 1, .3, 1), opacity .2s;
@@ -640,23 +665,24 @@
 @media (max-width: 768px) {
     .player-card.pressing {
         transform: scale(.97);
-        border-color: var(--accent);
+        border-color: var(--brass);
     }
     .player-card.pressing::after {
-        content: "📋 Копировать ник";
+        content: "Копировать ник";
         position: absolute;
         bottom: -2px;
         left: 50%;
         transform: translateX(-50%) translateY(100%);
-        background: var(--accent);
-        color: #fff;
+        background: var(--wax);
+        color: #F4EBD3;
         font-size: 9px;
-        font-weight: 700;
+        font-weight: 600;
         padding: 2px 8px;
         border-radius: 6px;
         white-space: nowrap;
         z-index: 5;
         pointer-events: none;
+        font-family: 'IM Fell English', Georgia, serif;
     }
 }
 
@@ -676,7 +702,7 @@
     .map-viewport { height: 80vh; }
     .bottom-nav { padding: 4px 4px calc(env(safe-area-inset-bottom, 0px) + 4px); }
     .bottom-nav .bn-btn { padding: 5px 4px; font-size: 9px; }
-    .bottom-nav .bn-btn .bn-icon { font-size: 17px; }
+    .bottom-nav .bn-btn .bn-icon { width: 18px; height: 18px; }
 }
 
 /* ------------------------------------------------------------
@@ -690,5 +716,30 @@
     .ptr-indicator {
         transition: none !important;
         animation: none !important;
+    }
+}
+
+/* ------------------------------------------------------------
+   20. ТЁМНАЯ ТЕМА (мобильные правила)
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+    :root[data-theme="dark"] .bottom-nav {
+        background: linear-gradient(180deg, #3A2818 0%, #1A1208 100%);
+        border-top: 2px solid var(--brass);
+        box-shadow:
+            inset 0 1px 0 rgba(201, 168, 96, 0.15),
+            0 -4px 12px rgba(0, 0, 0, 0.55);
+    }
+    :root[data-theme="dark"] .bottom-nav .bn-btn {
+        color: rgba(232, 216, 176, 0.6);
+    }
+    :root[data-theme="dark"] .bottom-nav .bn-btn.active {
+        color: #F4D990;
+        background: rgba(201, 168, 96, 0.15);
+    }
+    :root[data-theme="dark"] .ptr-indicator {
+        background: rgba(42, 30, 16, 0.96);
+        border-color: var(--brass);
+        color: var(--wax-light);
     }
 }

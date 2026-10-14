@@ -1,35 +1,29 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · MOBILE.JS v1.2
+   SOVEREIGNTY PANEL · MOBILE.JS v1.3
    ============================================================
-   Мобильные улучшения.
+   ИЗМЕНЕНИЯ v1.3 (14.10.2026):
+     - Иконки нижней панели: SVG из PanelIcons вместо эмодзи.
+     - Массив TABS теперь хранит имена иконок (home, map, users...),
+       а не символы. При сборке кнопки вызывается PanelIcons.element().
+     - Константа ICON_SIZE = 22 — единый размер для всех иконок nav.
 
-   ИЗМЕНЕНИЯ v1.2 (13.10.2026):
-     В TABS добавлена вкладка «Хроники» (id: chronicles).
-     Раньше массив знал только про 6 вкладок, из-за чего в
-     bottom-nav-bar кнопка «📜 Хроники» не появлялась, хотя
-     в верхнем меню она уже была.
-
-   ИЗМЕНЕНИЯ v1.1:
-     - УБРАНЫ свайпы между вкладками (мешали скроллу).
-     - Pull-to-refresh не работает при фокусе на input.
-     - Память скролла per-tab.
-     - Android back → закрыть модалку или вернуть на Обзор.
-     - Long-press на карточке игрока = копирование ника.
-     - Настройки в localStorage: haptics, ptr.
-
-   Подключать ПОСЛЕ panel-detail.js.
+   ИЗМЕНЕНИЯ v1.2: добавлена вкладка «Хроники».
+   ИЗМЕНЕНИЯ v1.1: убраны свайпы, PTR, память скролла, back-button,
+                   long-press копирование ника.
    ============================================================ */
 (function () {
     'use strict';
 
+    var ICON_SIZE = 22;
+
     var TABS = [
-        { key: 'overview',   icon: '🏠', label: 'Обзор' },
-        { key: 'map',        icon: '🗺️', label: 'Карта' },
-        { key: 'players',    icon: '👥', label: 'Игроки' },
-        { key: 'chronicles', icon: '📜', label: 'Хроники' },
-        { key: 'guide',      icon: '📖', label: 'Гайд' },
-        { key: 'commands',   icon: '⌨️', label: 'Команды' },
-        { key: 'bonus',      icon: '🎁', label: 'Бонусы' }
+        { key: 'overview',   icon: 'home',     label: 'Обзор' },
+        { key: 'map',        icon: 'map',      label: 'Карта' },
+        { key: 'players',    icon: 'users',    label: 'Игроки' },
+        { key: 'chronicles', icon: 'scroll',   label: 'Хроники' },
+        { key: 'guide',      icon: 'book',     label: 'Гайд' },
+        { key: 'commands',   icon: 'keyboard', label: 'Команды' },
+        { key: 'bonus',      icon: 'gift',     label: 'Бонусы' }
     ];
 
     var STORAGE_SCROLL = 'panel_scroll_memory';
@@ -63,31 +57,58 @@
     // ============================================================
     // 2. BOTTOM NAVIGATION BAR
     // ============================================================
+    function buildIconWrap(iconName) {
+        var iconWrap = document.createElement('span');
+        iconWrap.className = 'bn-icon';
+
+        if (window.PanelIcons && window.PanelIcons.element) {
+            var svg = window.PanelIcons.element(iconName, ICON_SIZE);
+            if (svg) {
+                iconWrap.appendChild(svg);
+                return iconWrap;
+            }
+        }
+        // Fallback, если PanelIcons ещё не подключён — точка вместо эмодзи
+        iconWrap.textContent = '·';
+        return iconWrap;
+    }
+
+    function buildBottomNav() {
+        var nav = document.createElement('nav');
+        nav.id = 'bottom-nav';
+        nav.className = 'bottom-nav';
+        nav.setAttribute('aria-label', 'Основная навигация');
+
+        for (var i = 0; i < TABS.length; i++) {
+            var t = TABS[i];
+            var btn = document.createElement('button');
+            btn.className = 'bn-btn' + (i === 0 ? ' active' : '');
+            btn.dataset.tab = t.key;
+            btn.type = 'button';
+            btn.setAttribute('aria-label', t.label);
+
+            btn.appendChild(buildIconWrap(t.icon));
+
+            var label = document.createElement('span');
+            label.className = 'bn-label';
+            label.textContent = t.label;
+            btn.appendChild(label);
+
+            nav.appendChild(btn);
+        }
+
+        return nav;
+    }
+
     function installBottomNav() {
         if (!isMobile()) {
-            // Если ранее был создан и мы на десктопе — убираем
             var existing = document.getElementById('bottom-nav');
             if (existing) existing.remove();
             return;
         }
         if (document.getElementById('bottom-nav')) return;
 
-        var nav = document.createElement('nav');
-        nav.id = 'bottom-nav';
-        nav.className = 'bottom-nav';
-        nav.setAttribute('aria-label', 'Основная навигация');
-
-        var html = '';
-        for (var i = 0; i < TABS.length; i++) {
-            var t = TABS[i];
-            var active = i === 0 ? ' active' : '';
-            html += '<button class="bn-btn' + active + '" data-tab="' + t.key + '" type="button" ' +
-                    'aria-label="' + t.label + '">' +
-                '<span class="bn-icon">' + t.icon + '</span>' +
-                '<span class="bn-label">' + t.label + '</span>' +
-            '</button>';
-        }
-        nav.innerHTML = html;
+        var nav = buildBottomNav();
         document.body.appendChild(nav);
 
         nav.addEventListener('click', function (e) {
@@ -99,7 +120,6 @@
         syncBottomNavWithTabs();
     }
 
-    /** Переключение вкладки с сохранением/восстановлением scroll. */
     function switchTab(tabKey) {
         saveCurrentScroll();
 
@@ -386,7 +406,7 @@
                     }
                     if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
                     if (typeof window.showToast === 'function') {
-                        window.showToast('✓ Скопировано: ' + name);
+                        window.showToast('Скопировано: ' + name);
                     }
                 } catch (err) {}
                 setTimeout(function () {
@@ -459,9 +479,10 @@
         installLongPressCopy();
         installScrollMemory();
 
-        setTimeout(installBottomNav, 500);
-        setTimeout(installBottomNav, 1500);
-        tick();
+        // На случай, если DOM был готов раньше — пересобираем иконки,
+        // когда PanelIcons точно загружен.
+        setTimeout(rebuildNavIcons, 300);
+        setTimeout(rebuildNavIcons, 1200);
 
         var resizeTimer = null;
         window.addEventListener('resize', function () {
@@ -471,7 +492,31 @@
             }, 250);
         });
 
-        console.log('[Mobile] v1.2 ready (' + (isMobile() ? 'mobile' : 'desktop') + ')');
+        tick();
+        console.log('[Mobile] v1.3 ready (SVG nav icons)');
+    }
+
+    /** Если по какой-то причине nav был построен до PanelIcons — пересобираем. */
+    function rebuildNavIcons() {
+        var nav = document.getElementById('bottom-nav');
+        if (!nav) return;
+        if (!window.PanelIcons || !window.PanelIcons.element) return;
+        var icons = nav.querySelectorAll('.bn-icon');
+        for (var i = 0; i < icons.length; i++) {
+            var wrap = icons[i];
+            if (wrap.querySelector('svg')) continue;
+            var btn = wrap.closest('.bn-btn');
+            if (!btn) continue;
+            var key = btn.dataset.tab;
+            var tab = null;
+            for (var j = 0; j < TABS.length; j++) {
+                if (TABS[j].key === key) { tab = TABS[j]; break; }
+            }
+            if (!tab) continue;
+            wrap.innerHTML = '';
+            var svg = window.PanelIcons.element(tab.icon, ICON_SIZE);
+            if (svg) wrap.appendChild(svg);
+        }
     }
 
     if (document.readyState === 'loading') {
