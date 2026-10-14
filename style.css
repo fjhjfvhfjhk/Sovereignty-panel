@@ -1,21 +1,24 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · STYLE.CSS v6.2
+   SOVEREIGNTY PANEL · STYLE.CSS v6.3
    ============================================================
-   v6.2 (14.10.2026):
-     - ФИКС СЕКЦИИ КАРТЫ: generic-селекторы `table`, `thead`,
-       `th`, `td` (добавленные в v6.1 для фикса топ-покера)
-       протекали на любую таблицу в документе, включая элементы
-       секции карты. Заменены на `.table-wrap table`,
-       `.table-wrap th`, `.table-wrap td` — теперь стили
-       применяются ТОЛЬКО к таблицам внутри .table-wrap
-       (топ-стран и топ-покера), карта и всё остальное чисто.
-     - Специфичный padding для #countries-table оставлен.
-     - `.table-wrap` сохранил overflow-x: auto для длинных таблиц.
+   v6.3 (14.10.2026):
+     - УБРАН @import Google Fonts из этого файла — теперь шрифты
+       подключаются через <link> в index.html. Это устраняет
+       главную причину "обрыва" стилей: если @import не резолвится
+       (сеть, кэш, CSP), некоторые браузеры прерывают парсинг
+       всего файла ниже — так пропадали .tab, .map-btn, .map-viewport.
+     - ДОБАВЛЕН ЗАЩИТНЫЙ БЛОК В КОНЦЕ — дубликат критичных правил
+       для .tab, .map-btn, .map-viewport, .tabs, .map-controls
+       с !important. Если что-то выше снова сломает парсинг,
+       защитный блок всё равно применится (он парсится первым
+       после восстановления? нет — но если ПОСЛЕ него ничего нет,
+       он точно применится).
 
-   v6.1: антикварная база, алиасы переменных, единая палитра.
+   v6.2: сужены generic селекторы до .table-wrap.
+   v6.1: антикварная база.
+
+   Палитра: пергамент, чернила, латунь, сургуч, олива.
    ============================================================ */
-
-@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
     --parch-1: #F4EBD3;
@@ -436,9 +439,7 @@ header h1 {
     flex-shrink: 0;
     font-size: 17px;
 }
-.event-log-icon .panel-icon {
-    display: block;
-}
+.event-log-icon .panel-icon { display: block; }
 .event-log-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .event-log-msg {
     font-family: 'EB Garamond', Georgia, serif;
@@ -520,12 +521,7 @@ header h1 {
 #sparkline-canvas { display: block; width: 100%; height: 100%; }
 
 /* ------------------------------------------------------------
-   TABLES — ТОЛЬКО внутри .table-wrap
-   ------------------------------------------------------------
-   v6.2: селекторы сужены до `.table-wrap table`. Раньше были
-   generic `table`, `th`, `td` — они протекали на элементы
-   секции карты и других секций. Теперь применяются только
-   к топ-стран и топ-покера — везде, где есть .table-wrap.
+   TABLES — только внутри .table-wrap
    ------------------------------------------------------------ */
 .table-wrap {
     overflow-x: auto;
@@ -576,7 +572,6 @@ header h1 {
     vertical-align: middle;
 }
 
-/* Общие стили столбцов — работают в любой таблице внутри .table-wrap */
 .table-wrap td.rank {
     color: var(--brass-dark);
     font-family: 'IM Fell English', Georgia, serif;
@@ -600,9 +595,6 @@ header h1 {
 .table-wrap tbody tr.top-2 td.rank { color: #7A7A7A; }
 .table-wrap tbody tr.top-3 td.rank { color: #A86820; }
 
-/* ------------------------------------------------------------
-   #countries-table — специфика топ-стран (поверх generic)
-   ------------------------------------------------------------ */
 #countries-table {
     table-layout: fixed;
 }
@@ -1368,4 +1360,431 @@ code[data-copy]:active { transform: scale(.97); }
     -webkit-text-fill-color: transparent;
     margin-bottom: 8px;
 }
-.jackpot-hint { color: var(--ink-faded); font-size
+.jackpot-hint { color: var(--ink-faded); font-size: 13px; font-style: italic; }
+.events-list, .wars-list, .bounties-list { display: grid; gap: 10px; }
+.event-item, .war-item, .bounty-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: rgba(201, 168, 96, 0.08);
+    border: 1px solid var(--brass);
+    color: var(--ink);
+    border-radius: 2px;
+}
+.event-item.positive { border-left: 3px solid var(--olive); }
+.event-item.negative { border-left: 3px solid var(--wax); }
+.war-item { border-left: 3px solid var(--wax); }
+.bounty-item { border-left: 3px solid var(--brass); }
+.event-item .name, .war-item .name, .bounty-item .name {
+    font-weight: 500;
+    color: var(--ink);
+    font-family: 'IM Fell English', Georgia, serif;
+}
+.event-item .desc, .war-item .desc, .bounty-item .desc {
+    color: var(--ink-faded);
+    font-size: 13px;
+    font-style: italic;
+}
+.empty-hint {
+    color: var(--ink-faded);
+    font-style: italic;
+    font-family: 'EB Garamond', Georgia, serif;
+    text-align: center;
+    padding: 20px;
+}
+
+/* ------------------------------------------------------------
+   TOAST
+   ------------------------------------------------------------ */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--wax);
+    color: #F4EBD3;
+    font-family: 'IM Fell English', Georgia, serif;
+    padding: 10px 20px;
+    border-radius: 3px;
+    font-weight: 400;
+    font-size: 14px;
+    letter-spacing: .03em;
+    border: 1px solid var(--brass);
+    box-shadow: 0 6px 20px rgba(42, 26, 15, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: all .25s;
+    z-index: 9999;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ------------------------------------------------------------
+   FOOTER
+   ------------------------------------------------------------ */
+footer {
+    margin-top: auto;
+    padding: 30px 0;
+    border-top: 1px solid var(--brass);
+    text-align: center;
+    color: var(--ink-faded);
+    font-size: 13px;
+    font-style: italic;
+}
+footer .small { margin-top: 6px; font-size: 12px; color: var(--ink-pale); }
+footer strong { color: var(--wax); font-style: normal; }
+
+/* ------------------------------------------------------------
+   MISC
+   ------------------------------------------------------------ */
+td.loading {
+    color: var(--ink-faded);
+    font-style: italic;
+}
+.country-tag { font-weight: 500; }
+.no-country { color: var(--ink-pale); font-style: italic; }
+.panel-skeleton-block {
+    background: linear-gradient(90deg,
+        rgba(168, 138, 72, 0.06) 0%,
+        rgba(168, 138, 72, 0.22) 50%,
+        rgba(168, 138, 72, 0.06) 100%);
+}
+
+/* ------------------------------------------------------------
+   RESPONSIVE
+   ------------------------------------------------------------ */
+@media (max-width: 1024px) {
+    .stat-card .stat-value { font-size: 26px; }
+    .stat-card { padding: 16px 14px 14px; }
+    .stat-card .stat-icon { width: 36px; height: 36px; }
+    .player-modal-grid { grid-template-columns: 1fr; }
+    .player-viewer-col { position: static; max-width: 420px; margin: 0 auto; }
+    .player-card-avatar img { width: 48px; height: 48px; }
+    .table-wrap th, .table-wrap td { padding: 12px 10px; font-size: 12.5px; }
+}
+
+@media (max-width: 768px) {
+    .panel { padding: 16px 14px; }
+    .panel h2 { font-size: 17px; }
+    .table-wrap th, .table-wrap td { padding: 10px 8px; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::after { display: none; }
+    .tab-content.active { animation: none; }
+    .stat-card.is-live::before { animation: none; }
+}
+
+/* ============================================================
+   ЗАЩИТНЫЙ БЛОК — дубликат критичных правил
+   ============================================================
+   Если что-то ВЫШЕ сломает парсинг (невалидный символ,
+   обрыв UTF-8, ошибка в правиле), браузер обычно
+   останавливает чтение. Но если он всё-таки дошёл до сюда —
+   эти правила гарантируют, что табы, кнопки карты и
+   viewport карты выглядят корректно.
+
+   Все селекторы намеренно усилены !important — это
+   перебивает любые оставшиеся объявления.
+   ============================================================ */
+
+/* Сброс дефолтной браузерной кнопочной эстетики */
+button.tab,
+button.map-btn,
+button.export-btn,
+button.map-layers-close,
+button.map-layers-restore,
+button.player-modal-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+/* Табы сортировки (По территории / По казне / ...) */
+.tabs {
+    display: flex !important;
+    gap: 0 !important;
+    margin-bottom: 20px !important;
+    flex-wrap: wrap !important;
+    align-items: flex-end;
+}
+
+.tab {
+    background: var(--parch-3) !important;
+    border: 1px solid var(--brass) !important;
+    border-bottom: none !important;
+    border-radius: 3px 3px 0 0 !important;
+    color: var(--ink-soft) !important;
+    font-family: 'IM Fell English', Georgia, serif !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    letter-spacing: .04em !important;
+    padding: 9px 18px !important;
+    margin-right: -1px !important;
+    position: relative !important;
+    top: 1px !important;
+    cursor: pointer !important;
+    transition: background .2s, color .2s, border-color .2s !important;
+    white-space: nowrap !important;
+    text-shadow: none !important;
+    outline: none !important;
+}
+
+.tab:hover {
+    background: var(--parch-2) !important;
+    color: var(--ink) !important;
+    border-color: var(--brass-dark) !important;
+}
+
+.tab.active {
+    background: var(--parch-1) !important;
+    color: var(--ink) !important;
+    border-color: var(--brass-dark) !important;
+    border-bottom: 1px solid var(--parch-1) !important;
+    box-shadow: inset 0 2px 0 var(--brass) !important;
+    font-weight: 500 !important;
+}
+
+/* Кнопки карты (Сбросить, Снять выделение, К столице, Полный экран, PNG) */
+.map-controls {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    margin-bottom: 12px !important;
+}
+
+.map-btn {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background: linear-gradient(180deg, var(--parch-1) 0%, var(--parch-3) 100%) !important;
+    border: 1px solid var(--brass) !important;
+    color: var(--ink) !important;
+    padding: 8px 16px !important;
+    border-radius: 3px !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    font-family: 'IM Fell English', Georgia, serif !important;
+    font-weight: 400 !important;
+    letter-spacing: .03em !important;
+    text-shadow: none !important;
+    outline: none !important;
+    white-space: nowrap !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 240, 200, 0.6),
+        0 1px 2px rgba(42, 26, 15, 0.12) !important;
+    transition: background .2s, border-color .2s, color .2s !important;
+}
+
+.map-btn:hover {
+    background: linear-gradient(180deg, var(--parch-2) 0%, var(--brass-light) 100%) !important;
+    border-color: var(--brass-dark) !important;
+}
+
+.map-btn.btn-capital {
+    background: linear-gradient(180deg, var(--wax-light) 0%, var(--wax) 100%) !important;
+    border-color: var(--wax) !important;
+    color: #F4EBD3 !important;
+}
+.map-btn.btn-capital:hover {
+    background: linear-gradient(180deg, #B03A3A 0%, #6E1818 100%) !important;
+    color: #F4EBD3 !important;
+}
+
+/* Viewport карты — не пропадает */
+.map-viewport {
+    position: relative !important;
+    width: 100% !important;
+    height: 600px !important;
+    min-height: 400px !important;
+    background: #2E2010 !important;
+    border: 2px solid var(--brass) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+    cursor: grab !important;
+    user-select: none !important;
+    box-shadow:
+        0 0 0 3px var(--parch-1),
+        0 0 0 4px var(--brass-dark),
+        inset 0 0 40px rgba(0,0,0,0.5),
+        0 4px 12px rgba(42, 26, 15, 0.25) !important;
+}
+
+.map-viewport:active { cursor: grabbing !important; }
+
+.map-viewport:fullscreen,
+.map-viewport:-webkit-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#map-canvas {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform-origin: 0 0 !important;
+    image-rendering: pixelated !important;
+    pointer-events: none !important;
+    max-width: none !important;
+    z-index: 1 !important;
+}
+
+.map-overlay,
+.map-battle-layer,
+.map-night-layer,
+.map-grid-svg,
+.map-daynight {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform-origin: 0 0 !important;
+    pointer-events: none !important;
+}
+.map-overlay { width: 100% !important; height: 100% !important; z-index: 9 !important; }
+.map-battle-layer { width: 100% !important; height: 100% !important; z-index: 8 !important; }
+.map-night-layer { width: 100% !important; height: 100% !important; z-index: 7 !important; }
+.map-daynight { width: 100% !important; height: 100% !important; z-index: 6 !important; }
+.map-grid-svg { z-index: 5 !important; display: none; }
+
+/* Панель слоёв карты */
+.map-layers-panel {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    background: rgba(244, 235, 211, 0.96) !important;
+    border: 1px solid var(--brass) !important;
+    color: var(--ink) !important;
+    border-radius: 3px !important;
+    padding: 12px 14px !important;
+    min-width: 200px !important;
+    z-index: 20 !important;
+    font-size: 13px !important;
+    box-shadow: 0 4px 12px rgba(42, 26, 15, 0.25) !important;
+}
+
+.map-layers-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 10px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 1px solid var(--brass) !important;
+}
+
+.map-layers-title {
+    font-size: 11px !important;
+    color: var(--ink-faded) !important;
+    text-transform: uppercase !important;
+    letter-spacing: .5px !important;
+    font-family: 'IM Fell English', Georgia, serif !important;
+}
+
+.map-layers-close {
+    background: transparent !important;
+    border: none !important;
+    color: var(--ink-faded) !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    padding: 0 4px !important;
+    line-height: 1 !important;
+    font-family: inherit !important;
+}
+
+.layer-toggle {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 6px 4px !important;
+    cursor: pointer !important;
+    color: var(--ink-soft) !important;
+    user-select: none !important;
+    font-size: 13px !important;
+}
+
+.layer-toggle input {
+    accent-color: var(--wax) !important;
+    cursor: pointer !important;
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+}
+
+.map-layers-timeline {
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+    border-top: 1px solid var(--brass) !important;
+    font-size: 11px !important;
+    color: var(--ink-faded) !important;
+    text-align: center !important;
+}
+
+.map-layers-restore {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 40px !important;
+    height: 40px !important;
+    background: rgba(244, 235, 211, 0.96) !important;
+    border: 1px solid var(--brass) !important;
+    border-radius: 3px !important;
+    color: var(--ink) !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    display: none !important;
+    z-index: 20 !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.map-legend {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 16px !important;
+}
+
+.legend-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 6px 12px !important;
+    background: rgba(201, 168, 96, 0.12) !important;
+    border: 1px solid var(--brass) !important;
+    color: var(--ink) !important;
+    border-radius: 2px !important;
+    font-size: 13px !important;
+    font-family: 'EB Garamond', Georgia, serif !important;
+    cursor: pointer !important;
+}
+
+/* Кнопка CSV и PNG */
+.export-btn {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.03em !important;
+    font-family: 'IM Fell English', Georgia, serif !important;
+    background: var(--parch-3) !important;
+    border: 1px solid var(--brass) !important;
+    color: var(--ink) !important;
+    border-radius: 3px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    text-decoration: none !important;
+}
+.export-btn:hover {
+    background: var(--brass) !important;
+    color: #F4EBD3 !important;
+    border-color: var(--brass-dark) !important;
+}

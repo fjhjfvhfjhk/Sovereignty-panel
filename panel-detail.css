@@ -1,15 +1,19 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v2.0
+   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v2.1
    ============================================================
-   v2.0: убраны индиго-остатки (#4f5cd9, #6366f1, #c7d2fe).
-   Стили для таблицы стран, дельта-бейджей, ленты событий.
+   v2.1 (14.10.2026):
+     - УБРАНО дублирование `.table-wrap`. Все базовые стили
+       таблиц теперь живут в style.css под `.table-wrap table/th/td`.
+       Здесь оставлены только специфичные правила для
+       #countries-table (fixed layout, ширина столбцов по colgroup).
+     - Скелетон-строки.
+
+   v2.0: убраны индиго-остатки.
    ============================================================ */
 
-.table-wrap {
-    overflow-x: auto;
-    max-width: 100%;
-}
-
+/* ------------------------------------------------------------
+   #countries-table — фикс раскладки для топ-стран
+   ------------------------------------------------------------ */
 #countries-table {
     table-layout: fixed !important;
     width: 100% !important;
@@ -26,16 +30,6 @@
     white-space: nowrap;
     vertical-align: middle;
     box-sizing: border-box;
-}
-
-#countries-table th {
-    font-size: 11px;
-    letter-spacing: .08em;
-    color: var(--ink-faded);
-    text-transform: uppercase;
-    font-weight: 600;
-    background: var(--parch-3);
-    border-bottom: 1px solid var(--brass-dark);
 }
 
 #countries-table colgroup col.col-rank     { width: 6%;  }
@@ -84,35 +78,6 @@
     white-space: nowrap;
 }
 
-.cell-owner {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 100%;
-    min-width: 0;
-    vertical-align: middle;
-}
-.cell-owner-img {
-    width: 16px; height: 16px;
-    border-radius: 2px;
-    image-rendering: pixelated;
-    background: var(--parch-3);
-    border: 1px solid var(--brass-dark);
-    flex-shrink: 0;
-    object-fit: cover;
-    display: block;
-}
-.cell-owner-name {
-    font-family: 'EB Garamond', Georgia, serif;
-    font-weight: 500;
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-}
-
-/* Скелетон-строка */
 #countries-body tr.skeleton-row td {
     padding: 13px 10px;
     vertical-align: middle;
