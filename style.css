@@ -1,17 +1,18 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · STYLE.CSS v6.1
+   SOVEREIGNTY PANEL · STYLE.CSS v6.2
    ============================================================
-   v6.1 (14.10.2026):
-     - Возвращены ОБЩИЕ стили для table / th / td — раньше были
-       только под #countries-table, из-за чего любая другая таблица
-       (например, топ покера в бонусах) отображалась без отступов
-       и с слипшимися заголовками.
-     - Селекторы td.rank / td.name / td.money / td.energy теперь
-       работают во всех таблицах, а не только в топ-стран.
-     - #countries-table сохраняет свои специфичные правила
-       (fixed layout, ширина столбцов по colgroup).
+   v6.2 (14.10.2026):
+     - ФИКС СЕКЦИИ КАРТЫ: generic-селекторы `table`, `thead`,
+       `th`, `td` (добавленные в v6.1 для фикса топ-покера)
+       протекали на любую таблицу в документе, включая элементы
+       секции карты. Заменены на `.table-wrap table`,
+       `.table-wrap th`, `.table-wrap td` — теперь стили
+       применяются ТОЛЬКО к таблицам внутри .table-wrap
+       (топ-стран и топ-покера), карта и всё остальное чисто.
+     - Специфичный padding для #countries-table оставлен.
+     - `.table-wrap` сохранил overflow-x: auto для длинных таблиц.
 
-   Базовая тема: «старинный атлас». Пергамент, латунь, чернила.
+   v6.1: антикварная база, алиасы переменных, единая палитра.
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
@@ -88,7 +89,7 @@ body::after {
    ------------------------------------------------------------ */
 h1, h2, h3, h4, h5, h6,
 .panel h2, .stat-label, .chart-stat,
-th, .guide-nav-title,
+.guide-nav-title,
 .map-layers-title, .player-panel-title,
 .jackpot-hint, .guide-section h2, .guide-section h3 {
     font-family: 'IM Fell English', Georgia, 'Times New Roman', serif;
@@ -519,11 +520,12 @@ header h1 {
 #sparkline-canvas { display: block; width: 100%; height: 100%; }
 
 /* ------------------------------------------------------------
-   TABLES (generic — применяется ко всем таблицам панели)
+   TABLES — ТОЛЬКО внутри .table-wrap
    ------------------------------------------------------------
-   v6.1: этот блок раньше был только про #countries-table.
-   Теперь базовые стили лежат здесь и работают везде:
-   топ стран, топ покера, любые будущие таблицы.
+   v6.2: селекторы сужены до `.table-wrap table`. Раньше были
+   generic `table`, `th`, `td` — они протекали на элементы
+   секции карты и других секций. Теперь применяются только
+   к топ-стран и топ-покера — везде, где есть .table-wrap.
    ------------------------------------------------------------ */
 .table-wrap {
     overflow-x: auto;
@@ -534,17 +536,17 @@ header h1 {
     max-width: 100%;
 }
 
-table {
+.table-wrap table {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
 }
 
-thead {
+.table-wrap thead {
     background: linear-gradient(180deg, var(--parch-3), var(--parch-4));
 }
 
-th {
+.table-wrap th {
     padding: 14px 16px;
     text-align: left;
     color: var(--ink);
@@ -558,15 +560,15 @@ th {
     background: transparent;
 }
 
-tbody tr {
+.table-wrap tbody tr {
     border-top: 1px solid rgba(168, 138, 72, 0.35);
     transition: background .15s;
 }
-tbody tr:hover {
+.table-wrap tbody tr:hover {
     background: rgba(201, 168, 96, 0.12);
 }
 
-td {
+.table-wrap td {
     padding: 14px 16px;
     white-space: nowrap;
     color: var(--ink-soft);
@@ -574,30 +576,29 @@ td {
     vertical-align: middle;
 }
 
-/* Общие стили столбцов — работают в любой таблице */
-td.rank {
+/* Общие стили столбцов — работают в любой таблице внутри .table-wrap */
+.table-wrap td.rank {
     color: var(--brass-dark);
     font-family: 'IM Fell English', Georgia, serif;
     font-weight: 400;
 }
-td.name {
+.table-wrap td.name {
     color: var(--ink);
     font-family: 'IM Fell English', Georgia, serif;
     font-size: 15px;
 }
-td.money { color: var(--olive); }
-td.energy { color: var(--amber); }
-td.loading {
+.table-wrap td.money { color: var(--olive); }
+.table-wrap td.energy { color: var(--amber); }
+.table-wrap td.loading {
     text-align: center;
     padding: 40px;
     color: var(--ink-faded);
     font-style: italic;
 }
 
-/* Top-3 — цвет ранга */
-tbody tr.top-1 td.rank { color: #B8924A; text-shadow: 0 0 8px rgba(184, 146, 74, 0.5); }
-tbody tr.top-2 td.rank { color: #7A7A7A; }
-tbody tr.top-3 td.rank { color: #A86820; }
+.table-wrap tbody tr.top-1 td.rank { color: #B8924A; text-shadow: 0 0 8px rgba(184, 146, 74, 0.5); }
+.table-wrap tbody tr.top-2 td.rank { color: #7A7A7A; }
+.table-wrap tbody tr.top-3 td.rank { color: #A86820; }
 
 /* ------------------------------------------------------------
    #countries-table — специфика топ-стран (поверх generic)
@@ -1367,117 +1368,4 @@ code[data-copy]:active { transform: scale(.97); }
     -webkit-text-fill-color: transparent;
     margin-bottom: 8px;
 }
-.jackpot-hint { color: var(--ink-faded); font-size: 13px; font-style: italic; }
-.events-list, .wars-list, .bounties-list { display: grid; gap: 10px; }
-.event-item, .war-item, .bounty-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 16px;
-    background: rgba(201, 168, 96, 0.08);
-    border: 1px solid var(--brass);
-    color: var(--ink);
-    border-radius: 2px;
-}
-.event-item.positive { border-left: 3px solid var(--olive); }
-.event-item.negative { border-left: 3px solid var(--wax); }
-.war-item { border-left: 3px solid var(--wax); }
-.bounty-item { border-left: 3px solid var(--brass); }
-.event-item .name, .war-item .name, .bounty-item .name {
-    font-weight: 500;
-    color: var(--ink);
-    font-family: 'IM Fell English', Georgia, serif;
-}
-.event-item .desc, .war-item .desc, .bounty-item .desc {
-    color: var(--ink-faded);
-    font-size: 13px;
-    font-style: italic;
-}
-.empty-hint {
-    color: var(--ink-faded);
-    font-style: italic;
-    font-family: 'EB Garamond', Georgia, serif;
-    text-align: center;
-    padding: 20px;
-}
-
-/* ------------------------------------------------------------
-   TOAST
-   ------------------------------------------------------------ */
-.toast {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--wax);
-    color: #F4EBD3;
-    font-family: 'IM Fell English', Georgia, serif;
-    padding: 10px 20px;
-    border-radius: 3px;
-    font-weight: 400;
-    font-size: 14px;
-    letter-spacing: .03em;
-    border: 1px solid var(--brass);
-    box-shadow: 0 6px 20px rgba(42, 26, 15, 0.4);
-    opacity: 0;
-    pointer-events: none;
-    transition: all .25s;
-    z-index: 9999;
-}
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* ------------------------------------------------------------
-   FOOTER
-   ------------------------------------------------------------ */
-footer {
-    margin-top: auto;
-    padding: 30px 0;
-    border-top: 1px solid var(--brass);
-    text-align: center;
-    color: var(--ink-faded);
-    font-size: 13px;
-    font-style: italic;
-}
-footer .small { margin-top: 6px; font-size: 12px; color: var(--ink-pale); }
-footer strong { color: var(--wax); font-style: normal; }
-
-/* ------------------------------------------------------------
-   MISC
-   ------------------------------------------------------------ */
-td.loading {
-    color: var(--ink-faded);
-    font-style: italic;
-}
-.country-tag { font-weight: 500; }
-.no-country { color: var(--ink-pale); font-style: italic; }
-.panel-skeleton-block {
-    background: linear-gradient(90deg,
-        rgba(168, 138, 72, 0.06) 0%,
-        rgba(168, 138, 72, 0.22) 50%,
-        rgba(168, 138, 72, 0.06) 100%);
-}
-
-/* ------------------------------------------------------------
-   RESPONSIVE
-   ------------------------------------------------------------ */
-@media (max-width: 1024px) {
-    .stat-card .stat-value { font-size: 26px; }
-    .stat-card { padding: 16px 14px 14px; }
-    .stat-card .stat-icon { width: 36px; height: 36px; }
-    .player-modal-grid { grid-template-columns: 1fr; }
-    .player-viewer-col { position: static; max-width: 420px; margin: 0 auto; }
-    .player-card-avatar img { width: 48px; height: 48px; }
-    th, td { padding: 12px 10px; font-size: 12.5px; }
-}
-
-@media (max-width: 768px) {
-    .panel { padding: 16px 14px; }
-    .panel h2 { font-size: 17px; }
-    th, td { padding: 10px 8px; font-size: 12px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    body::after { display: none; }
-    .tab-content.active { animation: none; }
-    .stat-card.is-live::before { animation: none; }
-}
+.jackpot-hint { color: var(--ink-faded); font-size
