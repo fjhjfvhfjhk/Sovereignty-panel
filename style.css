@@ -1,35 +1,33 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · STYLE.CSS v6.0
+   SOVEREIGNTY PANEL · STYLE.CSS v6.1
    ============================================================
-   Базовая тема: «старинный атлас». Пергамент, латунь, чернила.
-   Раньше была отдельная antique-theme.css поверх тёмной базы —
-   теперь антикварная палитра встроена прямо сюда.
+   v6.1 (14.10.2026):
+     - Возвращены ОБЩИЕ стили для table / th / td — раньше были
+       только под #countries-table, из-за чего любая другая таблица
+       (например, топ покера в бонусах) отображалась без отступов
+       и с слипшимися заголовками.
+     - Селекторы td.rank / td.name / td.money / td.energy теперь
+       работают во всех таблицах, а не только в топ-стран.
+     - #countries-table сохраняет свои специфичные правила
+       (fixed layout, ширина столбцов по colgroup).
 
-   Палитра:
-     Пергамент:  #F4EBD3 → #EADFC2 → #DCCBA8 → #C9B58A → #B09B6E
-     Чернила:    #2A1A0F / #4A3520 / #6B5138 / #8A7558
-     Латунь:     #A88A48 / #C9A860 / #6E5828
-     Сургуч:     #8B2020 / #A83030
-     Олива:      #52682A
+   Базовая тема: «старинный атлас». Пергамент, латунь, чернила.
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
-    /* Пергамент */
     --parch-1: #F4EBD3;
     --parch-2: #EADFC2;
     --parch-3: #DCCBA8;
     --parch-4: #C9B58A;
     --parch-5: #B09B6E;
 
-    /* Чернила */
     --ink: #2A1A0F;
     --ink-soft: #4A3520;
     --ink-faded: #6B5138;
     --ink-pale: #8A7558;
 
-    /* Акценты */
     --wax: #8B2020;
     --wax-light: #A83030;
     --brass: #A88A48;
@@ -38,7 +36,6 @@
     --olive: #52682A;
     --amber: #B87320;
 
-    /* Алиасы под старые имена переменных */
     --bg: var(--parch-2);
     --bg-card: var(--parch-1);
     --bg-hover: var(--parch-3);
@@ -74,7 +71,6 @@ body {
     flex-direction: column;
 }
 
-/* Виньетка по краям — «состаренность» полотна */
 body::after {
     content: "";
     position: fixed;
@@ -101,7 +97,7 @@ th, .guide-nav-title,
 }
 
 /* ------------------------------------------------------------
-   HEADER — кожаная обложка старой книги
+   HEADER
    ------------------------------------------------------------ */
 header {
     background:
@@ -230,7 +226,7 @@ header h1 {
 }
 
 /* ------------------------------------------------------------
-   STAT CARDS — старые монеты/медальоны
+   STAT CARDS
    ------------------------------------------------------------ */
 .stats-grid {
     display: grid;
@@ -331,7 +327,7 @@ header h1 {
 }
 
 /* ------------------------------------------------------------
-   PANELS — листы пергамента с двойной рамкой
+   PANELS
    ------------------------------------------------------------ */
 .panel {
     background-color: var(--parch-1);
@@ -383,7 +379,6 @@ header h1 {
 }
 .panel-header h2 { margin-bottom: 0; }
 
-/* Уголки-орнаменты у крупных боковых панелей */
 #panel-online-chart::before,
 #panel-online-chart::after,
 #panel-event-log::before,
@@ -439,6 +434,9 @@ header h1 {
     place-items: center;
     flex-shrink: 0;
     font-size: 17px;
+}
+.event-log-icon .panel-icon {
+    display: block;
 }
 .event-log-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .event-log-msg {
@@ -496,7 +494,7 @@ header h1 {
 .event-type-court_verdict { border-left-color: var(--amber); }
 
 /* ------------------------------------------------------------
-   SPARKLINE (график онлайна)
+   SPARKLINE
    ------------------------------------------------------------ */
 #panel-online-chart .chart-stats { display: flex; gap: 16px; flex-wrap: wrap; }
 .chart-stat {
@@ -521,346 +519,12 @@ header h1 {
 #sparkline-canvas { display: block; width: 100%; height: 100%; }
 
 /* ------------------------------------------------------------
-   MAP
+   TABLES (generic — применяется ко всем таблицам панели)
+   ------------------------------------------------------------
+   v6.1: этот блок раньше был только про #countries-table.
+   Теперь базовые стили лежат здесь и работают везде:
+   топ стран, топ покера, любые будущие таблицы.
    ------------------------------------------------------------ */
-.map-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.map-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: linear-gradient(180deg, var(--parch-1) 0%, var(--parch-3) 100%);
-    border: 1px solid var(--brass);
-    color: var(--ink);
-    padding: 8px 16px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 13px;
-    font-family: 'IM Fell English', Georgia, serif;
-    letter-spacing: .03em;
-    transition: all .2s;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 240, 200, 0.6),
-        0 1px 2px rgba(42, 26, 15, 0.12);
-}
-.map-btn:hover {
-    background: linear-gradient(180deg, var(--parch-2) 0%, var(--brass-light) 100%);
-    border-color: var(--brass-dark);
-}
-
-.map-viewport {
-    position: relative;
-    width: 100%;
-    height: 600px;
-    background: #2E2010;
-    border: 2px solid var(--brass);
-    border-radius: 3px;
-    overflow: hidden;
-    cursor: grab;
-    user-select: none;
-    box-shadow:
-        0 0 0 3px var(--parch-1),
-        0 0 0 4px var(--brass-dark),
-        inset 0 0 40px rgba(0,0,0,0.5),
-        0 4px 12px rgba(42, 26, 15, 0.25);
-}
-.map-viewport:active { cursor: grabbing; }
-.map-viewport:fullscreen,
-.map-viewport:-webkit-full-screen {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-    border: none;
-    background: #2E2010;
-    box-shadow: none;
-}
-
-#map-canvas {
-    position: absolute;
-    top: 0; left: 0;
-    transform-origin: 0 0;
-    image-rendering: pixelated;
-    pointer-events: none;
-    max-width: none;
-    z-index: 1;
-}
-
-.map-grid-svg {
-    position: absolute; top: 0; left: 0;
-    transform-origin: 0 0;
-    pointer-events: none;
-    display: none;
-    z-index: 5;
-}
-
-.map-daynight {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    transform-origin: 0 0;
-    pointer-events: none;
-    mix-blend-mode: multiply;
-    transition: background .3s, opacity .3s;
-    z-index: 6;
-}
-
-.map-night-layer {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    transform-origin: 0 0;
-    pointer-events: none;
-    z-index: 7;
-    mix-blend-mode: screen;
-    transition: opacity .4s;
-    image-rendering: pixelated;
-}
-.map-night-layer canvas {
-    display: block;
-    pointer-events: none;
-    image-rendering: pixelated;
-}
-
-.map-battle-layer {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    transform-origin: 0 0;
-    pointer-events: none;
-    z-index: 8;
-}
-
-.battle-marker {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: radial-gradient(circle,
-        rgba(255, 90, 90, var(--pulse-opacity, 0.7)) 0%,
-        rgba(220, 40, 40, var(--pulse-opacity, 0.6)) 40%,
-        rgba(180, 20, 20, 0.0) 75%);
-    pointer-events: auto;
-    cursor: help;
-    animation: battlePulse var(--pulse-dur, 1.6s) ease-in-out infinite;
-    box-shadow: 0 0 8px rgba(255, 60, 60, 0.5);
-    will-change: transform, opacity;
-}
-.battle-marker:hover { z-index: 100; filter: brightness(1.4); }
-@keyframes battlePulse {
-    0%   { transform: translate(-50%, -50%) scale(1);    opacity: 0.85; }
-    50%  { transform: translate(-50%, -50%) scale(1.35); opacity: 0.35; }
-    100% { transform: translate(-50%, -50%) scale(1);    opacity: 0.85; }
-}
-
-.map-overlay {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    transform-origin: 0 0;
-    z-index: 9;
-}
-
-.map-marker {
-    position: absolute;
-    transform: translate(-50%, -100%);
-    transform-origin: 50% 100%;
-    pointer-events: auto;
-    cursor: pointer;
-    user-select: none;
-}
-.map-marker-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    transform: scale(var(--marker-counter, 1));
-    transform-origin: 50% 100%;
-}
-.map-marker-head {
-    width: 32px; height: 32px;
-    border-radius: 4px;
-    border: 2px solid #fff;
-    background: var(--parch-3);
-    image-rendering: pixelated;
-    box-shadow: 0 3px 8px rgba(0,0,0,.7);
-    transition: box-shadow .15s, border-color .15s;
-}
-.map-marker:hover .map-marker-head { box-shadow: 0 0 12px rgba(139, 32, 32, 0.8); }
-.map-marker-label {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 1px 5px;
-    background: rgba(42, 26, 15, .85);
-    border-radius: 3px;
-    color: #F4EBD3;
-    white-space: nowrap;
-    line-height: 1.2;
-    border: 1px solid rgba(201, 168, 96, .2);
-}
-.map-marker.online .map-marker-head {
-    border-color: var(--olive);
-    box-shadow: 0 3px 8px rgba(0,0,0,.7), 0 0 10px rgba(82, 104, 42, .6);
-}
-.map-marker.online .map-marker-label { background: rgba(82, 104, 42, .9); }
-.map-marker.stale .map-marker-head { opacity: .75; }
-.map-marker.stale .map-marker-label { opacity: .75; font-style: italic; }
-
-.map-placeholder {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    text-align: center;
-    color: var(--parch-3);
-    z-index: 5;
-}
-.map-placeholder-icon { font-size: 48px; margin-bottom: 12px; }
-
-.map-layers-panel {
-    position: absolute;
-    top: 12px; right: 12px;
-    background: rgba(244, 235, 211, 0.96);
-    border: 1px solid var(--brass);
-    color: var(--ink);
-    border-radius: 3px;
-    padding: 12px 14px;
-    min-width: 200px;
-    z-index: 20;
-    font-size: 13px;
-    box-shadow: 0 4px 12px rgba(42, 26, 15, 0.25);
-}
-.map-layers-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--brass);
-}
-.map-layers-title {
-    font-size: 11px;
-    color: var(--ink-faded);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-}
-.map-layers-close {
-    background: transparent;
-    border: none;
-    color: var(--ink-faded);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 0 4px;
-    line-height: 1;
-    font-family: inherit;
-    transition: color .15s;
-}
-.map-layers-close:hover { color: var(--wax); }
-
-.map-layers-restore {
-    position: absolute;
-    top: 12px; right: 12px;
-    width: 40px; height: 40px;
-    background: rgba(244, 235, 211, 0.96);
-    border: 1px solid var(--brass);
-    border-radius: 3px;
-    color: var(--ink);
-    font-size: 18px;
-    cursor: pointer;
-    display: none;
-    z-index: 20;
-    box-shadow: 0 4px 12px rgba(42, 26, 15, 0.25);
-    transition: all .15s;
-    align-items: center;
-    justify-content: center;
-}
-.map-layers-restore:hover { background: var(--brass); }
-
-.map-fullscreen-hint {
-    position: absolute;
-    bottom: 12px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(244, 235, 211, 0.92);
-    border: 1px solid var(--brass);
-    color: var(--ink-soft);
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    display: none;
-    z-index: 20;
-    pointer-events: none;
-}
-
-.layer-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 4px;
-    cursor: pointer;
-    color: var(--ink-soft);
-    user-select: none;
-    transition: background .15s;
-    border-radius: 4px;
-}
-.layer-toggle:hover { background: rgba(168, 138, 72, 0.10); }
-.layer-toggle input { accent-color: var(--wax); cursor: pointer; }
-.map-layers-timeline {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--brass);
-    font-size: 11px;
-    color: var(--ink-faded);
-    text-align: center;
-}
-
-.map-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(201, 168, 96, 0.12);
-    border: 1px solid var(--brass);
-    color: var(--ink);
-    border-radius: 2px;
-    font-size: 13px;
-    font-family: 'EB Garamond', Georgia, serif;
-    cursor: pointer;
-    transition: all .15s;
-}
-.legend-item:hover { border-color: var(--brass-dark); }
-.legend-color { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
-.legend-item.highlight {
-    border-color: var(--wax);
-    background: rgba(139, 32, 32, 0.10);
-}
-
-/* ------------------------------------------------------------
-   TABLE (tabs)
-   ------------------------------------------------------------ */
-.tabs { display: flex; gap: 0; margin-bottom: 20px; flex-wrap: wrap; }
-.tab {
-    background: var(--parch-3);
-    border: 1px solid var(--brass);
-    border-bottom: none;
-    border-radius: 3px 3px 0 0;
-    color: var(--ink-soft);
-    font-family: 'IM Fell English', Georgia, serif;
-    letter-spacing: .04em;
-    padding: 9px 18px;
-    margin-right: -1px;
-    position: relative;
-    top: 1px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all .2s;
-}
-.tab:hover {
-    background: var(--parch-2);
-    color: var(--ink);
-    border-color: var(--brass-dark);
-}
-.tab.active {
-    background: var(--parch-1);
-    color: var(--ink);
-    border-color: var(--brass-dark);
-    border-bottom: 1px solid var(--parch-1);
-    box-shadow: inset 0 2px 0 var(--brass);
-}
-
 .table-wrap {
     overflow-x: auto;
     border-radius: 2px;
@@ -869,58 +533,99 @@ header h1 {
     box-shadow: inset 0 0 20px rgba(168, 138, 72, 0.08);
     max-width: 100%;
 }
-#countries-table {
+
+table {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
 }
-#countries-table thead {
+
+thead {
     background: linear-gradient(180deg, var(--parch-3), var(--parch-4));
 }
-#countries-table th {
+
+th {
     padding: 14px 16px;
     text-align: left;
     color: var(--ink);
+    font-family: 'IM Fell English', Georgia, serif;
     font-size: 12px;
+    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: .1em;
     white-space: nowrap;
     border-bottom: 2px solid var(--brass-dark);
     background: transparent;
 }
-#countries-table tbody tr {
+
+tbody tr {
     border-top: 1px solid rgba(168, 138, 72, 0.35);
     transition: background .15s;
-    cursor: pointer;
 }
-#countries-table tbody tr:hover { background: rgba(201, 168, 96, 0.12); }
-#countries-table td {
+tbody tr:hover {
+    background: rgba(201, 168, 96, 0.12);
+}
+
+td {
     padding: 14px 16px;
     white-space: nowrap;
     color: var(--ink-soft);
     font-variant-numeric: tabular-nums;
+    vertical-align: middle;
 }
-#countries-table td.rank {
+
+/* Общие стили столбцов — работают в любой таблице */
+td.rank {
     color: var(--brass-dark);
     font-family: 'IM Fell English', Georgia, serif;
     font-weight: 400;
 }
-#countries-table td.name {
+td.name {
     color: var(--ink);
     font-family: 'IM Fell English', Georgia, serif;
     font-size: 15px;
 }
-#countries-table td.money { color: var(--olive); }
-#countries-table td.energy { color: var(--amber); }
-#countries-table td.loading {
+td.money { color: var(--olive); }
+td.energy { color: var(--amber); }
+td.loading {
     text-align: center;
     padding: 40px;
     color: var(--ink-faded);
     font-style: italic;
 }
-#countries-table tbody tr.top-1 td.rank { color: #B8924A; text-shadow: 0 0 8px rgba(184, 146, 74, 0.5); }
-#countries-table tbody tr.top-2 td.rank { color: #7A7A7A; }
-#countries-table tbody tr.top-3 td.rank { color: #A86820; }
+
+/* Top-3 — цвет ранга */
+tbody tr.top-1 td.rank { color: #B8924A; text-shadow: 0 0 8px rgba(184, 146, 74, 0.5); }
+tbody tr.top-2 td.rank { color: #7A7A7A; }
+tbody tr.top-3 td.rank { color: #A86820; }
+
+/* ------------------------------------------------------------
+   #countries-table — специфика топ-стран (поверх generic)
+   ------------------------------------------------------------ */
+#countries-table {
+    table-layout: fixed;
+}
+
+#countries-table colgroup col.col-rank     { width: 6%;  }
+#countries-table colgroup col.col-country  { width: 17%; }
+#countries-table colgroup col.col-owner    { width: 18%; }
+#countries-table colgroup col.col-claims   { width: 13%; }
+#countries-table colgroup col.col-bank     { width: 11%; }
+#countries-table colgroup col.col-energy   { width: 10%; }
+#countries-table colgroup col.col-activity { width: 13%; }
+#countries-table colgroup col.col-pacts    { width: 12%; }
+
+#countries-table th,
+#countries-table td {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#countries-table td.name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .country-dot {
     display: inline-block;
@@ -975,7 +680,7 @@ header h1 {
 }
 
 /* ------------------------------------------------------------
-   COUNTRY DETAILS (inline panel)
+   COUNTRY DETAILS
    ------------------------------------------------------------ */
 #country-details {
     background:
@@ -1190,7 +895,6 @@ header h1 {
     border-color: var(--wax);
 }
 
-/* PLAYER MODAL */
 .player-modal-content { padding: 28px; }
 .player-modal-grid {
     display: grid;
@@ -1763,7 +1467,13 @@ td.loading {
     .player-modal-grid { grid-template-columns: 1fr; }
     .player-viewer-col { position: static; max-width: 420px; margin: 0 auto; }
     .player-card-avatar img { width: 48px; height: 48px; }
-    #countries-table th, #countries-table td { padding: 12px 8px; font-size: 12.5px; }
+    th, td { padding: 12px 10px; font-size: 12.5px; }
+}
+
+@media (max-width: 768px) {
+    .panel { padding: 16px 14px; }
+    .panel h2 { font-size: 17px; }
+    th, td { padding: 10px 8px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
