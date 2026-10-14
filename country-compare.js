@@ -1,14 +1,11 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · COUNTRY-COMPARE.JS v1.0
+   SOVEREIGNTY PANEL · COUNTRY-COMPARE.JS v1.1
    ============================================================
-   Сравнение двух стран side-by-side.
+   v1.1 (14.10.2026):
+     - Кнопка "Сравнить" в паспорте — SVG-иконка scales вместо ⚖.
+     - Кнопки в футере: SVG вместо 🔄 и 🔗.
 
-   ДОСТУП:
-     - Из паспорта страны: кнопка «⚖ Сравнить» → селектор второй
-       страны → модалка сравнения.
-     - Через URL: ?compare=A,B (открывает сравнение сразу).
-
-   ПОДКЛЮЧЕНИЕ: последним <script>.
+   v1.0: сравнение двух стран side-by-side.
    ============================================================ */
 (function () {
     'use strict';
@@ -35,6 +32,23 @@
         return Math.round(a).toString();
     }
 
+    /* Хелпер: создать кнопку с SVG-иконкой и текстом */
+    function btnWithIcon(iconName, text, className, attrs) {
+        var b = document.createElement('button');
+        b.className = className || 'map-btn';
+        if (attrs) {
+            Object.keys(attrs).forEach(function (k) {
+                b.setAttribute(k, attrs[k]);
+            });
+        }
+        if (window.PanelIcons && window.PanelIcons.element) {
+            var svg = window.PanelIcons.element(iconName, 16);
+            if (svg) b.appendChild(svg);
+        }
+        b.appendChild(document.createTextNode(' ' + text));
+        return b;
+    }
+
     // ============================================================
     // 1. Селектор второй страны
     // ============================================================
@@ -52,12 +66,11 @@
             return;
         }
 
-        // Сортируем по чанкам — сильные сверху
         others.sort(function (a, b) { return (b.claims || 0) - (a.claims || 0); });
 
         var picker = ensurePickerModal();
         document.getElementById('cmp-picker-body').innerHTML =
-            '<h3 class="cmp-title">⚖ Сравнить с другой страной</h3>' +
+            '<h3 class="cmp-title">Сравнить с другой страной</h3>' +
             '<div class="cmp-subtitle">Выберите страну для сравнения с «' +
                 escapeHtml(firstCountryName) + '»</div>' +
             '<div class="cmp-picker-list">' +
@@ -123,9 +136,15 @@
         }
 
         var m = ensureCompareModal();
-        document.getElementById('cmp-body').innerHTML = buildCompareHTML(a, b);
+        var body = document.getElementById('cmp-body');
+        body.innerHTML = buildCompareHTML(a, b);
         m.classList.add('show');
         document.body.style.overflow = 'hidden';
+
+        /* Рендерим SVG в кнопки футера */
+        if (window.PanelIcons && window.PanelIcons.autoReplace) {
+            window.PanelIcons.autoReplace(body);
+        }
     }
 
     function ensureCompareModal() {
@@ -149,7 +168,6 @@
             });
         });
 
-        // Кнопки в футере
         m.addEventListener('click', function (e) {
             var btn = e.target.closest('[data-cmp-act]');
             if (!btn) return;
@@ -173,7 +191,7 @@
                     '?compare=' + encodeURIComponent(firstName) + ',' + encodeURIComponent(secondName);
                 if (navigator.clipboard && window.isSecureContext) {
                     navigator.clipboard.writeText(url).then(function () {
-                        if (typeof window.showToast === 'function') window.showToast('✓ Ссылка скопирована');
+                        if (typeof window.showToast === 'function') window.showToast('Ссылка скопирована');
                     });
                 }
             }
@@ -190,108 +208,78 @@
         m.dataset.first = a.name;
         m.dataset.second = b.name;
 
-        return '<h3 class="cmp-title">⚖ ' + escapeHtml(a.name) + ' × ' + escapeHtml(b.name) + '</h3>' +
+        return '<h3 class="cmp-title">' + escapeHtml(a.name) + ' × ' + escapeHtml(b.name) + '</h3>' +
             '<div class="cmp-subtitle">Сравнение по ключевым метрикам</div>' +
             '<div class="cmp-table">' +
-                // Метрика: Чанков
                 metricRow('Чанков',
                     a.claims || 0, b.claims || 0,
                     (a.claims || 0) + ' / ' + (a.max_claims || '?'),
                     (b.claims || 0) + ' / ' + (b.max_claims || '?'),
                     'num') +
-
-                // Казна
                 metricRow('Казна',
                     a.bank || 0, b.bank || 0,
                     formatMoney(a.bank || 0),
                     formatMoney(b.bank || 0),
                     'num', 'money') +
-
-                // Долг (меньше = лучше)
                 metricRow('Долг',
                     a.debt || 0, b.debt || 0,
                     formatMoney(a.debt || 0),
                     formatMoney(b.debt || 0),
                     'num', 'inverse') +
-
-                // Энергия
                 metricRow('Энергия',
                     a.energy || 0, b.energy || 0,
                     (a.energy || 0).toFixed(1) + ' / ' + (a.max_energy || 0).toFixed(1),
                     (b.energy || 0).toFixed(1) + ' / ' + (b.max_energy || 0).toFixed(1),
                     'num') +
-
-                // Регенерация
                 metricRow('Регенерация',
                     a.regen || 0, b.regen || 0,
                     (a.regen || 0).toFixed(1) + '/ч',
                     (b.regen || 0).toFixed(1) + '/ч',
                     'num') +
-
-                // Рост 7д
                 metricRow('Рост 7д',
                     a.claims_delta_7d || 0, b.claims_delta_7d || 0,
                     (a.claims_delta_7d > 0 ? '+' : '') + (a.claims_delta_7d || 0),
                     (b.claims_delta_7d > 0 ? '+' : '') + (b.claims_delta_7d || 0),
                     'num') +
-
-                // Альянсы
                 metricRow('Альянсы',
                     a.allies || 0, b.allies || 0,
                     String(a.allies || 0), String(b.allies || 0),
                     'num') +
-
-                // Пакты
                 metricRow('Пакты',
                     a.pacts || 0, b.pacts || 0,
                     String(a.pacts || 0), String(b.pacts || 0),
                     'num') +
-
-                // Войны (меньше = лучше)
                 metricRow('Активных войн',
                     a.active_wars || 0, b.active_wars || 0,
                     String(a.active_wars || 0), String(b.active_wars || 0),
                     'num', 'inverse') +
-
-                // Фермы
                 metricRow('Фермы',
                     a.chunks_farm || 0, b.chunks_farm || 0,
                     String(a.chunks_farm || 0), String(b.chunks_farm || 0),
                     'num') +
-
-                // Шахты
                 metricRow('Шахты',
                     a.chunks_mining || 0, b.chunks_mining || 0,
                     String(a.chunks_mining || 0), String(b.chunks_mining || 0),
                     'num') +
-
-                // Военные
                 metricRow('Военные чанки',
                     a.chunks_military || 0, b.chunks_military || 0,
                     String(a.chunks_military || 0), String(b.chunks_military || 0),
                     'num') +
-
-                // Торговые
                 metricRow('Торговые чанки',
                     a.chunks_trade || 0, b.chunks_trade || 0,
                     String(a.chunks_trade || 0), String(b.chunks_trade || 0),
                     'num')
             + '</div>' +
-
             '<div class="cmp-footer">' +
-                '<button class="map-btn" data-cmp-act="passport-a">📖 Паспорт ' +
+                '<button class="map-btn" data-cmp-act="passport-a" data-icon="book" data-icon-size="16">Паспорт ' +
                     escapeHtml(a.name) + '</button>' +
-                '<button class="map-btn" data-cmp-act="passport-b">📖 Паспорт ' +
+                '<button class="map-btn" data-cmp-act="passport-b" data-icon="book" data-icon-size="16">Паспорт ' +
                     escapeHtml(b.name) + '</button>' +
-                '<button class="map-btn" data-cmp-act="swap">🔄 Поменять местами</button>' +
-                '<button class="map-btn" data-cmp-act="link">🔗 Скопировать ссылку</button>' +
+                '<button class="map-btn" data-cmp-act="swap" data-icon="refresh" data-icon-size="16">Поменять местами</button>' +
+                '<button class="map-btn" data-cmp-act="link" data-icon="scroll" data-icon-size="16">Скопировать ссылку</button>' +
             '</div>';
     }
 
-    /**
-     * Строка метрики в двухколоночной сетке.
-     * @param inverse true = меньше лучше (для долга, войн)
-     */
     function metricRow(label, valA, valB, dispA, dispB, type, inverse) {
         var aBetter = false, bBetter = false;
         if (valA !== valB) {
@@ -306,7 +294,6 @@
 
         var clsA = aBetter ? 'better' : (bBetter ? 'worse' : '');
         var clsB = bBetter ? 'better' : (aBetter ? 'worse' : '');
-
         var money = type === 'money' ? ' money' : '';
 
         return '<div class="cmp-cell left ' + clsA + '">' +
@@ -339,11 +326,10 @@
         if (!actions) return;
         if (actions.querySelector('[data-pp-act="compare"]')) return;
 
-        var btn = document.createElement('button');
-        btn.className = 'map-btn pp-action-btn';
-        btn.type = 'button';
-        btn.dataset.ppAct = 'compare';
-        btn.textContent = '⚖ Сравнить';
+        var btn = btnWithIcon('scales', 'Сравнить', 'map-btn pp-action-btn', {
+            type: 'button',
+            'data-pp-act': 'compare'
+        });
         actions.appendChild(btn);
 
         btn.addEventListener('click', function (e) {
@@ -389,7 +375,7 @@
         ensureCompareModal();
         installPassportButton();
         checkUrlCompare();
-        console.log('[CountryCompare] v1.0 ready');
+        console.log('[CountryCompare] v1.1 ready (SVG icons)');
     }
 
     if (document.readyState === 'loading') {

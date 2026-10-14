@@ -1,62 +1,124 @@
-/* SOVEREIGNTY PANEL / panel-icons.css v1.1
-Inline SVG icon alignment and sizing. */
+/* ============================================================
+   SOVEREIGNTY PANEL · PANEL-ICONS.CSS v1.2
+   ============================================================
+   v1.2:
+     - Класс .emoji-icon — для inline-SVG, вставленных
+       panel-emoji-replacer.js. Размер = 1em родителя,
+       выравнивание по базовой линии текста.
+     - data-icon элементы (навигация, заголовки, карточки)
+       получают правильный flex-контекст.
+   ============================================================ */
 
+/* Общая база для всех SVG-иконок панели */
 .panel-icon {
-display: inline-block;
-vertical-align: -0.18em;
-flex-shrink: 0;
-overflow: visible;
-line-height: 1;
+    display: inline-block;
+    vertical-align: -0.18em;
+    flex-shrink: 0;
+    overflow: visible;
+    line-height: 1;
 }
 
-/* Buttons with leading icon: align nicely */
+/* Кнопки и элементы с иконками — flex для правильного выравнивания */
 .nav-btn,
 .tab,
 .badge,
 .map-btn,
 .player-modal-btn,
 .chr-filter,
-.pp-action-btn {
-display: inline-flex;
-align-items: center;
-gap: 6px;
+.pp-action-btn,
+.chr-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
+/* Заголовки с иконками */
+.panel h2,
 .panel-header h2,
-.panel h2 {
-display: inline-flex;
-align-items: center;
-gap: 8px;
+.guide-section h2,
+.guide-section h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.stat-card .stat-icon svg.panel-icon {
-width: 22px;
-height: 22px;
+/* Стат-карточки */
+.stat-card .stat-icon svg {
+    width: 22px;
+    height: 22px;
+    display: block;
 }
 
+/* Event log "Полная летопись" */
 .event-log-more a {
-display: inline-flex;
-align-items: center;
-gap: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.guide-top-btn .panel-icon { vertical-align: middle; }
+/* ============================================================
+   .emoji-icon — SVG, вставленный вместо эмодзи в тексте
+   ============================================================
+   Размер задаётся относительно шрифта родителя через 1em.
+   vertical-align выравнивает по базовой линии текста.
+   ============================================================ */
+.emoji-icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.14em;
+    margin: 0 0.04em;
+    flex-shrink: 0;
+    overflow: visible;
+    stroke-width: 2.2;
+}
 
-.theme-toggle .panel-icon { vertical-align: middle; }
+/* Наследует цвет родителя */
+.emoji-icon path {
+    stroke: currentColor;
+    fill: none;
+}
 
-/* Passport emblem layer */
+/* У solid-иконок fill=currentColor уже стоит через атрибут */
+
+/* В мелких текстах иконка чуть меньше */
+.badge .emoji-icon,
+.chart-stat .emoji-icon,
+.player-card-meta .emoji-icon,
+.aw-meta .emoji-icon {
+    width: 0.95em;
+    height: 0.95em;
+}
+
+/* В заголовках — чуть крупнее, чтобы совпадало с буквой */
+h1 .emoji-icon,
+h2 .emoji-icon,
+h3 .emoji-icon,
+h4 .emoji-icon {
+    width: 1.05em;
+    height: 1.05em;
+    vertical-align: -0.12em;
+}
+
+/* В <p> внутри гайда — по размеру текста */
+.guide-section p .emoji-icon {
+    vertical-align: -0.16em;
+}
+
+/* ============================================================
+   Passport emblem layer (из старого panel-icons.css)
+   ============================================================ */
 .pp-coa-charge {
-position: absolute;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%);
-color: #F4EBD3;
-pointer-events: none;
-filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #F4EBD3;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 .pp-coa-charge.panel-icon {
-stroke: currentColor;
-fill: currentColor;
+    stroke: currentColor;
+    fill: currentColor;
 }
-
 :root[data-theme="dark"] .pp-coa-charge { color: #F4EBD3; }

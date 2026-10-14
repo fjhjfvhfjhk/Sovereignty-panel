@@ -1,15 +1,14 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · MOBILE.JS v1.3
+   SOVEREIGNTY PANEL · MOBILE.JS v1.4
    ============================================================
-   ИЗМЕНЕНИЯ v1.3 (14.10.2026):
-     - Иконки нижней панели: SVG из PanelIcons вместо эмодзи.
-     - Массив TABS теперь хранит имена иконок (home, map, users...),
-       а не символы. При сборке кнопки вызывается PanelIcons.element().
-     - Константа ICON_SIZE = 22 — единый размер для всех иконок nav.
+   v1.4 (14.10.2026):
+     - ГАРАНТИРОВАННАЯ SVG-замена: если PanelIcons ещё не готов,
+       строим nav без иконок, а через MutationObserver/setTimeout
+       пересобираем, как только PanelIcons появляется.
+     - Убран "·" fallback — вместо этого пусто, потом допишется SVG.
 
-   ИЗМЕНЕНИЯ v1.2: добавлена вкладка «Хроники».
-   ИЗМЕНЕНИЯ v1.1: убраны свайпы, PTR, память скролла, back-button,
-                   long-press копирование ника.
+   v1.3: SVG-иконки вместо эмодзи в TABS.
+   v1.2: добавлена вкладка Хроники.
    ============================================================ */
 (function () {
     'use strict';
@@ -57,20 +56,13 @@
     // ============================================================
     // 2. BOTTOM NAVIGATION BAR
     // ============================================================
-    function buildIconWrap(iconName) {
-        var iconWrap = document.createElement('span');
-        iconWrap.className = 'bn-icon';
-
-        if (window.PanelIcons && window.PanelIcons.element) {
-            var svg = window.PanelIcons.element(iconName, ICON_SIZE);
-            if (svg) {
-                iconWrap.appendChild(svg);
-                return iconWrap;
-            }
-        }
-        // Fallback, если PanelIcons ещё не подключён — точка вместо эмодзи
-        iconWrap.textContent = '·';
-        return iconWrap;
+    function renderIconInto(wrap, iconName) {
+        wrap.innerHTML = '';
+        if (!window.PanelIcons || !window.PanelIcons.element) return false;
+        var svg = window.PanelIcons.element(iconName, ICON_SIZE);
+        if (!svg) return false;
+        wrap.appendChild(svg);
+        return true;
     }
 
     function buildBottomNav() {
@@ -87,7 +79,10 @@
             btn.type = 'button';
             btn.setAttribute('aria-label', t.label);
 
-            btn.appendChild(buildIconWrap(t.icon));
+            var iconWrap = document.createElement('span');
+            iconWrap.className = 'bn-icon';
+            renderIconInto(iconWrap, t.icon);
+            btn.appendChild(iconWrap);
 
             var label = document.createElement('span');
             label.className = 'bn-label';
@@ -118,6 +113,36 @@
         });
 
         syncBottomNavWithTabs();
+
+        /* Если PanelIcons ещё не загрузился — дорисовываем иконки */
+        if (!window.PanelIcons) {
+            var tries = 0;
+            var iv = setInterval(function () {
+                tries++;
+                if (window.PanelIcons || tries > 40) clearInterval(iv);
+                if (window.PanelIcons) rebuildNavIcons();
+            }, 50);
+        }
+    }
+
+    function rebuildNavIcons() {
+        var nav = document.getElementById('bottom-nav');
+        if (!nav) return;
+        if (!window.PanelIcons || !window.PanelIcons.element) return;
+        var btns = nav.querySelectorAll('.bn-btn');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            var key = btn.dataset.tab;
+            var tab = null;
+            for (var j = 0; j < TABS.length; j++) {
+                if (TABS[j].key === key) { tab = TABS[j]; break; }
+            }
+            if (!tab) continue;
+            var wrap = btn.querySelector('.bn-icon');
+            if (!wrap) continue;
+            if (wrap.querySelector('svg')) continue;
+            renderIconInto(wrap, tab.icon);
+        }
     }
 
     function switchTab(tabKey) {
@@ -461,6 +486,9 @@
                 }, 400);
             }
             syncBottomNavWithTabs();
+            /* Периодическая пересборка иконок — на случай, если
+               PanelIcons подгрузился позже. */
+            rebuildNavIcons();
         } catch (e) {}
         setTimeout(tick, 1200);
     }
@@ -479,44 +507,22 @@
         installLongPressCopy();
         installScrollMemory();
 
-        // На случай, если DOM был готов раньше — пересобираем иконки,
-        // когда PanelIcons точно загружен.
-        setTimeout(rebuildNavIcons, 300);
-        setTimeout(rebuildNavIcons, 1200);
+        /* Несколько попыток пересборки иконок — на случай позднего PanelIcons */
+        setTimeout(rebuildNavIcons, 200);
+        setTimeout(rebuildNavIcons, 600);
+        setTimeout(rebuildNavIcons, 1500);
 
         var resizeTimer = null;
         window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 installBottomNav();
+                rebuildNavIcons();
             }, 250);
         });
 
         tick();
-        console.log('[Mobile] v1.3 ready (SVG nav icons)');
-    }
-
-    /** Если по какой-то причине nav был построен до PanelIcons — пересобираем. */
-    function rebuildNavIcons() {
-        var nav = document.getElementById('bottom-nav');
-        if (!nav) return;
-        if (!window.PanelIcons || !window.PanelIcons.element) return;
-        var icons = nav.querySelectorAll('.bn-icon');
-        for (var i = 0; i < icons.length; i++) {
-            var wrap = icons[i];
-            if (wrap.querySelector('svg')) continue;
-            var btn = wrap.closest('.bn-btn');
-            if (!btn) continue;
-            var key = btn.dataset.tab;
-            var tab = null;
-            for (var j = 0; j < TABS.length; j++) {
-                if (TABS[j].key === key) { tab = TABS[j]; break; }
-            }
-            if (!tab) continue;
-            wrap.innerHTML = '';
-            var svg = window.PanelIcons.element(tab.icon, ICON_SIZE);
-            if (svg) wrap.appendChild(svg);
-        }
+        console.log('[Mobile] v1.4 ready (SVG nav icons, robust)');
     }
 
     if (document.readyState === 'loading') {
@@ -532,6 +538,7 @@
                 window.CountryCards.refresh();
             }
             syncBottomNavWithTabs();
+            rebuildNavIcons();
         },
         setHaptics: function (on) {
             try { localStorage.setItem(STORAGE_HAPTICS, on ? '1' : '0'); } catch (e) {}

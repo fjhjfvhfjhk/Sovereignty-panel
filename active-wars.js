@@ -1,10 +1,9 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · ACTIVE-WARS.JS v1.0
+   SOVEREIGNTY PANEL · ACTIVE-WARS.JS v1.1
    ============================================================
-   Блок активных войн на главной странице.
-   Читает wars[] из JSON (добавлено в JsonBuilder v1.4).
-
-   ПОДКЛЮЧЕНИЕ: последним <script>.
+   v1.1 (14.10.2026):
+     - Заголовок "Активные войны" — SVG war вместо ⚔.
+     - Каждая строка войны — SVG war вместо ⚔.
    ============================================================ */
 (function () {
     'use strict';
@@ -32,13 +31,20 @@
         return n + ' дней';
     }
 
+    function buildWarIcon() {
+        if (window.PanelIcons && window.PanelIcons.element) {
+            var svg = window.PanelIcons.element('war', 20);
+            if (svg) return svg.outerHTML;
+        }
+        return '';
+    }
+
     // ============================================================
     // 1. Контейнер
     // ============================================================
     function ensureContainer() {
         if (document.getElementById('active-wars-panel')) return;
 
-        // Вставляем перед панелью «Топ стран»
         var topCountries = document.querySelector('#tab-overview .overview-main > .panel:nth-of-type(2)');
         if (!topCountries) return;
 
@@ -48,11 +54,15 @@
         panel.style.display = 'none';
         panel.innerHTML =
             '<div class="panel-header">' +
-                '<h2>⚔ Активные войны</h2>' +
+                '<h2 data-icon="war">Активные войны</h2>' +
             '</div>' +
             '<div class="active-wars-list" id="active-wars-list"></div>';
 
         topCountries.parentNode.insertBefore(panel, topCountries);
+
+        if (window.PanelIcons && window.PanelIcons.autoReplace) {
+            window.PanelIcons.autoReplace(panel);
+        }
     }
 
     // ============================================================
@@ -75,6 +85,8 @@
         }
 
         panel.style.display = 'block';
+        var iconHtml = buildWarIcon();
+
         list.innerHTML = wars.map(function (w) {
             var attacker = w.attacker || '?';
             var defender = w.defender || '?';
@@ -83,7 +95,7 @@
 
             return '<div class="aw-item" onclick="if(typeof openCountryPassport===\'function\')openCountryPassport(\'' +
                     escapeAttr(attacker) + '\')">' +
-                '<div class="aw-icon">⚔</div>' +
+                '<div class="aw-icon">' + iconHtml + '</div>' +
                 '<div class="aw-body">' +
                     '<div class="aw-title"><b>' + escapeHtml(attacker) + '</b> против <b>' +
                         escapeHtml(defender) + '</b></div>' +
@@ -116,7 +128,7 @@
         setTimeout(render, 700);
         setTimeout(render, 1800);
         tick();
-        console.log('[ActiveWars] v1.0 ready');
+        console.log('[ActiveWars] v1.1 ready');
     }
 
     if (document.readyState === 'loading') {
