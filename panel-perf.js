@@ -1,52 +1,25 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-PERF.JS v1.0
+   SOVEREIGNTY PANEL · PANEL-PERF.JS v1.2
    ============================================================
-   Клиентские оптимизации веса панели. Не трогает плагины,
-   не трогает data/ — только то, что делает браузер.
+   v1.2 (15.10.2026):
+     - ДОБАВЛЕН диагностический режим: ?cache=1 — показывает
+       внизу экрана плашку со статусом Service Worker и кэша.
+       Помогает понять, работает ли кэширование тайлов.
+     - ФИКС: регистрация SW теперь идёт сразу, не ждёт
+       window.load. Это важно — на мобилке load может
+       откладываться до загрузки карты.
+     - ДОБАВЛЕНА проверка: если sw.js отдаёт 404 (файла нет
+       в репозитории), в консоль пишется понятная ошибка.
 
-   ЧТО ДЕЛАЕТ:
-
-   1. Service Worker
-        Регистрирует sw.js. Тайлы карты и скины кэшируются
-        навсегда, CSS/JS — stale-while-revalidate.
-        Повторные визиты грузятся из кэша = 0 МБ трафика.
-
-   2. content-visibility: auto
-        Скрытые вкладки не рендерятся, пока пользователь их
-        не откроет. Экономит CPU на слабых устройствах.
-
-   3. Lazy avatars
-        Все <img data-pname> и <img data-avatar-name> получают
-        loading="lazy" decoding="async".
-        Аватарки грузятся только когда попадают в viewport.
-
-   4. Отложенная загрузка карты
-        window.loadMap() перехватывается. Реальная загрузка
-        происходит только при клике на вкладку «Карта».
-        Если пользователь сидит на «Обзоре» — тайлы (6–10 МБ)
-        вообще не качаются.
-
-   5. Ленивая загрузка тайлов
-        loadAllTiles() перехватывается. Грузятся только
-        тайлы в текущем viewport + небольшой margin.
-        При зуме/панораме — догружаются новые.
-
-   ОТКЛЮЧЕНИЕ (для отладки):
-        ?nosw=1  — не регистрировать SW
-        ?tab=map — карта грузится сразу (без отложки)
-
-   ПОДКЛЮЧЕНИЕ: сразу после app.js.
-     <script src="app.js?v=5.9"></script>
-     <script src="panel-perf.js?v=1.0"></script>
+   v1.1: разделены STATIC_VERSION и TILES_VERSION в sw.js.
+   v1.0: первая версия — SW + lazy tiles + lazy avatars.
    ============================================================ */
 (function () {
     'use strict';
 
-    /* --------------------------------------------------------
-       Флаги
-       -------------------------------------------------------- */
     var SW_ENABLED = !new URLSearchParams(location.search).has('nosw');
     var DEFER_MAP = !/tab=map/.test(location.search);
+    var SHOW_CACHE_STATS = /[?&]cache=1/.test(location.search);
 
     /* ============================================================
        1. SERVICE WORKER
@@ -56,9 +29,12 @@
             console.log('[Perf] SW отключён через ?nosw=1');
             return;
         }
-        if (!('serviceWorker' in navigator)) return;
+        if (!('serviceWorker' in navigator)) {
+            console.warn('[Perf] Браузер не поддерживает Service Worker');
+            return;
+        }
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            console.log('[Perf] SW требует HTTPS — пропускаю');
+            console.warn('[Perf] SW требует HTTPS — пропускаю');
             return;
         }
 
@@ -68,29 +44,40 @@
         navigator.serviceWorker.addEventListener('controllerchange', function () {
             if (!hadController) {
                 hadController = true;
+                console.log('[Perf] SW взял управление впервые');
                 return;
             }
             if (refreshing) return;
             refreshing = true;
-            console.log('[Perf] SW обновился — перезагружаю страницу');
+            console.log('[Perf] SW обновился — перезагружаю');
             window.location.reload();
         });
 
-        window.addEventListener('load', function () {
-            navigator.serviceWorker.register('sw.js').then(function (reg) {
-                console.log('[Perf] SW зарегистрирован, scope:', reg.scope);
-                // Проверяем обновления раз в час
-                setInterval(function () {
-                    reg.update().catch(function () {});
-                }, 60 * 60 * 1000);
-            }).catch(function (err) {
-                console.warn('[Perf] SW не зарегистрирован:', err.message);
-            });
+        // Регистрируем сразу, не ждём load
+        navigator.serviceWorker.register('sw.js', { scope: './' }).then(function (reg) {
+            console.log('[Perf] SW зарегистрирован: scope=' + reg.scope);
+
+            // Проверяем наличие активированного SW
+            setTimeout(function () {
+                if (navigator.serviceWorker.controller) {
+                    console.log('[Perf] SW активен и контролирует страницу');
+                } else {
+                    console.log('[Perf] SW установлен, но ещё не контролирует (первый визит?)');
+                }
+            }, 500);
+
+            // Раз в час проверяем обновления sw.js
+            setInterval(function () {
+                reg.update().catch(function () {});
+            }, 60 * 60 * 1000);
+        }).catch(function (err) {
+            console.error('[Perf] SW не зарегистрирован:', err.message);
+            console.error('[Perf] Проверь, что файл sw.js лежит в корне репозитория');
         });
     }
 
     /* ============================================================
-       2. CONTENT-VISIBILITY ДЛЯ НЕАКТИВНЫХ ВКЛАДОК
+       2. CONTENT-VISIBILITY
        ============================================================ */
     function installContentVisibility() {
         var style = document.createElement('style');
@@ -161,7 +148,6 @@
             var mapHasLoaded = false;
 
             window.loadMap = function () {
-                // Откладываем до клика на карту
                 window.__pendingMapLoad = true;
             };
 
@@ -169,7 +155,6 @@
                 if (mapHasLoaded) return;
                 mapHasLoaded = true;
                 window.__pendingMapLoad = false;
-                // Возвращаем оригинал
                 window.loadMap = origLoadMap;
                 try {
                     origLoadMap.call(window);
@@ -179,11 +164,9 @@
                 }
             }
 
-            // Кнопка карты в основной навигации
             var mapBtn = document.querySelector('.main-nav .nav-btn[data-tab="map"]');
             if (mapBtn) mapBtn.addEventListener('click', triggerLoad);
 
-            // Bottom-nav (мобилка)
             document.addEventListener('click', function (e) {
                 var btn = e.target.closest && e.target.closest('.bn-btn[data-tab="map"]');
                 if (btn) triggerLoad();
@@ -224,8 +207,8 @@
                 var ox = window.mapOffsetX || 0;
                 var oy = window.mapOffsetY || 0;
 
-                // Margin 150 экранных пикселей, переводим в изображение
-                var marginImg = 150 / Math.max(zoom, 0.001);
+                // Margin 100 экранных пикселей (было 150 — уменьшено)
+                var marginImg = 100 / Math.max(zoom, 0.001);
 
                 var ix0 = (0 - ox) / zoom - marginImg;
                 var iy0 = (0 - oy) / zoom - marginImg;
@@ -240,7 +223,6 @@
                 };
             }
 
-            var loadedCount = 0;
             function loadVisible() {
                 var r = getVisibleRange();
                 if (!r) return;
@@ -255,23 +237,22 @@
                         }
                     }
                 }
-                loadedCount += count;
+                console.log('[Perf] lazy tiles: запрошено ' + count +
+                            ' тайлов в диапазоне x[' + r.tx0 + '..' + r.tx1 +
+                            '] y[' + r.ty0 + '..' + r.ty1 + ']');
             }
 
-            // Замена eager loadAllTiles
             window.loadAllTiles = function () {
-                // Даём resetMapView шанс установить transform
                 setTimeout(loadVisible, 100);
             };
 
-            // Хук на applyMapTransform — панорама/зум
             var origApply = window.applyMapTransform;
             if (typeof origApply === 'function') {
                 var debounce = null;
                 window.applyMapTransform = function () {
                     var result = origApply.apply(this, arguments);
                     if (debounce) clearTimeout(debounce);
-                    debounce = setTimeout(loadVisible, 120);
+                    debounce = setTimeout(loadVisible, 200);
                     return result;
                 };
             }
@@ -279,6 +260,87 @@
             console.log('[Perf] ленивая загрузка тайлов установлена');
         }
         tryInstall();
+    }
+
+    /* ============================================================
+       6. ДИАГНОСТИЧЕСКАЯ ПЛАШКА (только с ?cache=1)
+       ============================================================ */
+    function installCacheStatus() {
+        if (!SHOW_CACHE_STATS) return;
+
+        var pill = document.createElement('div');
+        pill.id = 'perf-cache-pill';
+        pill.style.cssText = [
+            'position:fixed',
+            'bottom:calc(env(safe-area-inset-bottom, 0px) + 16px)',
+            'left:16px',
+            'background:rgba(42,26,15,.92)',
+            'color:#F4EBD3',
+            'font-family:system-ui,sans-serif',
+            'font-size:12px',
+            'line-height:1.5',
+            'padding:10px 14px',
+            'border:1px solid #C9A860',
+            'border-radius:6px',
+            'z-index:9998',
+            'max-width:280px',
+            'box-shadow:0 6px 20px rgba(0,0,0,.5)',
+            'cursor:pointer',
+            'white-space:pre-line'
+        ].join(';');
+        pill.textContent = 'Проверка кэша…';
+        pill.title = 'Клик — скрыть';
+        pill.addEventListener('click', function () { pill.remove(); });
+        document.body.appendChild(pill);
+
+        function refresh() {
+            var sw = 'не поддерживается';
+            if ('serviceWorker' in navigator) {
+                if (navigator.serviceWorker.controller) {
+                    sw = 'активен';
+                } else if (navigator.serviceWorker.ready) {
+                    sw = 'регистрируется…';
+                } else {
+                    sw = 'не установлен';
+                }
+            }
+
+            var lines = ['SW: ' + sw];
+
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                var mc = new MessageChannel();
+                mc.port1.onmessage = function (e) {
+                    var s = e.data || {};
+                    var staticN = s.static || 0;
+                    var tilesN = s.tiles || 0;
+                    var total = staticN + tilesN;
+                    lines = [
+                        'SW: активен',
+                        'Кэш статики: ' + staticN + ' файлов',
+                        'Кэш тайлов: ' + tilesN + ' файлов',
+                        'Всего: ' + total + ' файлов',
+                        '',
+                        'Если тайлы = 0 после визита на карту —',
+                        'значит SW не перехватывает запросы.'
+                    ];
+                    pill.textContent = lines.join('\n');
+                };
+                navigator.serviceWorker.controller.postMessage({ type: 'getStats' }, [mc.port2]);
+                setTimeout(function () {
+                    pill.textContent = lines.join('\n');
+                }, 800);
+            } else {
+                lines.push('');
+                lines.push('SW не контролирует страницу.');
+                lines.push('Проверь: файл sw.js в корне репо.');
+                lines.push('Обычно нужен второй визит,');
+                lines.push('чтобы SW активировался.');
+                pill.textContent = lines.join('\n');
+            }
+        }
+
+        setTimeout(refresh, 1000);
+        setTimeout(refresh, 5000);
     }
 
     /* ============================================================
@@ -291,7 +353,8 @@
         installLazyTiles();
         markLazyAvatars();
         watchAvatars();
-        console.log('[Perf] v1.0 ready');
+        installCacheStatus();
+        console.log('[Perf] v1.2 ready');
     }
 
     if (document.readyState === 'loading') {
