@@ -1,19 +1,11 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · THEME-SWITCHER.CSS v1.0
+   SOVEREIGNTY PANEL · THEME-SWITCHER.CSS v2.0
    ============================================================
-   Тёмная тема «Ночной архив» — глубокое тёмно-коричневое полотно,
-   тёплый латунный акцент, кремовый текст.
-   
-   ПОДКЛЮЧЕНИЕ: последним, после country-cards.css.
-     <link rel="stylesheet" href="theme-switcher.css?v=1.0">
-   
-   РЕЖИМЫ: light / dark / auto (auto = по prefers-color-scheme).
-   Хранится в localStorage, ключ panel_theme.
+   ТОЛЬКО тёмная тема. Светлая тема теперь базовая в style.css.
+   Здесь — переопределения переменных и теней для [data-theme="dark"].
    ============================================================ */
 
-/* ------------------------------------------------------------
-   0. КНОПКА ПЕРЕКЛЮЧАТЕЛЯ (в шапке)
-   ------------------------------------------------------------ */
+/* Переключатель темы в шапке */
 .theme-toggle {
     display: inline-flex;
     align-items: center;
@@ -22,11 +14,10 @@
     height: 34px;
     padding: 0;
     border-radius: 50%;
-    border: 1px solid var(--brass, #A88A48);
-    background: linear-gradient(180deg, var(--parch-1, #F4EBD3), var(--parch-3, #DCCBA8));
-    color: var(--ink, #2A1A0F);
+    border: 1px solid var(--brass);
+    background: linear-gradient(180deg, var(--parch-1), var(--parch-3));
+    color: var(--ink);
     cursor: pointer;
-    font-size: 16px;
     line-height: 1;
     font-family: inherit;
     box-shadow:
@@ -44,25 +35,26 @@
         0 2px 6px rgba(0, 0, 0, 0.22);
 }
 .theme-toggle:active { transform: scale(0.94); }
+.theme-toggle .panel-icon {
+    display: block;
+    pointer-events: none;
+}
 
-/* ------------------------------------------------------------
-   1. ПЕРЕОПРЕДЕЛЕНИЕ ПЕРЕМЕННЫХ
-   ------------------------------------------------------------ */
+/* ============================================================
+   ТЁМНАЯ ТЕМА
+   ============================================================ */
 :root[data-theme="dark"] {
-    /* Пергамент — теперь тёмное дерево/кожа */
     --parch-1: #2A1E10;
     --parch-2: #1E1408;
     --parch-3: #382818;
     --parch-4: #4A3520;
     --parch-5: #6A4A28;
 
-    /* Чернила — теперь кремовый текст на тёмном */
     --ink: #E8D8B0;
     --ink-soft: #D0BE90;
     --ink-faded: #A89060;
     --ink-pale: #806B48;
 
-    /* Акценты (латунь и воск остаются, чуть ярче для читаемости) */
     --wax: #B83030;
     --wax-light: #D04040;
     --brass: #C9A860;
@@ -71,7 +63,6 @@
     --olive: #7AA048;
     --amber: #E09030;
 
-    /* Стандартные переменные style.css */
     --bg: var(--parch-2);
     --bg-card: var(--parch-1);
     --bg-hover: var(--parch-3);
@@ -88,35 +79,18 @@
     --online: var(--olive);
 }
 
-/* Ambient glow — тлеющие угли вместо янтаря */
-:root[data-theme="dark"] body {
-    --amb-r: 90;
-    --amb-g: 60;
-    --amb-b: 20;
-}
-:root[data-theme="dark"] body[data-state="war"]   { --amb-r: 140; --amb-g: 30;  --amb-b: 20; }
-:root[data-theme="dark"] body[data-state="peace"] { --amb-r: 60;  --amb-g: 90;  --amb-b: 30; }
-:root[data-theme="dark"] body[data-state="event"] { --amb-r: 120; --amb-g: 60;  --amb-b: 20; }
-
-/* ------------------------------------------------------------
-   2. ФОН СТРАНИЦЫ
-   ------------------------------------------------------------ */
 :root[data-theme="dark"] body {
     background-color: var(--parch-2);
     background-image:
         radial-gradient(ellipse at 20% 10%, rgba(0, 0, 0, 0.35), transparent 55%),
         radial-gradient(ellipse at 85% 90%, rgba(0, 0, 0, 0.30), transparent 55%),
         url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='pd'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23pd)'/></svg>");
-    background-attachment: fixed;
 }
-
 :root[data-theme="dark"] body::after {
     background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* ------------------------------------------------------------
-   3. ШАПКА
-   ------------------------------------------------------------ */
+/* Header */
 :root[data-theme="dark"] header {
     background:
         linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%),
@@ -126,25 +100,18 @@
         inset 0 1px 0 rgba(201, 168, 96, 0.15),
         0 2px 8px rgba(0, 0, 0, 0.5);
 }
-
-:root[data-theme="dark"] #server-name {
+:root[data-theme="dark"] header h1 {
     background: linear-gradient(180deg, #F4D990 0%, #C9A860 55%, #6A5020 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    color: transparent;
-    animation: none !important;
 }
-
 :root[data-theme="dark"] .main-nav {
     background: rgba(0, 0, 0, 0.5);
     border-color: rgba(201, 168, 96, 0.5);
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
 }
-
-:root[data-theme="dark"] .nav-btn {
-    color: rgba(232, 216, 176, 0.65);
-}
+:root[data-theme="dark"] .nav-btn { color: rgba(232, 216, 176, 0.65); }
 :root[data-theme="dark"] .nav-btn:hover {
     color: #F4D990;
     background: rgba(201, 168, 96, 0.15);
@@ -156,224 +123,66 @@
         inset 0 1px 0 rgba(255, 255, 220, 0.3),
         0 2px 4px rgba(0, 0, 0, 0.5);
 }
-
 :root[data-theme="dark"] .header-meta .badge {
     background: linear-gradient(180deg, rgba(201, 168, 96, 0.20), rgba(42, 26, 15, 0.5));
     border-color: rgba(201, 168, 96, 0.45);
     color: #E8D8B0;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 :root[data-theme="dark"] .header-meta .btn-badge:hover {
     background: linear-gradient(180deg, #C9A860 0%, #A88A48 100%);
     color: #1A1208;
     border-color: var(--brass-light);
 }
-
 :root[data-theme="dark"] .theme-toggle {
     background: linear-gradient(180deg, #3A2818, #1E1408);
     border-color: var(--brass);
     color: #E0C080;
-    box-shadow:
-        inset 0 1px 0 rgba(201, 168, 96, 0.15),
-        0 1px 2px rgba(0, 0, 0, 0.4);
-}
-:root[data-theme="dark"] .theme-toggle:hover {
-    box-shadow:
-        inset 0 1px 0 rgba(201, 168, 96, 0.25),
-        0 2px 8px rgba(201, 168, 96, 0.35);
 }
 
-/* ------------------------------------------------------------
-   4. ПАНЕЛИ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .panel {
+/* Panels */
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .modal-content,
+:root[data-theme="dark"] .guide-section {
     background-color: var(--parch-1);
     background-image:
         url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='ppd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23ppd)'/></svg>");
     border-color: var(--brass);
+}
+:root[data-theme="dark"] .panel {
     box-shadow:
         0 0 0 3px var(--parch-1),
         0 0 0 4px var(--brass),
-        0 4px 12px rgba(0, 0, 0, 0.45),
-        inset 0 0 40px rgba(201, 168, 96, 0.04);
-}
-
-:root[data-theme="dark"] .panel h2 {
-    color: var(--ink);
-    border-bottom-color: var(--brass);
+        0 4px 12px rgba(0, 0, 0, 0.45);
 }
 :root[data-theme="dark"] .panel h2::after {
     background: var(--parch-1);
-    color: var(--brass);
 }
 
-:root[data-theme="dark"] #panel-online-chart::before,
-:root[data-theme="dark"] #panel-online-chart::after,
-:root[data-theme="dark"] #panel-event-log::before,
-:root[data-theme="dark"] #panel-event-log::after {
-    color: var(--brass);
-}
-
-/* ------------------------------------------------------------
-   5. STAT-КАРТОЧКИ
-   ------------------------------------------------------------ */
+/* Stat cards */
 :root[data-theme="dark"] .stat-card {
     background: radial-gradient(ellipse at 30% 30%, #3A2818 0%, #2A1E10 70%, #1E1408 100%);
     border-color: var(--brass);
-    box-shadow:
-        inset 0 1px 0 rgba(201, 168, 96, 0.15),
-        inset 0 -1px 2px rgba(0, 0, 0, 0.5),
-        0 3px 8px rgba(0, 0, 0, 0.4);
-}
-:root[data-theme="dark"] .stat-card:hover {
-    border-color: var(--brass-light);
-    box-shadow:
-        inset 0 1px 0 rgba(201, 168, 96, 0.25),
-        0 6px 18px rgba(0, 0, 0, 0.55);
 }
 :root[data-theme="dark"] .stat-card .stat-icon {
     background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%, #5A4418);
     color: #1A1208;
 }
-:root[data-theme="dark"] .stat-card .stat-icon svg {
-    stroke: #1A1208;
-}
-:root[data-theme="dark"] .stat-card .stat-value {
-    color: var(--ink);
-}
-:root[data-theme="dark"] .stat-card .stat-label {
-    color: var(--ink-faded);
-}
+:root[data-theme="dark"] .stat-card .stat-icon svg { stroke: #1A1208; }
 
-/* ------------------------------------------------------------
-   6. ТАБЫ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .tab {
-    background: var(--parch-3);
-    border-color: var(--brass);
-    color: var(--ink-soft);
-}
-:root[data-theme="dark"] .tab:hover {
+/* Guide nav */
+:root[data-theme="dark"] .guide-nav {
     background: var(--parch-1);
-    color: var(--ink);
-}
-:root[data-theme="dark"] .tab.active {
-    background: var(--parch-1);
-    color: var(--ink);
-    border-color: var(--brass);
-    border-bottom-color: var(--parch-1);
-    box-shadow: inset 0 2px 0 var(--brass);
-}
-
-/* ------------------------------------------------------------
-   7. ТАБЛИЦА (fallback, если карточки отключены)
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .table-wrap {
-    background: var(--parch-1);
-    border-color: var(--brass-dark);
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
-}
-:root[data-theme="dark"] #countries-table thead {
-    background: linear-gradient(180deg, var(--parch-3), var(--parch-4));
-}
-:root[data-theme="dark"] #countries-table th {
-    color: var(--ink);
-    border-bottom-color: var(--brass);
-}
-:root[data-theme="dark"] #countries-table tbody tr {
-    border-top-color: rgba(201, 168, 96, 0.25);
-}
-:root[data-theme="dark"] #countries-table tbody tr:hover {
-    background: rgba(201, 168, 96, 0.08);
-}
-:root[data-theme="dark"] #countries-table td {
-    color: var(--ink-soft);
-}
-:root[data-theme="dark"] #countries-table td.name { color: var(--ink); }
-
-/* ------------------------------------------------------------
-   8. ЛЕНТА СОБЫТИЙ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .event-log-item {
-    background: rgba(201, 168, 96, 0.05);
-    border-color: rgba(201, 168, 96, 0.2);
-}
-:root[data-theme="dark"] .event-log-item:hover {
-    background: rgba(201, 168, 96, 0.12);
-}
-:root[data-theme="dark"] .event-log-icon {
-    background: rgba(0, 0, 0, 0.4);
-    border-color: rgba(201, 168, 96, 0.3);
-}
-:root[data-theme="dark"] .event-log-msg { color: var(--ink-soft); }
-:root[data-theme="dark"] .event-log-msg .country-link { color: var(--wax-light); }
-:root[data-theme="dark"] .event-log-time { color: var(--ink-pale); }
-:root[data-theme="dark"] .event-new-badge {
-    background: rgba(201, 168, 96, 0.25);
-    color: #F4EBD3;
     border-color: var(--brass);
 }
-
-/* ------------------------------------------------------------
-   9. КАРТОЧКИ ИГРОКОВ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .player-card {
-    background: rgba(201, 168, 96, 0.05);
-    border-color: rgba(201, 168, 96, 0.35);
+:root[data-theme="dark"] .guide-nav a:hover {
+    background: rgba(201, 168, 96, 0.10);
 }
-:root[data-theme="dark"] .player-card:hover {
-    background: rgba(201, 168, 96, 0.12);
-    border-color: var(--brass);
-}
-:root[data-theme="dark"] .player-card-meta span {
-    background: rgba(0, 0, 0, 0.35);
-    border-color: rgba(201, 168, 96, 0.25);
-    color: var(--ink-faded);
-}
-:root[data-theme="dark"] .player-card-badge.leader {
-    background: rgba(201, 168, 96, 0.30);
-    color: #F4D990;
-    border-color: var(--brass);
-}
-:root[data-theme="dark"] .player-card-badge.co-ruler {
-    background: rgba(184, 48, 48, 0.25);
-    color: #F0A0A0;
-    border-color: rgba(184, 48, 48, 0.5);
+:root[data-theme="dark"] .guide-nav a.active {
+    background: rgba(201, 168, 96, 0.20);
+    color: var(--wax-light);
 }
 
-/* ------------------------------------------------------------
-   10. КНОПКИ / ПОЛЯ ВВОДА
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .btn,
-:root[data-theme="dark"] .map-btn,
-:root[data-theme="dark"] .player-modal-btn,
-:root[data-theme="dark"] .icon-btn {
-    background: linear-gradient(180deg, var(--parch-1) 0%, var(--parch-3) 100%);
-    border-color: var(--brass);
-    color: var(--ink);
-    box-shadow:
-        inset 0 1px 0 rgba(201, 168, 96, 0.15),
-        0 1px 2px rgba(0, 0, 0, 0.3);
-}
-:root[data-theme="dark"] .btn:hover,
-:root[data-theme="dark"] .map-btn:hover,
-:root[data-theme="dark"] .player-modal-btn:hover,
-:root[data-theme="dark"] .icon-btn:hover {
-    background: linear-gradient(180deg, var(--parch-2) 0%, var(--parch-4) 100%);
-    border-color: var(--brass-light);
-    color: var(--ink);
-}
-
-:root[data-theme="dark"] .map-btn.btn-capital {
-    background: linear-gradient(180deg, var(--wax-light) 0%, var(--wax) 100%);
-    border-color: var(--wax);
-    color: #F4EBD3;
-}
-:root[data-theme="dark"] .map-btn.btn-capital:hover {
-    background: linear-gradient(180deg, #D04040 0%, #8A1818 100%);
-    color: #FFF0D8;
-}
-
+/* Inputs */
 :root[data-theme="dark"] .cmd-search,
 :root[data-theme="dark"] input[type="text"],
 :root[data-theme="dark"] input[type="number"],
@@ -383,11 +192,6 @@
     background: #1A1008;
     border-color: var(--brass);
     color: var(--ink);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-:root[data-theme="dark"] .cmd-search::placeholder,
-:root[data-theme="dark"] input::placeholder {
-    color: var(--ink-pale);
 }
 :root[data-theme="dark"] .cmd-search:focus,
 :root[data-theme="dark"] input:focus {
@@ -395,390 +199,48 @@
     box-shadow: 0 0 0 2px rgba(201, 168, 96, 0.25);
 }
 
-/* ------------------------------------------------------------
-   11. МОДАЛКА
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .modal-overlay {
-    background: rgba(0, 0, 0, 0.85);
-}
+/* Modal overlay */
+:root[data-theme="dark"] .modal-overlay { background: rgba(0, 0, 0, 0.85); }
 :root[data-theme="dark"] .modal-content {
-    background-color: var(--parch-1);
-    background-image:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='mcd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23mcd)'/></svg>");
-    border-color: var(--brass);
     box-shadow:
         0 0 0 4px var(--parch-2),
         0 0 0 5px var(--brass-dark),
         0 12px 48px rgba(0, 0, 0, 0.85);
 }
-:root[data-theme="dark"] .modal-close {
-    background: var(--parch-3);
-    border-color: var(--brass);
-    color: var(--ink-soft);
-}
-:root[data-theme="dark"] .modal-close:hover {
-    background: var(--wax);
-    color: #F4EBD3;
-}
 
-:root[data-theme="dark"] .player-modal-header h2 {
-    color: var(--ink);
-    -webkit-text-fill-color: var(--ink);
-}
-:root[data-theme="dark"] .player-modal-status.online {
-    background: rgba(122, 160, 72, 0.15);
-    color: var(--olive);
-    border-color: rgba(122, 160, 72, 0.4);
-}
-:root[data-theme="dark"] .player-modal-status.offline {
-    background: rgba(128, 107, 72, 0.15);
-    color: var(--ink-faded);
-    border-color: var(--brass);
-}
-
+/* Player modal */
 :root[data-theme="dark"] .player-viewer-wrap {
     background:
         radial-gradient(circle at 50% 35%, rgba(201, 168, 96, 0.15), transparent 65%),
         linear-gradient(180deg, #2A1E10 0%, #0A0604 100%);
     border-color: var(--brass);
 }
-:root[data-theme="dark"] .player-viewer-hint { color: var(--ink-faded); }
-
+:root[data-theme="dark"] .player-viewer-loading {
+    background: rgba(42, 30, 16, 0.85);
+}
 :root[data-theme="dark"] .player-panel {
     background: rgba(201, 168, 96, 0.05);
     border-color: var(--brass);
 }
-:root[data-theme="dark"] .player-panel-title {
-    background: var(--parch-1);
-    color: var(--wax-light);
-    border-bottom-color: var(--brass);
-}
-:root[data-theme="dark"] .player-panel-row {
-    border-bottom-color: rgba(201, 168, 96, 0.2);
-}
-:root[data-theme="dark"] .player-panel-row:hover {
-    background: rgba(201, 168, 96, 0.06);
-}
 
-/* ------------------------------------------------------------
-   12. ГАЙД
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .guide-nav {
-    background: var(--parch-1);
-    border-color: var(--brass);
-    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
-}
-:root[data-theme="dark"] .guide-nav-title {
-    color: var(--ink-faded);
-    border-bottom-color: var(--brass);
-}
-:root[data-theme="dark"] .guide-nav a {
-    color: var(--ink-soft);
-}
-:root[data-theme="dark"] .guide-nav a:hover {
-    background: rgba(201, 168, 96, 0.10);
-    color: var(--ink);
-}
-:root[data-theme="dark"] .guide-nav a.active {
-    background: rgba(201, 168, 96, 0.20);
-    color: var(--wax-light);
-}
-
-:root[data-theme="dark"] .guide-section {
-    background-color: var(--parch-1);
-    background-image:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='gsd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23gsd)'/></svg>");
-    border-color: var(--brass);
-    box-shadow:
-        0 0 0 3px var(--parch-1),
-        0 0 0 4px var(--brass);
-    color: var(--ink);
-}
-:root[data-theme="dark"] .guide-section h2 {
-    color: var(--ink);
-    border-bottom-color: var(--brass);
-}
-:root[data-theme="dark"] .guide-section h3 { color: var(--wax-light); }
-:root[data-theme="dark"] .guide-section b { color: #FFF0D8; }
-:root[data-theme="dark"] .guide-section code {
-    background: #1A1008;
-    border-color: var(--brass);
-    color: #E0B860;
-}
-:root[data-theme="dark"] .guide-section code[data-copy]:hover {
-    background: var(--wax);
-    border-color: var(--wax);
-    color: #F4EBD3;
-}
-:root[data-theme="dark"] .guide-note {
-    background: rgba(201, 168, 96, 0.10);
-    border-color: var(--brass);
-    color: var(--ink-soft);
-}
-:root[data-theme="dark"] .guide-note b { color: var(--wax-light); }
-
-:root[data-theme="dark"] .cmd-row {
-    background: rgba(201, 168, 96, 0.06);
-    border-color: var(--brass);
-    color: var(--ink);
-}
-:root[data-theme="dark"] .cmd-row:hover {
-    background: rgba(201, 168, 96, 0.14);
-}
-:root[data-theme="dark"] .cmd-row span { color: var(--ink-faded); }
-
-:root[data-theme="dark"] .faq-item {
-    background: rgba(201, 168, 96, 0.05);
-    border-color: var(--brass);
-}
-:root[data-theme="dark"] .faq-item summary { color: var(--ink); }
-:root[data-theme="dark"] .faq-item p,
-:root[data-theme="dark"] .faq-item ul { color: var(--ink-soft); }
-
-/* ------------------------------------------------------------
-   13. КОМАНДЫ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .command-item {
-    background: rgba(201, 168, 96, 0.05);
-    border-color: var(--brass);
-}
-:root[data-theme="dark"] .command-item:hover {
-    border-color: var(--brass-light);
-    background: rgba(201, 168, 96, 0.12);
-}
-:root[data-theme="dark"] .command-item .cmd-desc { color: var(--ink-soft); }
-:root[data-theme="dark"] .command-item .cmd-plugin { color: var(--wax-light); }
-:root[data-theme="dark"] .command-item .cmd-name code { color: #E0B860; }
-
-/* ------------------------------------------------------------
-   14. БОНУСЫ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .jackpot-value {
-    background: linear-gradient(180deg, #F4D990 0%, #C9A860 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-:root[data-theme="dark"] .jackpot-hint { color: var(--ink-faded); }
-
-:root[data-theme="dark"] .event-item,
-:root[data-theme="dark"] .war-item,
-:root[data-theme="dark"] .bounty-item {
-    background: rgba(201, 168, 96, 0.05);
-    border-color: var(--brass);
-    color: var(--ink);
-}
-:root[data-theme="dark"] .event-item .name,
-:root[data-theme="dark"] .war-item .name,
-:root[data-theme="dark"] .bounty-item .name { color: var(--ink); }
-:root[data-theme="dark"] .event-item .desc,
-:root[data-theme="dark"] .war-item .desc,
-:root[data-theme="dark"] .bounty-item .desc { color: var(--ink-faded); }
-
-/* ------------------------------------------------------------
-   15. СПАРКЛАЙН
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .sparkline-wrap {
-    background: #0A0604;
-    border-color: var(--brass);
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4);
-}
-:root[data-theme="dark"] .chart-stat {
-    background: rgba(201, 168, 96, 0.10);
-    border-color: rgba(201, 168, 96, 0.35);
-    color: var(--ink-soft);
-}
-:root[data-theme="dark"] .chart-stat b { color: #F0C080; }
-
-/* ------------------------------------------------------------
-   16. КАРТА
-   ------------------------------------------------------------ */
+/* Map */
 :root[data-theme="dark"] .map-viewport {
     background: #0A0604;
-    border-color: var(--brass);
     box-shadow:
         0 0 0 3px var(--parch-1),
         0 0 0 4px var(--brass-dark),
-        inset 0 0 40px rgba(0, 0, 0, 0.7),
-        0 4px 12px rgba(0, 0, 0, 0.5);
+        inset 0 0 40px rgba(0, 0, 0, 0.7);
 }
-
 :root[data-theme="dark"] .map-layers-panel,
 :root[data-theme="dark"] .map-layers-restore {
     background: rgba(30, 20, 8, 0.96);
-    border-color: var(--brass);
-    color: var(--ink);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-:root[data-theme="dark"] .map-layers-header { border-bottom-color: var(--brass); }
-:root[data-theme="dark"] .map-layers-title { color: var(--ink-faded); }
-:root[data-theme="dark"] .map-layers-close { color: var(--ink-faded); }
-:root[data-theme="dark"] .map-layers-close:hover { color: var(--wax-light); }
-:root[data-theme="dark"] .layer-toggle { color: var(--ink-soft); }
-:root[data-theme="dark"] .layer-toggle input { accent-color: var(--wax); }
-:root[data-theme="dark"] .map-layers-timeline {
-    color: var(--ink-faded);
-    border-top-color: var(--brass);
-}
-:root[data-theme="dark"] .map-layers-restore:hover {
-    background: var(--brass);
-    color: #1A1208;
-}
-
-:root[data-theme="dark"] .legend-item {
-    background: rgba(201, 168, 96, 0.10);
-    border-color: var(--brass);
     color: var(--ink);
 }
-:root[data-theme="dark"] .legend-item:hover { border-color: var(--brass-light); }
-:root[data-theme="dark"] .legend-item.highlight {
-    border-color: var(--wax-light);
-    background: rgba(184, 48, 48, 0.15);
-}
 
-:root[data-theme="dark"] .map-fullscreen-hint {
-    background: rgba(30, 20, 8, 0.92);
-    border-color: var(--brass);
-    color: var(--ink-soft);
-}
-
-:root[data-theme="dark"] .map-symbol-legend {
-    background: rgba(201, 168, 96, 0.06);
-    border-color: var(--brass);
-}
-:root[data-theme="dark"] .map-symbol-legend-header { background: rgba(0, 0, 0, 0.3); }
-:root[data-theme="dark"] .map-symbol-legend-header:hover { background: rgba(201, 168, 96, 0.15); }
-:root[data-theme="dark"] .map-symbol-legend-title { color: var(--ink); }
-:root[data-theme="dark"] .map-symbol-legend-hint  { color: var(--ink-faded); }
-:root[data-theme="dark"] .map-symbol-legend-toggle { color: var(--ink-faded); }
-:root[data-theme="dark"] .msl-item { background: rgba(0, 0, 0, 0.25); }
-:root[data-theme="dark"] .msl-item:hover { background: rgba(0, 0, 0, 0.45); }
-:root[data-theme="dark"] .msl-label { color: var(--ink); }
-:root[data-theme="dark"] .msl-desc  { color: var(--ink-faded); }
-
-/* ------------------------------------------------------------
-   17. КАРТОЧКИ СТРАН
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .country-cards-mobile .ccm-card {
-    background-color: var(--parch-1);
-    background-image:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='ccd'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.02 0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23ccd)'/></svg>");
-    border-color: var(--brass);
-    box-shadow:
-        0 0 0 2px var(--parch-1),
-        0 0 0 3px var(--brass),
-        0 3px 10px rgba(0, 0, 0, 0.45);
-    color: var(--ink);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-card:hover {
-    box-shadow:
-        0 0 0 2px var(--parch-1),
-        0 0 0 3px var(--brass-light),
-        0 8px 22px rgba(0, 0, 0, 0.6);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-name {
-    color: var(--ink);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-owner {
-    color: var(--ink-faded);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-avatar {
-    background: #1A1008;
-    border-color: var(--brass);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-head::after {
-    color: var(--brass);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-label {
-    color: var(--ink-faded);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-value {
-    color: var(--ink);
-}
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-value.money { color: #A8C870; }
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-value.energy { color: #F0B060; }
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-value.delta.up { color: #A8C870; }
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-value.delta.down { color: #F09090; }
-:root[data-theme="dark"] .country-cards-mobile .ccm-stat-value.delta.flat { color: var(--ink-pale); }
-
-/* ------------------------------------------------------------
-   18. TOAST
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .toast {
-    background: var(--wax);
-    color: #FFF0D8;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
-    border-color: var(--brass);
-}
-
-/* ------------------------------------------------------------
-   19. FOOTER
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] footer {
-    border-top-color: var(--brass);
-    color: var(--ink-faded);
-}
-:root[data-theme="dark"] footer strong { color: var(--wax-light); }
-
-/* ------------------------------------------------------------
-   20. СТАТУСЫ / ЗАГРУЗКИ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .empty-hint,
-:root[data-theme="dark"] td.loading { color: var(--ink-faded); }
-:root[data-theme="dark"] .spinner {
-    border-color: rgba(201, 168, 96, 0.25);
-    border-top-color: var(--wax-light);
-}
-
-/* Skeleton shimmer — на тёмном фоне чуть ярче */
+/* Skeleton */
 :root[data-theme="dark"] .panel-skeleton-block {
     background: linear-gradient(90deg,
         rgba(201, 168, 96, 0.06) 0%,
         rgba(201, 168, 96, 0.20) 50%,
         rgba(201, 168, 96, 0.06) 100%);
-}
-
-/* ------------------------------------------------------------
-   21. МОБИЛЬНЫЙ BOTTOM-NAV
-   ------------------------------------------------------------ */
-@media (max-width: 768px) {
-    :root[data-theme="dark"] .bottom-nav {
-        background: linear-gradient(180deg, #1A1208 0%, #0A0604 100%);
-        border-top-color: var(--brass);
-        backdrop-filter: none;
-    }
-    :root[data-theme="dark"] .bottom-nav .bn-btn {
-        color: rgba(232, 216, 176, 0.6);
-    }
-    :root[data-theme="dark"] .bottom-nav .bn-btn.active {
-        color: #F4D990;
-        background: rgba(201, 168, 96, 0.15);
-    }
-    :root[data-theme="dark"] .bottom-nav .bn-btn.active::after {
-        background: var(--brass-light);
-        box-shadow: 0 0 10px var(--brass);
-    }
-    :root[data-theme="dark"] .ptr-indicator {
-        background: rgba(42, 30, 16, 0.96);
-        border-color: var(--brass);
-        color: var(--wax-light);
-    }
-}
-
-/* ------------------------------------------------------------
-   22. FLASH-АНИМАЦИИ В ТЁМНОЙ ТЕМЕ
-   ------------------------------------------------------------ */
-:root[data-theme="dark"] .event-log-item.flash-new {
-    animation: themeEventFlash 1.8s cubic-bezier(.2, 1, .3, 1);
-}
-@keyframes themeEventFlash {
-    0%   { background: rgba(201, 168, 96, 0.30); box-shadow: 0 0 22px rgba(201, 168, 96, 0.5); }
-    100% { background: rgba(201, 168, 96, 0.05); box-shadow: none; }
-}
-:root[data-theme="dark"] tr.row-flash-new td {
-    animation: themeRowFlash 1.8s cubic-bezier(.2, 1, .3, 1);
-}
-@keyframes themeRowFlash {
-    0%   { background-color: rgba(201, 168, 96, 0.25); }
-    100% { background-color: transparent; }
 }

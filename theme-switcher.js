@@ -1,18 +1,8 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · THEME-SWITCHER.JS v1.0
+   SOVEREIGNTY PANEL · THEME-SWITCHER.JS v2.0
    ============================================================
    Переключатель светлой / тёмной / авто темы.
-
-   КАК РАБОТАЕТ:
-     1. В <head> стоит маленький inline-скрипт, который применяет
-        тему СРАЗУ при загрузке (чтобы не было "вспышки" светлой темы).
-     2. Этот модуль вешает обработчик клика на кнопку #theme-toggle
-        и переключает режимы: auto → light → dark → auto.
-     3. Выбор хранится в localStorage под ключом panel_theme.
-     4. В режиме auto мы следим за prefers-color-scheme и мгновенно
-        переключаемся, если пользователь сменил тему ОС.
-
-   ПОДКЛЮЧЕНИЕ: последним <script> в index.html.
+   v2.0: SVG-иконки вместо эмодзи (sun / moon / theme).
    ============================================================ */
 (function () {
     'use strict';
@@ -20,9 +10,6 @@
     var STORAGE_KEY = 'panel_theme';
     var html = document.documentElement;
 
-    // ============================================================
-    // 1. Утилиты
-    // ============================================================
     function detectAuto() {
         try {
             return window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -46,9 +33,33 @@
         try { localStorage.setItem(STORAGE_KEY, v); } catch (e) {}
     }
 
-    // ============================================================
-    // 2. Применение темы
-    // ============================================================
+    function updateButton(mode, effective) {
+        var btn = document.getElementById('theme-toggle');
+        if (!btn) return;
+
+        var iconName;
+        var label;
+        if (mode === 'auto') {
+            iconName = 'theme';
+            label = 'Тема: авто (' + (effective === 'dark' ? 'тёмная' : 'светлая') + ')';
+        } else if (mode === 'dark') {
+            iconName = 'moon';
+            label = 'Тема: тёмная';
+        } else {
+            iconName = 'sun';
+            label = 'Тема: светлая';
+        }
+
+        btn.innerHTML = '';
+        if (window.PanelIcons && window.PanelIcons.element) {
+            var svg = window.PanelIcons.element(iconName, 18);
+            if (svg) btn.appendChild(svg);
+        }
+
+        btn.title = label + ' — клик для переключения';
+        btn.setAttribute('aria-label', label);
+    }
+
     function applyTheme(mode) {
         var effective = (mode === 'auto') ? detectAuto() : mode;
         html.setAttribute('data-theme', effective);
@@ -56,61 +67,27 @@
         updateButton(mode, effective);
     }
 
-    function updateButton(mode, effective) {
-        var btn = document.getElementById('theme-toggle');
-        if (!btn) return;
-
-        var icon, title;
-        if (mode === 'auto') {
-            icon = (effective === 'dark') ? '🌗' : '🌓';
-            title = 'Тема: авто (' +
-                (effective === 'dark' ? 'тёмная' : 'светлая') + ')';
-        } else if (mode === 'dark') {
-            icon = '🌙';
-            title = 'Тема: тёмная';
-        } else {
-            icon = '☀️';
-            title = 'Тема: светлая';
-        }
-
-        btn.textContent = icon;
-        btn.title = title + ' — клик для переключения';
-        btn.setAttribute('aria-label', title);
-    }
-
-    // ============================================================
-    // 3. Клик по кнопке
-    // ============================================================
     function cycle() {
         var cur = getStored();
-        var next;
-        // auto → light → dark → auto
-        if (cur === 'auto') next = 'light';
-        else if (cur === 'light') next = 'dark';
-        else next = 'auto';
-
+        var next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
         setStored(next);
         applyTheme(next);
 
         var label = { auto: 'Авто', light: 'Светлая', dark: 'Тёмная' }[next] || next;
         if (typeof window.showToast === 'function') {
-            window.showToast('🎨 Тема: ' + label);
+            window.showToast('Тема: ' + label);
         }
     }
 
-    // ============================================================
-    // 4. Boot
-    // ============================================================
     function boot() {
-        applyTheme(getStored());
+        // Небольшая задержка, чтобы panel-icons.js успел определить window.PanelIcons
+        setTimeout(function () {
+            applyTheme(getStored());
+        }, 0);
 
         var btn = document.getElementById('theme-toggle');
-        if (btn) {
-            btn.addEventListener('click', cycle);
-        }
+        if (btn) btn.addEventListener('click', cycle);
 
-        // Следим за prefers-color-scheme: если режим auto —
-        // мгновенно реагируем на смену темы ОС.
         try {
             var mq = window.matchMedia('(prefers-color-scheme: dark)');
             var handler = function () {
@@ -120,8 +97,7 @@
             else if (mq.addListener) mq.addListener(handler);
         } catch (e) {}
 
-        console.log('[ThemeSwitcher] v1.0 ready, mode=' + getStored() +
-            ', effective=' + html.getAttribute('data-theme'));
+        console.log('[ThemeSwitcher] v2.0 ready, mode=' + getStored());
     }
 
     if (document.readyState === 'loading') {
@@ -130,13 +106,9 @@
         boot();
     }
 
-    // Публичный API — на случай, если кто-то захочет переключать вручную.
     window.ThemeSwitcher = {
         get: getStored,
-        set: function (mode) {
-            setStored(mode);
-            applyTheme(mode);
-        },
+        set: function (mode) { setStored(mode); applyTheme(mode); },
         cycle: cycle
     };
 })();

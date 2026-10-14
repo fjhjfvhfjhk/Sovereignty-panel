@@ -1,115 +1,12 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v1.4
+   SOVEREIGNTY PANEL · PANEL-DETAIL.CSS v2.0
    ============================================================
-   ФИКС v1.4: усиленная защита от съезда колонок в таблице «Топ стран».
-
-   ЧТО БЫЛО В v1.3 И ПОЧЕМУ НЕ РАБОТАЛО:
-     - `table-layout: fixed` + `<colgroup>` — этого достаточно в теории,
-       но если td-контент (длинное имя лидера без пробелов, или
-       emblem-строки без word-break) не влезает, некоторые браузеры
-       (Chromium ~2025, Firefox ~2026) игнорируют `colgroup` и берут
-       ширины из содержимого.
-     - Также если `style.css` грузится ПОСЛЕ `panel-detail.css`, его
-       правило `td { white-space: nowrap; }` (без overflow: hidden)
-       перекрывает фикс.
-
-   ЧТО СДЕЛАНО В v1.4:
-     1. Явно `table-layout: fixed !important; width: 100% !important`.
-     2. Ширины заданы ДВУМЯ способами: через <col> И через
-        `th:nth-child(N), td:nth-child(N)` — чтобы работало даже если
-        браузер проигнорировал colgroup.
-     3. Каждая td: `min-width: 0; max-width: 100%; overflow: hidden;
-        text-overflow: ellipsis; white-space: nowrap;`.
-        `min-width: 0` — ключевое: без него содержимое раздувает
-        ячейку, и вся таблица "разъезжается".
-     4. Числовые столбцы (rank, claims, bank, energy, activity, pacts)
-        получают `font-variant-numeric: tabular-nums` — цифры
-        одинаковой ширины, ничего не скачет.
-     5. Текстовые столбцы (country, owner) получают
-        `overflow: hidden; text-overflow: ellipsis; word-break: break-word`.
+   v2.0: убраны индиго-остатки (#4f5cd9, #6366f1, #c7d2fe).
+   Стили для таблицы стран, дельта-бейджей, ленты событий.
    ============================================================ */
-
-/* ------------------------------------------------------------
-   1. STAT-CARDS
-   ------------------------------------------------------------ */
-.stats-grid { gap: 14px; }
-.stat-card {
-    padding: 20px 18px 18px;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    overflow: hidden;
-    transition: transform .22s cubic-bezier(.2, 1, .3, 1),
-                border-color .22s, box-shadow .3s;
-}
-.stat-card:hover {
-    border-color: #4f5cd9;
-    transform: translateY(-3px);
-    box-shadow: 0 12px 30px rgba(99, 102, 241, .18);
-}
-.stat-card .stat-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, .22), rgba(168, 139, 232, .12));
-    border: 1px solid rgba(99, 102, 241, .28);
-    display: grid;
-    place-items: center;
-    font-size: 22px;
-    margin: 0;
-    color: #c7d2fe;
-    flex-shrink: 0;
-}
-.stat-card .stat-value {
-    font-size: 30px;
-    font-weight: 800;
-    line-height: 1.1;
-    color: #c7d2fe;
-    margin-bottom: 0;
-    letter-spacing: -.02em;
-}
-.stat-card .stat-label {
-    font-size: 11px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    margin-bottom: 0;
-}
-.stat-trend {
-    position: absolute;
-    top: 16px; right: 16px;
-    font-size: 11px; font-weight: 700;
-    padding: 3px 8px; border-radius: 12px;
-    letter-spacing: .02em;
-    font-variant-numeric: tabular-nums;
-    display: inline-flex; align-items: center; gap: 3px;
-}
-.stat-trend.up { background: rgba(16, 185, 129, .15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, .3); }
-.stat-trend.down { background: rgba(239, 68, 68, .15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, .3); }
-
-.stat-card.is-live::before {
-    content: "";
-    position: absolute;
-    top: 16px; left: 16px;
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, .6);
-    animation: panelLivePulse 2s ease-out infinite;
-}
-@keyframes panelLivePulse {
-    0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, .6); }
-    100% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
-}
-
-/* ------------------------------------------------------------
-   2. ТОП СТРАН — ЖЁСТКАЯ сетка колонок (v1.4)
-   ------------------------------------------------------------ */
 
 .table-wrap {
     overflow-x: auto;
-    /* Изолируем контекст форматирования — таблица не должна тянуть
-       ширину родителя. */
     max-width: 100%;
 }
 
@@ -119,7 +16,6 @@
     border-collapse: collapse;
 }
 
-/* Заголовок и ячейки — общая база. */
 #countries-table th,
 #countries-table td {
     padding: 13px 10px;
@@ -135,14 +31,13 @@
 #countries-table th {
     font-size: 11px;
     letter-spacing: .08em;
-    color: var(--text-dim);
+    color: var(--ink-faded);
     text-transform: uppercase;
     font-weight: 600;
-    background: var(--bg-hover);
-    border-bottom: 1px solid var(--border);
+    background: var(--parch-3);
+    border-bottom: 1px solid var(--brass-dark);
 }
 
-/* v1.4: ширины через colgroup. */
 #countries-table colgroup col.col-rank     { width: 6%;  }
 #countries-table colgroup col.col-country  { width: 17%; }
 #countries-table colgroup col.col-owner    { width: 18%; }
@@ -152,9 +47,6 @@
 #countries-table colgroup col.col-activity { width: 13%; }
 #countries-table colgroup col.col-pacts    { width: 12%; }
 
-/* v1.4: ТЕ ЖЕ ширины через nth-child — страховка на случай, если
-   браузер проигнорировал colgroup (бывает при определённых комбинациях
-   border-collapse + fixed + теперь уже устаревших рендер-движках). */
 #countries-table th:nth-child(1), #countries-table td:nth-child(1) { width: 6%;  }
 #countries-table th:nth-child(2), #countries-table td:nth-child(2) { width: 17%; }
 #countries-table th:nth-child(3), #countries-table td:nth-child(3) { width: 18%; }
@@ -164,7 +56,6 @@
 #countries-table th:nth-child(7), #countries-table td:nth-child(7) { width: 13%; }
 #countries-table th:nth-child(8), #countries-table td:nth-child(8) { width: 12%; }
 
-/* Числовые столбцы — табличные цифры, чтобы разряды не плясали. */
 #countries-table td.rank,
 #countries-table td.money,
 #countries-table td.energy,
@@ -174,10 +65,9 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Строка стран. */
 #countries-table tbody tr {
     position: relative;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(168, 138, 72, 0.35);
 }
 #countries-table tbody tr::before {
     content: "";
@@ -188,15 +78,12 @@
     pointer-events: none;
 }
 
-/* Столбец с названием страны — фиксированный overflow с ellipsis. */
 #countries-table td.name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* Столбец лидера — flex-раскладка (аватарка + имя). v1.4: min-width: 0
-   чтобы flex-child мог сжиматься под ellipsis. */
 .cell-owner {
     display: inline-flex;
     align-items: center;
@@ -207,14 +94,16 @@
 }
 .cell-owner-img {
     width: 16px; height: 16px;
-    border-radius: 3px;
+    border-radius: 2px;
     image-rendering: pixelated;
-    background: var(--bg-code);
+    background: var(--parch-3);
+    border: 1px solid var(--brass-dark);
     flex-shrink: 0;
     object-fit: cover;
     display: block;
 }
 .cell-owner-name {
+    font-family: 'EB Garamond', Georgia, serif;
     font-weight: 500;
     font-size: 13px;
     overflow: hidden;
@@ -223,154 +112,15 @@
     min-width: 0;
 }
 
-/* Дельта-бейдж в столбце «Чанков». */
-.delta-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 1px 5px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 700;
-    margin-left: 4px;
-    font-variant-numeric: tabular-nums;
-    vertical-align: middle;
-    white-space: nowrap;
-}
-.delta-badge.up   { background: rgba(16, 185, 129, .14); color: #6ee7b7; }
-.delta-badge.down { background: rgba(239, 68, 68, .14); color: #fca5a5; }
-.delta-badge.flat { background: rgba(139, 145, 166, .12); color: var(--text-dim); }
-
-/* ------------------------------------------------------------
-   3. ЛЕНТА СОБЫТИЙ
-   ------------------------------------------------------------ */
-.event-log-item {
-    padding: 12px 14px;
-    border-left-width: 3px;
-    position: relative;
-    gap: 10px;
-}
-.event-log-icon {
-    width: 34px; height: 34px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, .28);
-    display: grid; place-items: center;
-    flex-shrink: 0;
-    font-size: 17px;
-}
-.event-log-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.event-log-msg { font-size: 13px; line-height: 1.45; }
-.event-log-msg .country-link {
-    color: var(--accent-light);
-    text-decoration: none;
-    font-weight: 600;
-    cursor: pointer;
-    transition: color .15s;
-}
-.event-log-msg .country-link:hover { color: #fff; text-decoration: underline; }
-
-.event-new-badge {
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: .1em;
-    padding: 2px 6px;
-    border-radius: 6px;
-    background: rgba(99, 102, 241, .25);
-    color: #c7d2fe;
-    border: 1px solid rgba(99, 102, 241, .4);
-    margin-left: 6px;
-    vertical-align: middle;
-}
-
-/* ------------------------------------------------------------
-   4. КАРТОЧКИ ИГРОКОВ
-   ------------------------------------------------------------ */
-.player-card { padding: 16px; gap: 14px; align-items: flex-start; }
-.player-card-avatar img {
-    width: 52px; height: 52px;
-    border-radius: 10px;
-    border: 2px solid transparent;
-    transition: border-color .2s;
-    image-rendering: pixelated;
-    object-fit: cover;
-}
-.player-card:hover .player-card-avatar img { border-color: var(--accent); }
-.player-card-name { font-size: 15px; }
-.player-card-meta { gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-.player-card-meta span {
-    background: rgba(0, 0, 0, .25);
-    padding: 2px 7px;
-    border-radius: 8px;
-    font-size: 10.5px;
-    letter-spacing: .02em;
-}
-.player-card-meta .money { color: #6ee7b7; background: rgba(16, 185, 129, .1); }
-
-/* ------------------------------------------------------------
-   5. БЕЙДЖИ В ШАПКЕ
-   ------------------------------------------------------------ */
-.header-meta .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    font-size: 12px;
-    letter-spacing: .02em;
-    font-weight: 600;
-    transition: all .18s cubic-bezier(.2, 1, .3, 1);
-}
-#online-badge::before  { content: "👥"; font-size: 13px; }
-#updated-badge::before { content: "🕐"; font-size: 13px; }
-#refresh-btn::before   { content: "🔄"; font-size: 13px; }
-.header-meta .badge:hover { transform: translateY(-1px); }
-
-/* ------------------------------------------------------------
-   6. ГРАФИК ОНЛАЙНА
-   ------------------------------------------------------------ */
-#panel-online-chart .chart-stats { gap: 10px; }
-.chart-stat {
-    padding: 5px 12px;
-    font-size: 12px;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 5px;
-}
-.chart-stat:nth-child(1)::before { content: "🟢"; font-size: 10px; }
-.chart-stat:nth-child(2)::before { content: "📊"; font-size: 10px; }
-.chart-stat:nth-child(3)::before { content: "🔺"; font-size: 10px; }
-
-/* ------------------------------------------------------------
-   7. SKELETON-СТРОКИ (v1.4) — тот же fixed-layout, что у настоящей
-   таблицы, чтобы при загрузке не было "прыжка" ширины колонок.
-   ------------------------------------------------------------ */
+/* Скелетон-строка */
 #countries-body tr.skeleton-row td {
     padding: 13px 10px;
     vertical-align: middle;
 }
 
-/* ------------------------------------------------------------
-   8. RESPONSIVE
-   ------------------------------------------------------------ */
 @media (max-width: 1024px) {
-    .stat-value { font-size: 26px; }
-    .stat-card { padding: 16px 14px 14px; }
-    .stat-icon { width: 36px; height: 36px; font-size: 19px; }
-    .player-card-avatar img { width: 48px; height: 48px; }
     #countries-table th, #countries-table td { padding: 12px 8px; font-size: 12.5px; }
 }
-
 @media (max-width: 640px) {
-    .stat-card .stat-icon { width: 32px; height: 32px; font-size: 17px; }
-    .stat-card .stat-value { font-size: 24px; }
-    .stat-trend { top: 12px; right: 12px; font-size: 10px; padding: 2px 6px; }
-    .event-log-icon { width: 30px; height: 30px; font-size: 15px; }
-    .cell-owner-img { width: 14px; height: 14px; }
-
-    /* На мобилке таблица скрыта (см. mobile.css), но на всякий случай
-       оставляем правила — если её покажут, колонки не съедут. */
     #countries-table th, #countries-table td { padding: 10px 5px; font-size: 11.5px; }
-    #countries-table th:nth-child(3), #countries-table td:nth-child(3) { width: 22%; }
-    #countries-table th:nth-child(7), #countries-table td:nth-child(7) { width: 10%; }
-    #countries-table th:nth-child(8), #countries-table td:nth-child(8) { width: 10%; }
 }
-

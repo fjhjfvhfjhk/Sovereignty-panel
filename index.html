@@ -1,7 +1,11 @@
-<!DOCTYPE html><html lang="ru"><head>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
-    <title>Панель сервера</title>    <script>
+    <title>Панель сервера</title>
+
+    <script>
     (function () {
         try {
             var mode = localStorage.getItem('panel_theme') || 'auto';
@@ -16,15 +20,9 @@
             document.documentElement.setAttribute('data-theme', 'light');
         }
     })();
-    </script>    <script>
-    (function () {
-        try {
-            if (localStorage.getItem('panel_animations') === '0') {
-                document.documentElement.classList.add('no-animations');
-            }
-        } catch (e) {}
-    })();
-    </script>    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/svg+xml" href="favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="favicon.svg">
     <link rel="manifest" href="site.webmanifest">
@@ -34,47 +32,48 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#5E4224">    <link rel="stylesheet" href="style.css?v=5.3">
-    <link rel="stylesheet" href="legend.css?v=1.0">
-    <link rel="stylesheet" href="panel-animations.css?v=1.0">
-    <link rel="stylesheet" href="panel-loading.css?v=1.0">
-    <link rel="stylesheet" href="panel-detail.css?v=1.4">
+    <meta name="theme-color" content="#5E4224">
+
+    <!-- Базовый стиль (антикварная тема встроена сюда) -->
+    <link rel="stylesheet" href="style.css?v=6.0">
     <link rel="stylesheet" href="panel-icons.css?v=1.1">
+    <link rel="stylesheet" href="panel-loading.css?v=2.0">
+    <link rel="stylesheet" href="panel-detail.css?v=2.0">
+    <link rel="stylesheet" href="legend.css?v=1.0">
     <link rel="stylesheet" href="map-enhance.css?v=1.0">
-    <link rel="stylesheet" href="mobile.css?v=1.0">
-    <link rel="stylesheet" href="mobile-overflow-fix.css?v=1.0">
-    <link rel="stylesheet" href="antique-theme.css?v=1.0">
     <link rel="stylesheet" href="country-cards.css?v=1.1">
-    <link rel="stylesheet" href="theme-switcher.css?v=1.0">
     <link rel="stylesheet" href="country-passport.css?v=1.2">
     <link rel="stylesheet" href="chronicles.css?v=1.0">
-    <link rel="stylesheet" href="guide-enhance.css?v=1.3">
-    <link rel="stylesheet" href="event-log-24h.css?v=1.0">
     <link rel="stylesheet" href="world-timeline.css?v=1.1">
+    <link rel="stylesheet" href="event-log-24h.css?v=1.0">
     <link rel="stylesheet" href="active-wars.css?v=1.0">
     <link rel="stylesheet" href="country-compare.css?v=1.0">
     <link rel="stylesheet" href="country-sparkline.css?v=1.0">
+    <link rel="stylesheet" href="guide-enhance.css?v=1.3">
     <link rel="stylesheet" href="panel-settings.css?v=1.0">
     <link rel="stylesheet" href="panel-export.css?v=1.0">
+    <link rel="stylesheet" href="mobile.css?v=1.1">
+    <link rel="stylesheet" href="mobile-overflow-fix.css?v=1.0">
+    <!-- Тёмная тема — ПОСЛЕДНЕЙ, чтобы переопределять базу -->
+    <link rel="stylesheet" href="theme-switcher.css?v=2.0">
 </head>
 <body>
-    <div id="ambient" aria-hidden="true"></div>
-    <canvas id="particles" aria-hidden="true"></canvas>    <header>
+    <header>
         <div class="container">
             <div class="header-row">
                 <h1 id="server-name">Загрузка...</h1>
                 <nav class="main-nav">
-                    <button class="nav-btn active" data-tab="overview">🏠 Обзор</button>
-                    <button class="nav-btn" data-tab="map">🗺️ Карта</button>
-                    <button class="nav-btn" data-tab="players">👥 Игроки</button>
-                    <button class="nav-btn" data-tab="chronicles">📜 Хроники</button>
-                    <button class="nav-btn" data-tab="guide">📖 Гайд</button>
-                    <button class="nav-btn" data-tab="commands">⌨️ Команды</button>
-                    <button class="nav-btn" data-tab="bonus">🎁 Бонусы</button>
+                    <button class="nav-btn active" data-tab="overview" data-icon="home">Обзор</button>
+                    <button class="nav-btn" data-tab="map" data-icon="map">Карта</button>
+                    <button class="nav-btn" data-tab="players" data-icon="users">Игроки</button>
+                    <button class="nav-btn" data-tab="chronicles" data-icon="scroll">Хроники</button>
+                    <button class="nav-btn" data-tab="guide" data-icon="book">Гайд</button>
+                    <button class="nav-btn" data-tab="commands" data-icon="keyboard">Команды</button>
+                    <button class="nav-btn" data-tab="bonus" data-icon="gift">Бонусы</button>
                 </nav>
             </div>
             <div class="header-meta">
-                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему">🌓</button>
+                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
                 <button class="ps-btn" id="panel-settings-btn" type="button" aria-label="Настройки" title="Настройки">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"/>
@@ -84,22 +83,26 @@
                 <span class="badge" id="online-badge">Онлайн: —</span>
                 <span class="badge" id="updated-badge">Обновлено: —</span>
                 <button class="badge btn-badge" id="refresh-btn">Обновить</button>
-                <a class="badge btn-badge discord-badge" href="https://discord.gg/DqmwdpBp3" target="_blank" rel="noopener" title="Discord сервера">💬 Discord</a>
+                <a class="badge btn-badge discord-badge" href="https://discord.gg/DqmwdpBp3" target="_blank" rel="noopener" title="Discord сервера">Discord</a>
             </div>
         </div>
-    </header>    <main class="container">
+    </header>
+
+    <main class="container">
         <section class="tab-content active" id="tab-overview">
             <section class="stats-grid">
-                <div class="stat-card"><div class="stat-icon">🏛️</div><div class="stat-value" id="countries-count">—</div><div class="stat-label">Стран</div></div>
-                <div class="stat-card"><div class="stat-icon">🗺️</div><div class="stat-value" id="total-claims">—</div><div class="stat-label">Всего чанков</div></div>
-                <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value" id="total-bank">—</div><div class="stat-label">Общая казна</div></div>
-                <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-value" id="total-energy">—</div><div class="stat-label">Энергия лидеров</div></div>
-                <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="total-players">—</div><div class="stat-label">Игроков</div></div>
-            </section>            <div class="overview-layout">
+                <div class="stat-card"><div class="stat-icon" data-icon="landmark" data-icon-size="22"></div><div class="stat-value" id="countries-count">—</div><div class="stat-label">Стран</div></div>
+                <div class="stat-card"><div class="stat-icon" data-icon="map" data-icon-size="22"></div><div class="stat-value" id="total-claims">—</div><div class="stat-label">Всего чанков</div></div>
+                <div class="stat-card"><div class="stat-icon" data-icon="money" data-icon-size="22"></div><div class="stat-value" id="total-bank">—</div><div class="stat-label">Общая казна</div></div>
+                <div class="stat-card"><div class="stat-icon" data-icon="bolt" data-icon-size="22"></div><div class="stat-value" id="total-energy">—</div><div class="stat-label">Энергия лидеров</div></div>
+                <div class="stat-card"><div class="stat-icon" data-icon="users" data-icon-size="22"></div><div class="stat-value" id="total-players">—</div><div class="stat-label">Игроков</div></div>
+            </section>
+
+            <div class="overview-layout">
                 <div class="overview-main">
                     <section class="panel" id="panel-online-chart">
                         <div class="panel-header">
-                            <h2>📈 Онлайн за последние 24 часа</h2>
+                            <h2 data-icon="chart">Онлайн за последние 24 часа</h2>
                             <div class="chart-stats">
                                 <span class="chart-stat">Сейчас: <b id="online-now">0</b></span>
                                 <span class="chart-stat">Средний: <b id="online-avg">0</b></span>
@@ -107,16 +110,18 @@
                             </div>
                         </div>
                         <div class="sparkline-wrap"><canvas id="sparkline-canvas"></canvas></div>
-                    </section>                    <section class="panel">
+                    </section>
+
+                    <section class="panel">
                         <div class="panel-header" id="top-countries-header">
-                            <h2>🏆 Топ стран</h2>
+                            <h2 data-icon="trophy">Топ стран</h2>
                         </div>
                         <div class="tabs">
                             <button class="tab active" data-sort="claims">По территории</button>
                             <button class="tab" data-sort="bank">По казне</button>
                             <button class="tab" data-sort="energy">По энергии</button>
                             <button class="tab" data-sort="allies">По союзам</button>
-                            <button class="tab" data-sort="activity">📊 По активности</button>
+                            <button class="tab" data-sort="activity">По активности</button>
                         </div>
                         <div class="table-wrap">
                             <table id="countries-table">
@@ -131,30 +136,36 @@
                                     <col class="col-pacts">
                                 </colgroup>
                                 <thead><tr><th>#</th><th>Страна</th><th>Лидер</th><th>Чанков</th><th>Казна</th><th>Энергия</th><th>Активность</th><th>Пакты</th></tr></thead>
-                                <tbody id="countries-body"><tr><td colspan="8" class="loading">⏳ Загрузка данных...</td></tr></tbody>
+                                <tbody id="countries-body"><tr><td colspan="8" class="loading">Загрузка данных…</td></tr></tbody>
                             </table>
                         </div>
-                    </section>                    <section class="panel" id="country-details" style="display:none;">
+                    </section>
+
+                    <section class="panel" id="country-details" style="display:none;">
                         <h2 id="detail-title">Детали страны</h2>
                         <div class="detail-grid" id="detail-content"></div>
                     </section>
-                </div>                <aside class="overview-side">
+                </div>
+
+                <aside class="overview-side">
                     <section class="panel" id="panel-event-log">
-                        <div class="panel-header"><h2>✨ Свежие события</h2></div>
-                        <div class="event-log-list" id="event-log-list"><div class="event-log-empty">⏳ Загрузка...</div></div>
+                        <div class="panel-header"><h2 data-icon="sparkles">Свежие события</h2></div>
+                        <div class="event-log-list" id="event-log-list"><div class="event-log-empty">Загрузка…</div></div>
                     </section>
                 </aside>
             </div>
-        </section>        <section class="tab-content" id="tab-map">
+        </section>
+
+        <section class="tab-content" id="tab-map">
             <section class="panel">
                 <div class="panel-header">
-                    <h2>🗺️ Карта территорий</h2>
+                    <h2 data-icon="map">Карта территорий</h2>
                 </div>
                 <div class="map-controls" style="margin-bottom:12px">
                     <button class="map-btn" id="map-reset">Сбросить</button>
                     <button class="map-btn" id="map-clear-highlight">Снять выделение</button>
-                    <button class="map-btn btn-capital" id="map-capital">🏛 К столице</button>
-                    <button class="map-btn" id="map-fullscreen">⛶ Экран</button>
+                    <button class="map-btn btn-capital" id="map-capital" data-icon="landmark">К столице</button>
+                    <button class="map-btn" id="map-fullscreen">Полный экран</button>
                 </div>
                 <div class="map-viewport" id="map-viewport">
                     <canvas id="map-canvas"></canvas>
@@ -172,7 +183,7 @@
                     <div class="map-overlay" id="map-overlay"></div>
                     <div class="map-online-counter" id="map-online-counter"></div>
                     <div class="map-placeholder" id="map-placeholder">
-                        <div class="map-placeholder-icon">🗺️</div>
+                        <div class="map-placeholder-icon" data-icon="map" data-icon-size="48"></div>
                         <p>Карта ещё не сгенерирована.<br>Подождите первого обновления от сервера.</p>
                     </div>
                     <div class="map-layers-panel" id="map-layers-panel">
@@ -180,83 +191,22 @@
                             <div class="map-layers-title">Слои</div>
                             <button class="map-layers-close" id="map-layers-close" title="Скрыть" aria-label="Скрыть">✕</button>
                         </div>
-                        <label class="layer-toggle"><input type="checkbox" id="layer-players" checked><span>👤 Игроки</span></label>
-                        <label class="layer-toggle"><input type="checkbox" id="layer-grid"><span>🔲 Сетка</span></label>
-                        <label class="layer-toggle"><input type="checkbox" id="layer-daynight" checked><span>🌗 День/Ночь</span></label>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-players" checked><span>Игроки</span></label>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-grid"><span>Сетка</span></label>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-daynight" checked><span>День/Ночь</span></label>
                         <div class="map-layers-timeline" id="daynight-status">—</div>
                     </div>
-                    <button class="map-layers-restore" id="map-layers-restore" title="Показать слои" aria-label="Показать слои">🎨</button>
+                    <button class="map-layers-restore" id="map-layers-restore" title="Показать слои" aria-label="Показать слои" data-icon="palette"></button>
                     <div class="map-fullscreen-hint" id="map-fullscreen-hint">Esc — выйти</div>
                 </div>
-                <div class="map-legend" id="map-legend"></div>                <section class="map-symbol-legend" id="map-symbol-legend">
-                    <div class="map-symbol-legend-header" id="map-symbol-legend-header">
-                        <div class="map-symbol-legend-title">
-                            🎨 Легенда карты
-                            <span class="map-symbol-legend-hint">— что обозначает каждый символ</span>
-                        </div>
-                        <button class="map-symbol-legend-toggle" id="map-symbol-legend-toggle"
-                                type="button"
-                                aria-label="Свернуть/развернуть">▾</button>
-                    </div>
-                    <div class="map-symbol-legend-body" id="map-symbol-legend-body">
-                        <div class="map-symbol-legend-grid">
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-territory"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Границы стран</div>
-                                    <div class="msl-desc">Цвет = страна.</div>
-                                </div>
-                            </div>
-                            <div class="msl-item">
-                                <div class="msl-icon"><span class="msl-capital">🏛️</span></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Столица</div>
-                                    <div class="msl-desc">Щит с короной. Захват = капитуляция.</div>
-                                </div>
-                            </div>
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-player"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Игрок онлайн</div>
-                                    <div class="msl-desc">Зелёная рамка, пульсирует.</div>
-                                </div>
-                            </div>
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-battle"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Недавняя битва</div>
-                                    <div class="msl-desc">PvP-смерть за 24 часа.</div>
-                                </div>
-                            </div>
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-light"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Источник света</div>
-                                    <div class="msl-desc">Ночью.</div>
-                                </div>
-                            </div>
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-contour"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Контуры рельефа</div>
-                                    <div class="msl-desc">Каждые 10 блоков.</div>
-                                </div>
-                            </div>
-                            <div class="msl-item">
-                                <div class="msl-icon"><div class="msl-fog"></div></div>
-                                <div class="msl-text">
-                                    <div class="msl-label">Туман войны</div>
-                                    <div class="msl-desc">Неисследованные земли.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                <div class="map-legend" id="map-legend"></div>
             </section>
-        </section>        <section class="tab-content" id="tab-players">
+        </section>
+
+        <section class="tab-content" id="tab-players">
             <section class="panel">
                 <div class="panel-header">
-                    <h2>👥 Игроки</h2>
+                    <h2 data-icon="users">Игроки</h2>
                 </div>
                 <div class="players-controls" style="margin-bottom:12px">
                     <input type="text" id="player-search" placeholder="Поиск..." class="cmd-search">
@@ -265,61 +215,75 @@
                 <div class="players-grid" id="players-grid"></div>
                 <div class="empty-hint" id="players-empty" style="display:none;">Данные об игроках пока не передаются панелью.</div>
             </section>
-        </section>        <section class="tab-content" id="tab-chronicles">
+        </section>
+
+        <section class="tab-content" id="tab-chronicles">
             <section class="panel">
                 <div class="panel-header">
-                    <h2>📜 Хроники мира</h2>
+                    <h2 data-icon="scroll">Хроники мира</h2>
                 </div>
                 <div class="chr-filters" id="chr-filters">
                     <button class="chr-filter active" data-filter="all" type="button">Все</button>
-                    <button class="chr-filter" data-filter="war" type="button">⚔ Войны</button>
-                    <button class="chr-filter" data-filter="country" type="button">🏛 Страны</button>
-                    <button class="chr-filter" data-filter="diplomacy" type="button">🤝 Дипломатия</button>
-                    <button class="chr-filter" data-filter="event" type="button">🎁 Ивенты</button>
+                    <button class="chr-filter" data-filter="war" type="button">Войны</button>
+                    <button class="chr-filter" data-filter="country" type="button">Страны</button>
+                    <button class="chr-filter" data-filter="diplomacy" type="button">Дипломатия</button>
+                    <button class="chr-filter" data-filter="event" type="button">Ивенты</button>
                 </div>
                 <div class="chr-feed" id="chr-feed">
-                    <div class="chr-empty">Загрузка летописи...</div>
+                    <div class="chr-empty">Загрузка летописи…</div>
                 </div>
             </section>
-        </section>        <section class="tab-content" id="tab-guide">
+        </section>
+
+        <section class="tab-content" id="tab-guide">
             <div class="guide-layout">
                 <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
                 <div id="guide-content"></div>
             </div>
-        </section>        <section class="tab-content" id="tab-commands">
+        </section>
+
+        <section class="tab-content" id="tab-commands">
             <section class="panel">
                 <div class="panel-header">
-                    <h2>⌨️ Команды</h2>
+                    <h2 data-icon="keyboard">Команды</h2>
                 </div>
                 <input type="text" id="cmd-search" placeholder="Поиск..." class="cmd-search" style="margin-bottom:14px">
                 <div class="commands-list" id="commands-list"></div>
             </section>
-        </section>        <section class="tab-content" id="tab-bonus">
+        </section>
+
+        <section class="tab-content" id="tab-bonus">
             <section class="panel" id="panel-jackpot" style="display:none;">
-                <h2>💎 Джекпот казино</h2>
+                <h2 data-icon="trophy">Джекпот казино</h2>
                 <div class="jackpot-display">
                     <div class="jackpot-value" id="jackpot-value">—</div>
-                    <div class="jackpot-hint">1% с каждой ставки • 0.1% шанс сорвать</div>
+                    <div class="jackpot-hint">1% с каждой ставки · 0.1% шанс сорвать</div>
                 </div>
             </section>
-            <section class="panel" id="panel-events" style="display:none;"><h2>🌍 Активные события</h2><div class="events-list" id="events-list"></div></section>
-            <section class="panel" id="panel-wars" style="display:none;"><h2>⚔️ Активные войны</h2><div class="wars-list" id="wars-list"></div></section>
+            <section class="panel" id="panel-events" style="display:none;"><h2 data-icon="sparkles">Активные события</h2><div class="events-list" id="events-list"></div></section>
+            <section class="panel" id="panel-wars" style="display:none;"><h2 data-icon="war">Активные войны</h2><div class="wars-list" id="wars-list"></div></section>
             <section class="panel" id="panel-poker" style="display:none;">
-                <h2>🃏 Топ покера за неделю</h2>
+                <h2 data-icon="trophy">Топ покера за неделю</h2>
                 <div class="table-wrap"><table><thead><tr><th>#</th><th>Игрок</th><th>Профит</th><th>Раздач</th></tr></thead><tbody id="poker-body"></tbody></table></div>
             </section>
-            <section class="panel" id="panel-bounties" style="display:none;"><h2>💀 Награды за головы</h2><div class="bounties-list" id="bounties-list"></div></section>
+            <section class="panel" id="panel-bounties" style="display:none;"><h2 data-icon="star">Награды за головы</h2><div class="bounties-list" id="bounties-list"></div></section>
             <section class="panel" id="panel-bonus-empty">
-                <h2>🎁 Бонусы</h2>
+                <h2 data-icon="gift">Бонусы</h2>
                 <p class="empty-hint">Секции появятся автоматически, когда плагины начнут экспортировать данные.</p>
             </section>
         </section>
-    </main>    <footer>
+    </main>
+
+    <footer>
         <div class="container">
             <p>Данные обновляются каждые 5 минут. Карта — раз в час.</p>
             <p class="small">Powered by <strong>Sovereignty</strong> plugin</p>
         </div>
-    </footer>    <div class="toast" id="toast"></div>    <div class="modal" id="player-modal">
+    </footer>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="modal" id="player-modal">
         <div class="modal-overlay" data-modal-close></div>
         <div class="modal-content player-modal-content">
             <button class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
@@ -348,5 +312,33 @@
                 </div>
             </div>
         </div>
-    </div>    <script src="map-layers.js?v=1.2"></script>    <script src="skin3d.js?v=4.7"></script>    <script src="legend.js?v=1.1"></script>    <script src="panel-icons.js?v=1.1"></script>    <script src="app.js?v=5.9"></script>    <script src="panel-fixes.js?v=1.0"></script>    <script src="avatars.js?v=1.0"></script>    <script src="sparkline.js?v=1.1"></script>    <script src="panel-ambient.js?v=1.0"></script>    <script src="panel-loading.js?v=1.0"></script>    <script src="panel-detail.js?v=1.3"></script>    <script src="map-enhance.js?v=1.0"></script>    <script src="mobile.js?v=1.2"></script>    <script src="country-cards.js?v=1.0"></script>    <script src="theme-switcher.js?v=1.0"></script>    <script src="country-passport.js?v=3.5"></script>    <script src="chronicles.js?v=1.0"></script>    <script src="guide-enhance.js?v=1.2"></script>    <script src="event-log-24h.js?v=3.3"></script>    <script src="world-timeline.js?v=1.2"></script>    <script src="active-wars.js?v=1.0"></script>    <script src="country-compare.js?v=1.0"></script>    <script src="country-sparkline.js?v=1.0"></script>    <script src="deep-links.js?v=1.0"></script>    <script src="panel-settings.js?v=1.0"></script>    <script src="panel-export.js?v=1.0"></script>    <script src="panel-emoji-replacer.js?v=1.0"></script></body>
+    </div>
+
+    <!-- Иконки — ПЕРВЫМИ, чтобы все остальные могли их использовать -->
+    <script src="panel-icons.js?v=1.2"></script>
+    <script src="map-layers.js?v=1.2"></script>
+    <script src="skin3d.js?v=4.7"></script>
+    <script src="legend.js?v=1.1"></script>
+    <script src="app.js?v=5.9"></script>
+    <script src="panel-fixes.js?v=1.0"></script>
+    <script src="avatars.js?v=1.0"></script>
+    <script src="sparkline.js?v=1.1"></script>
+    <script src="panel-loading.js?v=2.0"></script>
+    <script src="panel-detail.js?v=1.3"></script>
+    <script src="map-enhance.js?v=1.0"></script>
+    <script src="mobile.js?v=1.2"></script>
+    <script src="country-cards.js?v=1.0"></script>
+    <script src="theme-switcher.js?v=2.0"></script>
+    <script src="country-passport.js?v=3.5"></script>
+    <script src="chronicles.js?v=1.0"></script>
+    <script src="guide-enhance.js?v=1.2"></script>
+    <script src="event-log-24h.js?v=3.3"></script>
+    <script src="world-timeline.js?v=1.2"></script>
+    <script src="active-wars.js?v=1.0"></script>
+    <script src="country-compare.js?v=1.0"></script>
+    <script src="country-sparkline.js?v=1.0"></script>
+    <script src="deep-links.js?v=1.0"></script>
+    <script src="panel-settings.js?v=1.0"></script>
+    <script src="panel-export.js?v=1.0"></script>
+</body>
 </html>
