@@ -1,13 +1,14 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · MOBILE.JS v1.4
+   SOVEREIGNTY PANEL · MOBILE.JS v1.5
    ============================================================
-   v1.4 (14.10.2026):
-     - ГАРАНТИРОВАННАЯ SVG-замена: если PanelIcons ещё не готов,
-       строим nav без иконок, а через MutationObserver/setTimeout
-       пересобираем, как только PanelIcons появляется.
-     - Убран "·" fallback — вместо этого пусто, потом допишется SVG.
+   v1.5 (06.11.2026):
+     - Добавлены новые табы: home, about, countries, activity.
+     - Табы chronicles, commands сохранены в массиве для скролла.
+     - Все 9 табов доступны на мобилке через горизонтальный скролл
+       нижнего nav-бара.
 
-   v1.3: SVG-иконки вместо эмодзи в TABS.
+   v1.4: SVG-иконки вместо эмодзи в TABS.
+   v1.3: SVG-иконки.
    v1.2: добавлена вкладка Хроники.
    ============================================================ */
 (function () {
@@ -16,13 +17,15 @@
     var ICON_SIZE = 22;
 
     var TABS = [
-        { key: 'overview',   icon: 'home',     label: 'Обзор' },
+        { key: 'home',       icon: 'home',     label: 'Главная' },
+        { key: 'about',      icon: 'info',     label: 'О нас' },
+        { key: 'countries',  icon: 'landmark', label: 'Страны' },
         { key: 'map',        icon: 'map',      label: 'Карта' },
         { key: 'players',    icon: 'users',    label: 'Игроки' },
         { key: 'chronicles', icon: 'scroll',   label: 'Хроники' },
         { key: 'guide',      icon: 'book',     label: 'Гайд' },
         { key: 'commands',   icon: 'keyboard', label: 'Команды' },
-        { key: 'bonus',      icon: 'gift',     label: 'Бонусы' }
+        { key: 'activity',   icon: 'flame',    label: 'Активность' }
     ];
 
     var STORAGE_SCROLL = 'panel_scroll_memory';
@@ -47,7 +50,8 @@
             var el = e.target.closest(
                 'button, .bn-btn, .tab, .nav-btn, .map-btn, .btn,' +
                 '.player-card, .ccm-card, .legend-item, .player-modal-btn,' +
-                '.modal-close, .map-layers-close, .map-layers-restore');
+                '.modal-close, .map-layers-close, .map-layers-restore,' +
+                '.home-nav-btn, .home-ip-copy, .home-nav-btn-sm');
             if (!el) return;
             try { if (navigator.vibrate) navigator.vibrate(6); } catch (err) {}
         }, { passive: true });
@@ -114,7 +118,6 @@
 
         syncBottomNavWithTabs();
 
-        /* Если PanelIcons ещё не загрузился — дорисовываем иконки */
         if (!window.PanelIcons) {
             var tries = 0;
             var iv = setInterval(function () {
@@ -149,7 +152,19 @@
         saveCurrentScroll();
 
         var topBtn = document.querySelector('.main-nav .nav-btn[data-tab="' + tabKey + '"]');
-        if (topBtn) topBtn.click();
+        if (topBtn) {
+            topBtn.click();
+        } else {
+            // Fallback
+            document.querySelectorAll('.main-nav .nav-btn').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.tab === tabKey);
+            });
+            document.querySelectorAll('.tab-content').forEach(function (c) {
+                c.classList.toggle('active', c.id === 'tab-' + tabKey);
+            });
+            var tab = document.getElementById('tab-' + tabKey);
+            if (tab) tab.classList.add('active');
+        }
 
         syncBottomNavWithTabs();
 
@@ -183,7 +198,7 @@
         var nav = document.getElementById('bottom-nav');
         if (!nav) return;
         var activeTop = document.querySelector('.main-nav .nav-btn.active');
-        var activeKey = activeTop ? activeTop.dataset.tab : 'overview';
+        var activeKey = activeTop ? activeTop.dataset.tab : 'home';
         var btns = nav.querySelectorAll('.bn-btn');
         for (var i = 0; i < btns.length; i++) {
             btns[i].classList.toggle('active', btns[i].dataset.tab === activeKey);
@@ -386,8 +401,8 @@
             }
 
             var active = document.querySelector('.main-nav .nav-btn.active');
-            if (active && active.dataset.tab !== 'overview') {
-                switchTab('overview');
+            if (active && active.dataset.tab !== 'home') {
+                switchTab('home');
                 try { history.pushState({ panel: 'nav' }, ''); } catch (err) {}
                 return;
             }
@@ -486,8 +501,6 @@
                 }, 400);
             }
             syncBottomNavWithTabs();
-            /* Периодическая пересборка иконок — на случай, если
-               PanelIcons подгрузился позже. */
             rebuildNavIcons();
         } catch (e) {}
         setTimeout(tick, 1200);
@@ -507,7 +520,6 @@
         installLongPressCopy();
         installScrollMemory();
 
-        /* Несколько попыток пересборки иконок — на случай позднего PanelIcons */
         setTimeout(rebuildNavIcons, 200);
         setTimeout(rebuildNavIcons, 600);
         setTimeout(rebuildNavIcons, 1500);
@@ -522,7 +534,7 @@
         });
 
         tick();
-        console.log('[Mobile] v1.4 ready (SVG nav icons, robust)');
+        console.log('[Mobile] v1.5 ready (home + about + countries + activity)');
     }
 
     if (document.readyState === 'loading') {
