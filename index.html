@@ -205,4 +205,356 @@
                 <header class="about-header">
                     <h1 class="about-title">О сервере</h1>
                     <p class="about-tagline">Здесь ты не просто игрок. Здесь ты правитель.</p>
-                </header
+                </header>
+
+                <section class="about-section about-lead-block">
+                    <p class="about-lead">
+                        Это сервер, где всё держится на игроках. Никаких квестов от НПС и сюжетных миссий.
+                        Страны создаются, крепнут, воюют и рушатся. И всё это решают люди.
+                    </p>
+                    <p>
+                        Каждый начинает одинаково: пустой инвентарь, немного энергии, первый чанк земли.
+                        Дальше как пойдёт. Хочешь мирно строить фермы и торговать? Пожалуйста.
+                        Хочешь захватывать соседей и брать дань? Тоже вариант. Главное не забывай о других,
+                        кто думает так же.
+                    </p>
+                </section>
+
+                <div class="about-divider" aria-hidden="true">❦</div>
+
+                <section class="about-features">
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="landmark" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Страны и территория</h3>
+                        <p class="about-feature-desc">
+                            Захватывай чанки за энергию, ставь столицу, расширяй границы.
+                            От одного куска земли до сотен. Каждый чанк это ресурсы, налоги и повод для войны.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="money" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Экономика</h3>
+                        <p class="about-feature-desc">
+                            У каждой страны своя казна, налоги, доход с ферм и торговли.
+                            Деньги не появляются из воздуха. Хочешь богатеть, работай.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="war" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Войны</h3>
+                        <p class="about-feature-desc">
+                            Объяви войну, забери чужие земли. Захвати столицу врага, и он капитулирует,
+                            отдав 20% казны. Потеря 40% территории означает авто-победу.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="handshake" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Дипломатия</h3>
+                        <p class="about-feature-desc">
+                            Четыре типа пактов: торговый, военный, оборонительный, о ненападении.
+                            Плюс международный суд с реальными санкциями. Можно выиграть войну без единого удара.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="sprout" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Технологии</h3>
+                        <p class="about-feature-desc">
+                            Восемь веток науки, от земледелия до атомной энергии.
+                            Каждая открывает бонусы, которые меняют расклад сил.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="gift" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Ивенты</h3>
+                        <p class="about-feature-desc">
+                            Судный день, Обсидиановый Трон, Разлом. Глобальные события, которые переворачивают привычное.
+                            Награды, титулы, косметика.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="casino" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Казино</h3>
+                        <p class="about-feature-desc">
+                            Слоты, покер, Crash, Мины, Лестница. RTP от 93% до 97%, не грабёж, а нормальный азарт.
+                            Джекпот копится со всех ставок.
+                        </p>
+                    </article>
+                    <article class="about-feature">
+                        <div class="about-feature-icon" data-icon="skull" data-icon-size="28"></div>
+                        <h3 class="about-feature-title">Награды за головы</h3>
+                        <p class="about-feature-desc">
+                            Назначь цену за игрока. Следи, как другие охотятся.
+                            Или сам зарабатывай на чужих головах.
+                        </p>
+                    </article>
+                </section>
+
+                <section class="about-cta">
+                    <h2>Готов начать?</h2>
+                    <p class="about-cta-ip-line">
+                        Заходи по IP <code class="about-ip-code" data-copy="sovereignty.millida.host">sovereignty.millida.host</code> — просто кликни, чтобы скопировать.
+                    </p>
+                    <div class="about-cta-buttons">
+                        <button class="home-nav-btn-sm" data-home-tab="guide">Читать гайд</button>
+                        <button class="home-nav-btn-sm" data-home-tab="map">Посмотреть карту</button>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <!-- ============ COUNTRIES ============ -->
+        <section class="tab-content" id="tab-countries">
+            <section class="panel">
+                <div class="panel-header" id="top-countries-header">
+                    <h2 data-icon="trophy">Топ стран</h2>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" data-sort="claims">По территории</button>
+                    <button class="tab" data-sort="bank">По казне</button>
+                    <button class="tab" data-sort="energy">По энергии</button>
+                    <button class="tab" data-sort="allies">По союзам</button>
+                    <button class="tab" data-sort="activity">По активности</button>
+                </div>
+                <div class="table-wrap">
+                    <table id="countries-table">
+                        <colgroup>
+                            <col class="col-rank">
+                            <col class="col-country">
+                            <col class="col-owner">
+                            <col class="col-claims">
+                            <col class="col-bank">
+                            <col class="col-energy">
+                            <col class="col-activity">
+                            <col class="col-pacts">
+                        </colgroup>
+                        <thead><tr><th>#</th><th>Страна</th><th>Лидер</th><th>Чанков</th><th>Казна</th><th>Энергия</th><th>Активность</th><th>Пакты</th></tr></thead>
+                        <tbody id="countries-body"><tr><td colspan="8" class="loading">Загрузка данных…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel" id="country-details" style="display:none;">
+                <h2 id="detail-title">Детали страны</h2>
+                <div class="detail-grid" id="detail-content"></div>
+            </section>
+        </section>
+
+        <!-- ============ MAP ============ -->
+        <section class="tab-content" id="tab-map">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2 data-icon="map">Карта территорий</h2>
+                </div>
+                <div class="map-controls" style="margin-bottom:12px">
+                    <button class="map-btn" id="map-reset">Сбросить</button>
+                    <button class="map-btn" id="map-clear-highlight">Снять выделение</button>
+                    <button class="map-btn btn-capital" id="map-capital" data-icon="landmark">К столице</button>
+                    <button class="map-btn" id="map-fullscreen">Полный экран</button>
+                </div>
+                <div class="map-viewport" id="map-viewport">
+                    <canvas id="map-canvas"></canvas>
+                    <svg class="map-grid-svg" id="map-grid-svg" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <pattern id="chunkGridPattern" width="16" height="16" patternUnits="userSpaceOnUse">
+                                <path d="M 16 0 L 0 0 0 16" fill="none" stroke="rgba(200,168,112,0.22)" stroke-width="1"/>
+                            </pattern>
+                        </defs>
+                        <rect id="map-grid-rect" width="100%" height="100%" fill="url(#chunkGridPattern)"/>
+                    </svg>
+                    <div class="map-daynight" id="map-daynight"></div>
+                    <div class="map-night-layer" id="map-night-layer"></div>
+                    <div class="map-battle-layer" id="map-battle-layer"></div>
+                    <div class="map-overlay" id="map-overlay"></div>
+                    <div class="map-online-counter" id="map-online-counter"></div>
+                    <div class="map-placeholder" id="map-placeholder">
+                        <div class="map-placeholder-icon" data-icon="map" data-icon-size="48"></div>
+                        <p>Карта ещё не сгенерирована.<br>Подождите первого обновления от сервера.</p>
+                    </div>
+                    <div class="map-layers-panel" id="map-layers-panel">
+                        <div class="map-layers-header">
+                            <div class="map-layers-title">Слои</div>
+                            <button class="map-layers-close" id="map-layers-close" title="Скрыть" aria-label="Скрыть">✕</button>
+                        </div>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-players" checked><span>Игроки</span></label>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-grid"><span>Сетка</span></label>
+                        <label class="layer-toggle"><input type="checkbox" id="layer-daynight" checked><span>День/Ночь</span></label>
+                        <div class="map-layers-timeline" id="daynight-status">—</div>
+                    </div>
+                    <button class="map-layers-restore" id="map-layers-restore" title="Показать слои" aria-label="Показать слои" data-icon="palette"></button>
+                    <div class="map-fullscreen-hint" id="map-fullscreen-hint">Esc — выйти</div>
+                </div>
+                <div class="map-legend" id="map-legend"></div>
+            </section>
+        </section>
+
+        <!-- ============ PLAYERS ============ -->
+        <section class="tab-content" id="tab-players">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2 data-icon="users">Игроки</h2>
+                </div>
+                <div class="players-controls" style="margin-bottom:12px">
+                    <input type="text" id="player-search" placeholder="Поиск..." class="cmd-search">
+                    <label class="player-filter"><input type="checkbox" id="player-online-only"> Только онлайн</label>
+                </div>
+                <div class="players-grid" id="players-grid"></div>
+                <div class="empty-hint" id="players-empty" style="display:none;">
+                    <span data-icon="users" data-icon-size="32" class="empty-hint-icon"></span>
+                    <span>Данные об игроках пока не передаются панелью.</span>
+                </div>
+            </section>
+        </section>
+
+        <!-- ============ CHRONICLES ============ -->
+        <section class="tab-content" id="tab-chronicles">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2 data-icon="scroll">Хроники мира</h2>
+                </div>
+                <div class="chr-filters" id="chr-filters">
+                    <button class="chr-filter active" data-filter="all" type="button">Все</button>
+                    <button class="chr-filter" data-filter="war" type="button" data-icon="war">Войны</button>
+                    <button class="chr-filter" data-filter="country" type="button" data-icon="landmark">Страны</button>
+                    <button class="chr-filter" data-filter="diplomacy" type="button" data-icon="handshake">Дипломатия</button>
+                    <button class="chr-filter" data-filter="event" type="button" data-icon="gift">Ивенты</button>
+                </div>
+                <div class="chr-feed" id="chr-feed">
+                    <div class="chr-empty">
+                        <span data-icon="scroll" data-icon-size="32" class="empty-hint-icon"></span>
+                        <span>Загрузка летописи…</span>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- ============ GUIDE ============ -->
+        <section class="tab-content" id="tab-guide">
+            <div class="guide-layout">
+                <aside class="guide-nav" id="guide-nav"><div class="guide-nav-title">Содержание</div></aside>
+                <div id="guide-content"></div>
+            </div>
+        </section>
+
+        <!-- ============ COMMANDS ============ -->
+        <section class="tab-content" id="tab-commands">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2 data-icon="keyboard">Команды</h2>
+                </div>
+                <input type="text" id="cmd-search" placeholder="Поиск..." class="cmd-search" style="margin-bottom:14px">
+                <div class="commands-list" id="commands-list"></div>
+            </section>
+        </section>
+
+        <!-- ============ ACTIVITY ============ -->
+        <section class="tab-content" id="tab-activity">
+            <section class="panel" id="panel-jackpot" style="display:none;">
+                <h2 data-icon="trophy">Джекпот казино</h2>
+                <div class="jackpot-display">
+                    <div class="jackpot-value" id="jackpot-value">—</div>
+                    <div class="jackpot-hint">1% с каждой ставки · 0.1% шанс сорвать</div>
+                </div>
+            </section>
+            <section class="panel" id="panel-events" style="display:none;">
+                <h2 data-icon="sparkles">Активные события</h2>
+                <div class="events-list" id="events-list"></div>
+            </section>
+            <section class="panel" id="panel-wars" style="display:none;">
+                <h2 data-icon="war">Активные войны</h2>
+                <div class="wars-list" id="wars-list"></div>
+            </section>
+            <section class="panel" id="panel-poker" style="display:none;">
+                <h2 data-icon="trophy">Топ покера за неделю</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Игрок</th><th>Профит</th><th>Раздач</th></tr></thead>
+                        <tbody id="poker-body"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="panel" id="panel-bounties" style="display:none;">
+                <h2 data-icon="skull">Награды за головы</h2>
+                <div class="bounties-list" id="bounties-list"></div>
+            </section>
+            <section class="panel" id="panel-bonus-empty">
+                <h2 data-icon="flame">Активность</h2>
+                <p class="empty-hint">
+                    <span data-icon="flame" data-icon-size="32" class="empty-hint-icon"></span>
+                    <span>Секции появятся автоматически, когда плагины начнут экспортировать данные.</span>
+                </p>
+            </section>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Данные обновляются каждые 5 минут. Карта — раз в час.</p>
+            <p class="small">Powered by <strong>Sovereignty</strong> plugin</p>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="modal" id="player-modal">
+        <div class="modal-overlay" data-modal-close></div>
+        <div class="modal-content player-modal-content">
+            <button class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+            <div class="player-modal-grid">
+                <div class="player-viewer-col">
+                    <div class="player-viewer-wrap" id="player-viewer-wrap">
+                        <div class="player-viewer-loading" id="skin-loading">
+                            <div class="spinner"></div>
+                            <div>Загрузка скина...</div>
+                        </div>
+                    </div>
+                    <div class="player-viewer-hint">Зажми и потяни — повернуть</div>
+                    <div class="player-viewer-controls">
+                        <button class="player-modal-btn" id="skin-toggle-rotate">Пауза</button>
+                        <button class="player-modal-btn" id="skin-reset-view">Сброс</button>
+                        <button class="player-modal-btn" id="skin-toggle-name">Ник</button>
+                    </div>
+                </div>
+                <div class="player-modal-info">
+                    <div class="player-modal-header">
+                        <h2 id="player-modal-name">—</h2>
+                        <div class="player-modal-status" id="player-modal-status"></div>
+                    </div>
+                    <div id="player-modal-panels"></div>
+                    <div class="player-modal-actions" id="player-modal-actions"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="panel-icons.js?v=2.2"></script>
+    <script src="panel-emoji-replacer.js?v=2.1"></script>
+    <script src="map-layers.js?v=1.2"></script>
+    <script src="skin3d.js?v=4.7"></script>
+    <script src="legend.js?v=1.1"></script>
+    <script src="app.js?v=5.9"></script>
+    <script src="skinview3d-override.js?v=1.0"></script>
+    <script src="home.js?v=1.2"></script>
+    <script src="panel-perf.js?v=1.0"></script>
+    <script src="panel-fixes.js?v=1.0"></script>
+    <script src="avatars.js?v=1.0"></script>
+    <script src="sparkline.js?v=1.1"></script>
+    <script src="panel-loading.js?v=2.0"></script>
+    <script src="panel-detail.js?v=1.3"></script>
+    <script src="map-enhance.js?v=1.0"></script>
+    <script src="mobile.js?v=1.5"></script>
+    <script src="country-cards.js?v=1.0"></script>
+    <script src="theme-switcher.js?v=2.0"></script>
+    <script src="country-passport.js?v=3.5"></script>
+    <script src="chronicles.js?v=1.0"></script>
+    <script src="guide-enhance.js?v=1.2"></script>
+    <script src="event-log-24h.js?v=3.3"></script>
+    <script src="world-timeline.js?v=1.3"></script>
+    <script src="active-wars.js?v=1.1"></script>
+    <script src="country-compare.js?v=1.1"></script>
+    <script src="country-sparkline.js?v=1.0"></script>
+    <script src="deep-links.js?v=1.0"></script>
+    <script src="panel-settings.js?v=1.0"></script>
+    <script src="panel-export.js?v=1.0"></script>
+    <script src="panel-animations.js?v=2.0"></script>
+</body>
+</html>
