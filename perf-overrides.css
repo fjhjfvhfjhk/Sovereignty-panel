@@ -1,0 +1,254 @@
+/* ============================================================
+   SOVEREIGNTY PANEL · PERF-OVERRIDES.CSS v1.0
+   ============================================================
+   Единственный оптимизационный CSS-файл. Подключается ПОСЛЕДНИМ
+   в <head>. Перебивает дорогие свойства без правки оригиналов.
+
+   ПРИНЦИПЫ:
+     1. На ПК визуал сохраняется на 100% — только internal
+        композиторские оптимизации (content-visibility,
+        containment, will-change-стоп).
+     2. На мобилке отключаются ТОЛЬКО те эффекты, которые
+        физически не работают гладко на слабых GPU:
+        - backdrop-filter (blur)
+        - mix-blend-mode
+        - background-attachment: fixed
+        - постоянные box-shadow анимации
+     3. prefers-reduced-motion режет всё, что вертится
+        бесконечно.
+
+   ПОДКЛЮЧЕНИЕ (index.html, в самом конце <head>):
+     <link rel="stylesheet" href="perf-overrides.css?v=1.0">
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. ГЛОБАЛЬНЫЕ КОМПОЗИТОРСКИЕ ОПТИМИЗАЦИИ (работают всегда)
+   ------------------------------------------------------------ */
+
+/* Высота body: 100dvh вместо 100vh — на мобилке Safari/Chrome
+   адресная строка динамически меняет viewport, 100vh
+   пересчитывается дорого и даёт "прыжок" при скролле. */
+body { min-height: 100dvh; }
+
+/* content-visibility для неактивных вкладок — браузер не
+   рендерит их пока не покажем. Экономит первый рендер. */
+.tab-content:not(.active) {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 600px;
+}
+
+/* Containment для длинных списков/карточек — изолирует layout
+   и paint, предотвращает перерасчёт при изменениях внутри. */
+.panel,
+.guide-section,
+.stat-card,
+.ccm-card,
+.player-card,
+.aw-item,
+.chr-event,
+.event-log-item {
+    contain: layout style;
+}
+
+/* Убираем постоянный will-change с .bottom-nav — он не нужен
+   после отрисовки, а держит жирный слой на каждом кадре. */
+.bottom-nav { will-change: auto !important; }
+
+/* Убираем will-change с .map-viewport — если был. */
+.map-viewport { will-change: auto !important; }
+
+/* ------------------------------------------------------------
+   2. ОТКЛЮЧАЕМ ДОРОГОЕ НА МОБИЛКЕ (<= 768px)
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+
+    /* a) background-attachment: fixed — на мобильных iOS/Android
+       заставляет перекрашивать весь body при скролле.
+       scroll — статичный паттерн, работает через GPU. */
+    body {
+        background-attachment: scroll !important;
+    }
+
+    /* b) mix-blend-mode: multiply на body::after (виньетка) —
+       заставляет композитор пересчитывать смешение на каждом
+       кадре. Убираем, оставляем только лёгкую тень. */
+    body::after {
+        mix-blend-mode: normal !important;
+        background: radial-gradient(ellipse at center,
+            transparent 55%,
+            rgba(74, 53, 32, 0.08) 100%) !important;
+    }
+
+    /* c) backdrop-filter: blur — GPU-дорого, на слабых мобилках
+       фризит скролл. Убираем на карте и в счётчике. */
+    .marker-tooltip,
+    .map-online-counter,
+    .map-layers-panel,
+    .map-layers-restore,
+    .wt-tooltip,
+    .ps-overlay {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* d) Постоянные box-shadow анимации — главный убийца FPS
+       на мобилке. Заменяем на статичные тени. */
+    .map-marker.online .map-marker-head {
+        animation: none !important;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.7),
+                    0 0 12px rgba(82, 104, 42, 0.6) !important;
+    }
+    .stat-card.is-live::before {
+        animation: none !important;
+        box-shadow: 0 0 0 3px rgba(82, 104, 42, 0.4) !important;
+    }
+    .map-online-counter::before {
+        animation: none !important;
+    }
+
+    /* e) Мерцание свечи #server-name — filter:brightness каждый
+       кадр. Убираем на мобилке. */
+    #server-name {
+        animation: none !important;
+        filter: none !important;
+    }
+
+    /* f) Волна по границам карты — одноразовая, но пусть будет
+       отключена для чистоты. */
+    .sa-border-wave { display: none !important; }
+
+    /* g) Уменьшаем will-change на частых элементах. */
+    .map-marker { will-change: auto !important; }
+
+    /* h) Меньше transition на карточках — на мобилке hover нет,
+       переходы только на :active работают. */
+    .ccm-card,
+    .player-card {
+        transition: transform .12s ease, border-color .12s ease !important;
+    }
+}
+
+/* ------------------------------------------------------------
+   3. PREFERS-REDUCED-MOTION — всё бесконечное в мусорку
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+    /* Настройка ОС "уменьшить движение" — уважаем. */
+    #server-name,
+    .map-viewport::before,
+    .map-marker.online .map-marker-head,
+    .stat-card.is-live::before,
+    .map-online-counter::before,
+    .msl-battle,
+    .ccm-rank,
+    .panel-animations .sa-ink-write,
+    .panel-animations .sa-chart-draw {
+        animation: none !important;
+    }
+
+    /* Все transition сводим к 0.001ms. */
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.001ms !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+    }
+
+    body::after { display: none !important; }
+}
+
+/* ------------------------------------------------------------
+   4. html.no-animations — ручной выключатель в настройках
+   ------------------------------------------------------------
+   Уже есть в panel-settings.css, но продублируем
+   герметично — на случай, если тот файл не загрузился. */
+html.no-animations #server-name,
+html.no-animations .map-viewport::before,
+html.no-animations .map-marker.online .map-marker-head,
+html.no-animations .stat-card.is-live::before,
+html.no-animations .map-online-counter::before,
+html.no-animations .msl-battle {
+    animation: none !important;
+}
+html.no-animations body::after { display: none !important; }
+html.no-animations #ambient,
+html.no-animations #particles,
+html.no-animations .panel-ripple { display: none !important; }
+
+/* ------------------------------------------------------------
+   5. КАРТА — оптимизация рендера тайлов
+   ------------------------------------------------------------ */
+
+/* image-rendering: pixelated заставляет браузер использовать
+   nearest-neighbor вместо bilinear — быстрее на GPU. */
+#map-canvas,
+#map-night-layer canvas,
+#map-battle-layer canvas,
+.pp-map-img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: pixelated;
+}
+
+/* Отключаем сглаживание на canvas ночного слоя. */
+#map-night-layer canvas {
+    image-rendering: pixelated;
+}
+
+/* Тайлы — CSS будет масштабировать, GPU-friendly. */
+#map-canvas {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+/* ------------------------------------------------------------
+   6. ШРИФТЫ — font-display: swap уже в <link>, но дублируем
+   ------------------------------------------------------------ */
+@font-face {
+    font-display: swap;
+}
+
+/* ------------------------------------------------------------
+   7. СПАРКЛАЙН / CANVAS — принудительный layer, чтобы не
+      дёргать layout при resize
+   ------------------------------------------------------------ */
+#sparkline-canvas,
+#world-timeline-canvas {
+    display: block;
+    max-width: 100%;
+    contain: strict;
+}
+
+/* ------------------------------------------------------------
+   8. ИЗОБРАЖЕНИЯ — все аватары/скины не раздуваем
+   ------------------------------------------------------------ */
+img[data-pname],
+img[data-avatar-name],
+.ccm-avatar,
+.pp-citizen-avatar,
+.player-card-avatar img,
+.cell-owner-img {
+    content-visibility: auto;
+    contain-intrinsic-size: 32px 32px;
+}
+
+/* ------------------------------------------------------------
+   9. МЕЛОЧИ
+   ------------------------------------------------------------ */
+
+/* Вкладки-секции без анимации fadeIn для мобилки — она каждый
+   раз триггерит repaint всей панели. */
+@media (max-width: 768px) {
+    .tab-content.active { animation: none !important; }
+}
+
+/* Ускоряем табы на ПК — fadeIn 0.2s → 0.12s. */
+.tab-content.active { animation-duration: 0.12s !important; }
+
+/* Уменьшаем blur на toast — он редко, но всё же. */
+.toast { box-shadow: 0 4px 12px rgba(42, 26, 15, 0.4); }
+
+/* Скелетоны — останавливаем shimmer на мобилке, чтобы не тратить
+   GPU на декоративную загрузку. */
+@media (max-width: 768px) {
+    .panel-skeleton-block { animation: none !important; }
+}
