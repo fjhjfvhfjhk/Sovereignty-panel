@@ -51,7 +51,7 @@
     <meta name="theme-color" content="#5E4224">
 
     <link rel="stylesheet" href="style.css?v=6.3">
-    <link rel="stylesheet" href="panel-icons.css?v=1.3">
+    <link rel="stylesheet" href="panel-icons.css?v=1.4">
     <link rel="stylesheet" href="panel-loading.css?v=2.0">
     <link rel="stylesheet" href="panel-detail.css?v=2.1">
     <link rel="stylesheet" href="legend.css?v=1.0">
@@ -73,7 +73,6 @@
     <link rel="stylesheet" href="panel-animations.css?v=2.0">
     <link rel="stylesheet" href="theme-switcher.css?v=2.0">
     <link rel="stylesheet" href="z-fix.css?v=1.0">
-    <!-- ЕДИНСТВЕННЫЙ оптимизационный CSS — перебивает дорогие свойства -->
     <link rel="stylesheet" href="perf-overrides.css?v=1.0">
 </head>
 <body>
@@ -195,7 +194,7 @@
         <section class="tab-content" id="tab-about">
             <div class="about-container">
                 <nav class="about-breadcrumb" aria-label="Навигация назад">
-                    <button class="about-back-link" data-home-tab="home" type="button">← На главную</button>
+                    <button class="about-back-link" data-home-tab="home" data-icon="arrowleft" data-icon-size="16" type="button">На главную</button>
                 </nav>
                 <header class="about-header">
                     <h1 class="about-title">О сервере</h1>
@@ -361,7 +360,7 @@
                     <div class="map-layers-panel" id="map-layers-panel">
                         <div class="map-layers-header">
                             <div class="map-layers-title">Слои</div>
-                            <button class="map-layers-close" id="map-layers-close" title="Скрыть" aria-label="Скрыть">✕</button>
+                            <button class="map-layers-close" id="map-layers-close" title="Скрыть" aria-label="Скрыть" data-icon="close" data-icon-size="14"></button>
                         </div>
                         <label class="layer-toggle"><input type="checkbox" id="layer-players" checked><span>Игроки</span></label>
                         <label class="layer-toggle"><input type="checkbox" id="layer-grid"><span>Сетка</span></label>
@@ -481,7 +480,7 @@
     <div class="modal" id="player-modal">
         <div class="modal-overlay" data-modal-close></div>
         <div class="modal-content player-modal-content">
-            <button class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+            <button class="modal-close" data-modal-close aria-label="Закрыть" data-icon="close" data-icon-size="16"></button>
             <div class="player-modal-grid">
                 <div class="player-viewer-col">
                     <div class="player-viewer-wrap" id="player-viewer-wrap">
@@ -509,13 +508,7 @@
         </div>
     </div>
 
-    <!--
-      ВАЖНО: все <script> получили defer — параллельная загрузка.
-      Список сокращён: 9 модулей (avatars, country-cards, country-sparkline,
-      panel-detail, panel-emoji-replacer, chronicles, active-wars,
-      world-timeline, event-log-24h) объединены в perf-bundle.js.
-    -->
-    <script src="panel-icons.js?v=2.2" defer></script>
+    <script src="panel-icons.js?v=2.3" defer></script>
     <script src="map-layers.js?v=1.2" defer></script>
     <script src="skin3d.js?v=4.7" defer></script>
     <script src="legend.js?v=1.1" defer></script>
@@ -523,7 +516,7 @@
     <script src="skinview3d-override.js?v=1.0" defer></script>
     <script src="home.js?v=1.2" defer></script>
     <script src="panel-perf.js?v=1.2" defer></script>
-    <script src="perf-bundle.js?v=1.0" defer></script>
+    <script src="perf-bundle.js?v=1.1" defer></script>
     <script src="panel-fixes.js?v=1.0" defer></script>
     <script src="sparkline.js?v=1.1" defer></script>
     <script src="panel-loading.js?v=2.0" defer></script>
@@ -531,10 +524,10 @@
     <script src="mobile.js?v=1.5" defer></script>
     <script src="theme-switcher.js?v=2.0" defer></script>
     <script src="country-passport.js?v=3.5" defer></script>
-    <script src="guide-enhance.js?v=1.2" defer></script>
-    <script src="country-compare.js?v=1.1" defer></script>
+    <script src="guide-enhance.js?v=1.3" defer></script>
+    <script src="country-compare.js?v=1.2" defer></script>
     <script src="deep-links.js?v=1.0" defer></script>
-    <script src="panel-settings.js?v=1.0" defer></script>
+    <script src="panel-settings.js?v=1.1" defer></script>
     <script src="panel-export.js?v=1.0" defer></script>
     <script src="panel-animations.js?v=2.0" defer></script>
 </body>

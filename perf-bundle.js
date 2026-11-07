@@ -1,31 +1,19 @@
 /* ============================================================
-   SOVEREIGNTY PANEL · PERF-BUNDLE.JS v1.0
+   SOVEREIGNTY PANEL · PERF-BUNDLE.JS v1.1
    ============================================================
-   Центральный оптимизатор + объединённая логика 9 модулей:
-     • avatars.js            — SVG fallback для аватарок
-     • country-cards.js      — карточки топ-стран
-     • country-sparkline.js  — мини-графики 7d
-     • panel-detail.js       — render-перехват + stat-карточки
-     • panel-emoji-replacer  — замена эмодзи → SVG (debounced)
-     • chronicles.js         — Хроники мира
-     • active-wars.js        — блок активных войн
-     • world-timeline.js     — таймлайн 24ч под графиком
-     • event-log-24h.js      — свежие события за 24ч
-
-   ОДИН тикер, ОДИН MutationObserver, ленивая работа.
-   Экспортирует все публичные API из оригинальных модулей —
-   никакие внешние файлы проекта не ломаются.
-
-   ПОДКЛЮЧЕНИЕ (после app.js, вместо 9 старых файлов):
-     <script src="app.js" defer></script>
-     <script src="perf-bundle.js" defer></script>
+   v1.1 (07.11.2026):
+     - renderChronicles: добавлен replaceEmojisInElement(feed) в конце
+       (раньше не вызывался → эмодзи в хрониках оставались).
+     - ensureMoreLink: SVG-иконки scroll+arrowright вместо 📜 и →.
+     - EMOJI_MAP расширен типографскими символами:
+       → ← ↑ ↓ ✕ ✓ ✔ ▸ ▾ ▶ ⏸ §.
+     - MutationObserver на #guide-content (гайд грузится через fetch
+       и эмодзи оставались) + на #player-modal-panels и #pp-body.
+     - Helper replaceEmojisInElement(root) — точечная замена.
    ============================================================ */
 (function () {
     'use strict';
 
-    /* ============================================================
-       0. УТИЛИТЫ
-       ============================================================ */
     function escapeHtml(s) {
         if (s == null) return '';
         var d = document.createElement('div');
@@ -65,16 +53,10 @@
         var t = document.getElementById('tab-' + tabKey);
         return !!(t && t.classList.contains('active'));
     }
-    function isDocumentVisible() {
-        return document.visibilityState !== 'hidden';
-    }
+    function isDocumentVisible() { return document.visibilityState !== 'hidden'; }
 
     /* ============================================================
        1. ЦЕНТРАЛЬНЫЙ ТИКЕР
-       ============================================================
-       Заменяет 10 независимых setInterval-циклов.
-       Одна точка проверки updated_at + подписчики.
-       На невидимой странице — тикер приостанавливается.
        ============================================================ */
     var ticker = {
         subs: [],
@@ -83,9 +65,7 @@
         suspended: false,
         subscribe: function (fn) {
             this.subs.push(fn);
-            if (this.lastUpdatedAt) {
-                try { fn(this.lastUpdatedAt); } catch (e) {}
-            }
+            if (this.lastUpdatedAt) { try { fn(this.lastUpdatedAt); } catch (e) {} }
         },
         start: function () {
             if (this.intervalId) return;
@@ -93,20 +73,10 @@
             this.intervalId = setInterval(function () { self.tick(); }, 1500);
         },
         stop: function () {
-            if (this.intervalId) {
-                clearInterval(this.intervalId);
-                this.intervalId = null;
-            }
+            if (this.intervalId) { clearInterval(this.intervalId); this.intervalId = null; }
         },
-        suspend: function () {
-            this.suspended = true;
-            this.stop();
-        },
-        resume: function () {
-            this.suspended = false;
-            this.start();
-            this.tick();
-        },
+        suspend: function () { this.suspended = true; this.stop(); },
+        resume: function () { this.suspended = false; this.start(); this.tick(); },
         tick: function () {
             if (!isDocumentVisible()) return;
             var data = window.currentData;
@@ -123,22 +93,15 @@
 
     /* ============================================================
        2. ЦЕНТРАЛЬНЫЙ MUTATIONOBSERVER
-       ============================================================
-       Один observer вместо пяти. Watch-список: контейнеры и
-       селекторы, при изменении которых нужно перерисовать что-то.
-       Debounced на 80 мс.
        ============================================================ */
     var observer = {
-        jobs: [], // [{target, selector, cb, debounce}]
+        jobs: [],
         scheduled: {},
         add: function (key, target, cb, debounceMs) {
             if (!target) return;
             if (this.jobs.some(function (j) { return j.key === key; })) return;
             var self = this;
-            this.jobs.push({
-                key: key, target: target, cb: cb,
-                debounce: debounceMs || 80
-            });
+            this.jobs.push({ key: key, target: target, cb: cb, debounce: debounceMs || 80 });
             var mo = new MutationObserver(function () {
                 if (self.scheduled[key]) return;
                 self.scheduled[key] = true;
@@ -153,9 +116,7 @@
     };
 
     /* ============================================================
-       3. АВАТАРЫ (SVG fallback + локальные скины)
-       ============================================================
-       Заменяет avatars.js. API: window.PanelAvatars.get/svg/refresh.
+       3. АВАТАРЫ
        ============================================================ */
     var FALLBACK_COLORS = [
         '#6366f1','#818cf8','#a78bfa','#c084fc','#e879f9','#f472b6',
@@ -189,9 +150,7 @@
                 '<rect width="64" height="64" rx="8" fill="url(#g' + hashName(name) + ')"/>' +
                 '<text x="32" y="43" text-anchor="middle" font-family="Georgia,serif" ' +
                     'font-size="34" font-weight="800" fill="rgba(255,255,255,0.92)">' +
-                    letter.replace(/[<>&"']/g, function (c) {
-                        return '&#' + c.charCodeAt(0) + ';';
-                    }) +
+                    letter.replace(/[<>&"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }) +
                 '</text>' +
             '</svg>';
         return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -210,29 +169,21 @@
             var done = false;
             var timer = setTimeout(function () {
                 if (done) return; done = true;
-                localSkinCache.set(name, 'fail');
-                resolve('fail');
+                localSkinCache.set(name, 'fail'); resolve('fail');
             }, 3000);
             img.onload = function () {
                 if (done) return; done = true; clearTimeout(timer);
-                if (img.width < 32 || img.height < 32) {
-                    localSkinCache.set(name, 'fail'); resolve('fail'); return;
-                }
+                if (img.width < 32 || img.height < 32) { localSkinCache.set(name, 'fail'); resolve('fail'); return; }
                 try {
                     var c = document.createElement('canvas');
                     c.width = 8; c.height = 8;
                     var ctx = c.getContext('2d');
                     ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 8, 8);
-                    if (img.width >= 64 && img.height >= 64) {
-                        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8);
-                    }
+                    if (img.width >= 64 && img.height >= 64) ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8);
                     var dataUrl = c.toDataURL('image/png');
-                    localSkinCache.set(name, dataUrl);
-                    resolve(dataUrl);
-                } catch (e) {
-                    localSkinCache.set(name, 'fail'); resolve('fail');
-                }
+                    localSkinCache.set(name, dataUrl); resolve(dataUrl);
+                } catch (e) { localSkinCache.set(name, 'fail'); resolve('fail'); }
             };
             img.onerror = function () {
                 if (done) return; done = true; clearTimeout(timer);
@@ -251,9 +202,7 @@
         if (local === undefined) {
             tryLoadLocalSkin(name).then(function (result) {
                 if (result === 'fail') return;
-                var imgs = document.querySelectorAll(
-                    'img[data-avatar-name="' + name.replace(/["\\]/g, '\\$&') + '"]'
-                );
+                var imgs = document.querySelectorAll('img[data-avatar-name="' + name.replace(/["\\]/g, '\\$&') + '"]');
                 for (var i = 0; i < imgs.length; i++) imgs[i].src = result;
             });
         }
@@ -271,7 +220,7 @@
     }
 
     /* ============================================================
-       4. СТАТ-КАРТОЧКИ (иконки + тренды)
+       4. СТАТ-КАРТОЧКИ
        ============================================================ */
     var STAT_ICONS = {
         'countries-count': '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 L3 10 L8 5 L13 10 L13 21 Z"/><path d="M13 21 L13 14 L18 9 L21 11 L21 21 Z"/><path d="M6 12 L6 13 M6 16 L6 17 M16 15 L16 16"/></svg>',
@@ -294,7 +243,7 @@
     }
 
     /* ============================================================
-       5. RENDER COUNTRIES (заменяет app.js + panel-detail.js)
+       5. RENDER COUNTRIES
        ============================================================ */
     function renderCountries() {
         if (!window.currentData) return;
@@ -314,9 +263,7 @@
             return;
         }
         var html = '';
-        for (var i = 0; i < countries.length; i++) {
-            html += buildCountryRow(countries[i], i);
-        }
+        for (var i = 0; i < countries.length; i++) html += buildCountryRow(countries[i], i);
         tbody.innerHTML = html;
     }
 
@@ -358,11 +305,7 @@
         var empty = document.getElementById('players-empty');
         if (!grid || !empty) return;
         var players = (window.currentData && window.currentData.players) || null;
-        if (!players || players.length === 0) {
-            grid.innerHTML = '';
-            empty.style.display = 'block';
-            return;
-        }
+        if (!players || players.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
         empty.style.display = 'none';
         var searchEl = document.getElementById('player-search');
         var onlineEl = document.getElementById('player-online-only');
@@ -417,7 +360,7 @@
     }
 
     /* ============================================================
-       7. COUNTRY CARDS (карточки топ-стран)
+       7. COUNTRY CARDS
        ============================================================ */
     function ensureCardsContainer() {
         var tbody = document.getElementById('countries-body');
@@ -502,7 +445,7 @@
     }
 
     /* ============================================================
-       8. SPARKLINES В КАРТОЧКАХ
+       8. SPARKLINES
        ============================================================ */
     function buildSparklineSVG(history, color) {
         if (!history || history.length < 2) return '';
@@ -520,8 +463,7 @@
         var lineD = pts.map(function (p, i) {
             return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1);
         }).join(' ');
-        var fillD = lineD +
-            ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + (H - padY) +
+        var fillD = lineD + ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + (H - padY) +
             ' L' + pts[0].x.toFixed(1) + ',' + (H - padY) + ' Z';
         var last = pts[pts.length - 1];
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" ' +
@@ -568,10 +510,7 @@
     }
 
     /* ============================================================
-       9. ЭМОДЗИ → SVG (debounced, только видимые)
-       ============================================================
-       Заменяет panel-emoji-replacer.js. Работает по видимой
-       вкладке, не обходит весь body на каждой мутации.
+       9. ЭМОДЗИ → SVG
        ============================================================ */
     var EMOJI_MAP = {
         '🏠':'home','🗺':'map','🗺️':'map','👥':'users','📜':'scroll',
@@ -596,16 +535,39 @@
         '🖼':'image','🖼️':'image','🔍':'search','ℹ':'info','ℹ️':'info',
         '✏':'pen','✏️':'pen','🗑':'trash','🗑️':'trash','🚪':'logout',
         '🚩':'flag','⌛':'time','⏳':'time','📍':'map-pin','🧭':'compass',
-        '🏔':'mountains','🏔️':'mountains','💥':'boom','❓':'info','❗':'info'
+        '🏔':'mountains','🏔️':'mountains','💥':'boom','❓':'info','❗':'info',
+        /* v1.1: типографские символы */
+        '→': 'arrowright',
+        '←': 'arrowleft',
+        '↑': 'arrowup',
+        '↓': 'arrowdown',
+        '✕': 'close',
+        '✖': 'close',
+        '✓': 'check',
+        '✔': 'check',
+        '▸': 'chevron-right',
+        '▾': 'chevron-down',
+        '▶': 'play',
+        '⏸': 'pause',
+        '⏱': 'clock'
     };
-    var SKIP_EMOJI_SELECTOR = 'script,style,textarea,input,select,option,code,pre,.event-log-msg,.pp-chr-msg,.panel-icon,[data-icon],[data-icon-done]';
+    var SKIP_EMOJI_SELECTOR = 'script,style,textarea,input,select,option,code,pre,.panel-icon,[data-icon],[data-icon-done],svg,.emoji-icon';
+
+    /* Regex строится из ключей EMOJI_MAP с учётом длины (сначала длинные).
+       Это гарантирует, что 🗺️ (emoji+VS16) не съедается как 🗺. */
+    var EMOJI_KEYS_SORTED = Object.keys(EMOJI_MAP).sort(function (a, b) {
+        return b.length - a.length;
+    });
+    var EMOJI_RE_SOURCE = '(' + EMOJI_KEYS_SORTED.map(function (k) {
+        return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }).join('|') + ')';
 
     function replaceEmojisInNode(textNode) {
         var str = textNode.nodeValue;
         if (!str) return;
         var parent = textNode.parentNode;
         if (!parent || parent.closest(SKIP_EMOJI_SELECTOR)) return;
-        var re = /(🏠|🗺️|🗺|👥|📜|📖|⌨️|⌨|🎁|🌓|🌙|☀️|☀|🔄|🏛️|🏛|🏰|🏦|💰|💸|💵|⚡|📈|📉|📊|🏆|✨|🌱|🎯|💡|👁️|👁|📝|🪟|⚔️|⚔|🤝|👑|⚓|⭐|🔥|❄️|❄|🌊|🌲|🌵|🌾|🗡️|🗡|🛡️|🛡|✝️|✝|🔑|🔨|🍷|⛏️|⛏|💎|📦|🏹|👤|⚖️|⚖|🕊️|🕊|💬|📋|💀|☠️|☠|🎰|🎲|🎬|🔬|🏗️|🏗|🏪|🛒|🚫|⚠️|⚠|🎨|🖼️|🖼|🔍|ℹ️|ℹ|✏️|✏|🗑️|🗑|🚪|🚩|⌛|⏳|📍|🧭|🏔️|🏔|💥|❓|❗)/g;
+        var re = new RegExp(EMOJI_RE_SOURCE, 'g');
         if (!re.test(str)) return;
         re.lastIndex = 0;
         var frag = document.createDocumentFragment();
@@ -630,11 +592,10 @@
         try { parent.replaceChild(frag, textNode); } catch (e) {}
     }
 
-    function replaceEmojisInVisibleTab() {
-        if (!window.PanelIcons) return;
-        var active = document.querySelector('.tab-content.active');
-        if (!active) return;
-        var walker = document.createTreeWalker(active, NodeFilter.SHOW_TEXT, {
+    /* v1.1: точечная замена в конкретном root. Не трогает body. */
+    function replaceEmojisInElement(root) {
+        if (!root || !window.PanelIcons) return;
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
             acceptNode: function (node) {
                 if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
                 if (node.parentNode && node.parentNode.closest(SKIP_EMOJI_SELECTOR)) return NodeFilter.FILTER_REJECT;
@@ -642,12 +603,14 @@
             }
         });
         var nodes = [];
-        var n, count = 0;
-        while ((n = walker.nextNode())) {
-            nodes.push(n);
-            if (++count >= 200) break;
-        }
+        var n;
+        while ((n = walker.nextNode())) nodes.push(n);
         for (var i = 0; i < nodes.length; i++) replaceEmojisInNode(nodes[i]);
+    }
+
+    function replaceEmojisInVisibleTab() {
+        var active = document.querySelector('.tab-content.active');
+        if (active) replaceEmojisInElement(active);
     }
 
     /* ============================================================
@@ -708,18 +671,25 @@
         }
         list.innerHTML = html;
         ensureMoreLink(list);
-        replaceEmojisInVisibleTab();
+        /* v1.1: точечная замена */
+        replaceEmojisInElement(list);
     }
 
+    /* v1.1: SVG-иконки вместо 📜 и → */
     function ensureMoreLink(list) {
         if (!list) return;
         var next = list.nextElementSibling;
-        if (next && next.classList.contains('event-log-more')) return;
+        if (next && next.classList.contains('event-log-more')) {
+            var existingLink = next.querySelector('#event-log-more-link');
+            if (existingLink) decorateMoreLink(existingLink);
+            return;
+        }
         var wrap = document.createElement('div');
         wrap.className = 'event-log-more';
         var a = document.createElement('a');
         a.href = '#';
-        a.textContent = '📜 Полная летопись →';
+        a.id = 'event-log-more-link';
+        decorateMoreLink(a);
         a.addEventListener('click', function (ev) {
             ev.preventDefault();
             var btn = document.querySelector('.main-nav .nav-btn[data-tab="chronicles"]');
@@ -728,6 +698,20 @@
         wrap.appendChild(a);
         if (list.nextSibling) list.parentNode.insertBefore(wrap, list.nextSibling);
         else list.parentNode.appendChild(wrap);
+    }
+
+    function decorateMoreLink(a) {
+        if (!a) return;
+        a.innerHTML = '';
+        if (window.PanelIcons && window.PanelIcons.element) {
+            var svg1 = window.PanelIcons.element('scroll', 14);
+            if (svg1) a.appendChild(svg1);
+            a.appendChild(document.createTextNode(' Полная летопись '));
+            var svg2 = window.PanelIcons.element('arrowright', 14);
+            if (svg2) a.appendChild(svg2);
+        } else {
+            a.textContent = 'Полная летопись';
+        }
     }
 
     /* ============================================================
@@ -825,7 +809,8 @@
             html += '</div></div>';
         });
         feed.innerHTML = html;
-        replaceEmojisInVisibleTab();
+        /* v1.1: заменить эмодзи в иконках и тексте */
+        replaceEmojisInElement(feed);
     }
 
     function installChroniclesFilters() {
@@ -905,7 +890,7 @@
     }
 
     /* ============================================================
-       13. WORLD TIMELINE (canvas)
+       13. WORLD TIMELINE
        ============================================================ */
     function ensureTimeline() {
         if (document.getElementById('world-timeline')) return;
@@ -991,7 +976,7 @@
     }
 
     /* ============================================================
-       14. BOOT: подписка на тикер, observer-ы, ленивая работа
+       14. BOOT
        ============================================================ */
     function boot() {
         lastVisit = readLastVisit();
@@ -1001,12 +986,10 @@
             }
         } catch (e) {}
 
-        // 1) Переопределяем глобальные render-функции
         window.renderCountries = renderCountries;
         window.renderPlayers = renderPlayers;
         window.renderEventLog = renderEventLog24h;
 
-        // 2) Первичный рендер после загрузки данных
         var initial = function () {
             injectStatSvgs();
             renderCountries();
@@ -1018,12 +1001,11 @@
             ensureTimeline();
             renderTimeline();
             if (isTabActive('chronicles')) renderChronicles();
-            if (isTabActive('home')) replaceEmojisInVisibleTab();
+            replaceEmojisInVisibleTab();
         };
         setTimeout(initial, 600);
         setTimeout(initial, 1600);
 
-        // 3) Подписка на центральный тикер
         ticker.subscribe(function () {
             setTimeout(function () {
                 renderCountries();
@@ -1036,32 +1018,51 @@
         });
         ticker.start();
 
-        // 4) MutationObserver-ы (только на критичные контейнеры)
+        /* Observer'ы — узкие, на конкретные контейнеры */
         observer.add('countries-body', document.getElementById('countries-body'), function () {
             renderCards();
         }, 100);
         observer.add('event-log-list', document.getElementById('event-log-list'), function () {
-            replaceEmojisInVisibleTab();
+            replaceEmojisInElement(document.getElementById('event-log-list'));
         }, 200);
 
-        // 5) Установка фильтров Хроник
+        /* v1.1: гайд грузится через fetch — обход нужен после вставки HTML */
+        observer.add('guide-content', document.getElementById('guide-content'), function () {
+            var gc = document.getElementById('guide-content');
+            if (gc) replaceEmojisInElement(gc);
+        }, 200);
+
+        /* v1.1: модалки — панели игрока и паспорт страны */
+        observer.add('player-modal-panels', document.getElementById('player-modal-panels'), function () {
+            var el = document.getElementById('player-modal-panels');
+            if (el) replaceEmojisInElement(el);
+        }, 150);
+        observer.add('pp-body', document.getElementById('pp-body'), function () {
+            var el = document.getElementById('pp-body');
+            if (el) replaceEmojisInElement(el);
+        }, 150);
+
+        /* v1.1: кнопки rotate в player-modal (▶/⏸) */
+        observer.add('player-viewer-controls', document.querySelector('.player-viewer-controls'), function () {
+            var el = document.querySelector('.player-viewer-controls');
+            if (el) replaceEmojisInElement(el);
+        }, 150);
+
         installChroniclesFilters();
 
-        // 6) Переключение вкладок — рендер "ленивого" контента
         document.addEventListener('click', function (e) {
             var btn = e.target.closest('.nav-btn, .bn-btn');
             if (!btn) return;
             var tab = btn.dataset.tab;
             setTimeout(function () {
                 if (tab === 'chronicles') renderChronicles();
-                if (tab === 'home') { renderTimeline(); replaceEmojisInVisibleTab(); }
+                if (tab === 'home') renderTimeline();
                 if (tab === 'countries') injectSparklines();
                 if (tab === 'players') refreshAvatars();
                 replaceEmojisInVisibleTab();
             }, 80);
         });
 
-        // 7) Visibility API — останавливаем тикер на невидимой странице
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'hidden') {
                 saveLastVisit();
@@ -1072,11 +1073,9 @@
             }
         });
 
-        // 8) Периодический refresh аватарок, если догрузились локальные скины
         setTimeout(refreshAvatars, 3000);
         setTimeout(refreshAvatars, 6000);
 
-        // 9) Resize — пересчитать timeline + sparkline
         var resizeTimer = null;
         window.addEventListener('resize', function () {
             if (resizeTimer) clearTimeout(resizeTimer);
@@ -1085,7 +1084,7 @@
             }, 250);
         }, { passive: true });
 
-        console.log('[PerfBundle] v1.0 ready — 1 ticker, 2 observers, 9 modules merged');
+        console.log('[PerfBundle] v1.1 ready — SVG-safe emoji replace, guide observer');
     }
 
     if (document.readyState === 'loading') {
@@ -1095,28 +1094,16 @@
     }
 
     /* ============================================================
-       ПУБЛИЧНЫЕ API (для совместимости с остальными файлами)
+       PUBLIC API
        ============================================================ */
     window.PanelAvatars = {
         get: getAvatar,
         svg: makeSvgAvatar,
         refresh: refreshAvatars
     };
-    window.CountryCards = {
-        refresh: renderCards,
-        injectSvgs: injectStatSvgs
-    };
-    window.PanelDetail = {
-        refresh: function () {
-            injectStatSvgs();
-            renderCountries();
-            renderPlayers();
-        }
-    };
-    window.PanelEmojiReplacer = {
-        refresh: replaceEmojisInVisibleTab,
-        map: EMOJI_MAP
-    };
+    window.CountryCards = { refresh: renderCards, injectSvgs: injectStatSvgs };
+    window.PanelDetail = { refresh: function () { injectStatSvgs(); renderCountries(); renderPlayers(); } };
+    window.PanelEmojiReplacer = { refresh: replaceEmojisInVisibleTab, map: EMOJI_MAP };
     window.Chronicles = { refresh: renderChronicles };
     window.ActiveWars = { refresh: renderActiveWars };
     window.EventLog24h = { refresh: renderEventLog24h };
@@ -1133,13 +1120,10 @@
             renderActiveWars();
             renderTimeline();
             if (isTabActive('chronicles')) renderChronicles();
+            replaceEmojisInVisibleTab();
         },
         stats: function () {
-            return {
-                subs: ticker.subs.length,
-                observers: observer.jobs.length,
-                suspended: ticker.suspended
-            };
+            return { subs: ticker.subs.length, observers: observer.jobs.length, suspended: ticker.suspended };
         }
     };
 })();
